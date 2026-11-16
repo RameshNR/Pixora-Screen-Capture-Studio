@@ -1,0 +1,594 @@
+/* ------------------------------- flow toolbar ------------------------------- */
+.bar,
+.barWrap {
+  height: 100vh;
+  background: #1f232b;
+  color: #e7eaf0;
+  user-select: none;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.barMini {
+  justify-content: center;
+}
+
+.barWrap {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.barTitle {
+  font-size: 13.5px;
+}
+
+.barInfo {
+  font-size: 12px;
+  color: #9aa3b2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.barStatus {
+  font-size: 12px;
+  color: #b9c1ce;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barError {
+  color: #ffb4b4;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #7c5cf6;
+  animation: pulse 1.4s ease-in-out infinite;
+  flex: none;
+}
+
+.dotPaused {
+  background: var(--c-warning);
+  animation: none;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.count {
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: #7c5cf6;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.modes {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: #171a20;
+  border: 1px solid #343a46;
+}
+
+.mode,
+.modeOn {
+  width: 32px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #b9c1ce;
+  cursor: pointer;
+}
+
+.mode:hover {
+  color: #fff;
+}
+
+.modeOn {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.flash {
+  box-shadow: 0 0 0 4px rgba(124, 92, 246, 0.55);
+}
+
+.flex {
+  flex: 1;
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffd1d1;
+}
+
+/* -------------------------------- flow editor -------------------------------- */
+.center {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  background: #1b1e24;
+  color: #e6e9ef;
+}
+
+.editorPage {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 52px minmax(0, 1fr);
+  background: var(--c-editor-canvas, #14171c);
+  color: var(--c-editor-text, #e7eaf0);
+  color-scheme: dark;
+}
+
+.flowHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--c-editor-border);
+  background: var(--c-editor-chrome);
+}
+
+.brand {
+  width: 26px;
+  height: 26px;
+}
+
+.flowName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 600 15px/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.nameInput {
+  height: 30px;
+  min-width: 260px;
+  padding: 0 8px;
+  border: 1px solid var(--c-primary);
+  border-radius: 7px;
+  background: #171a20;
+  color: inherit;
+  font: 600 14px/1 inherit;
+  font-family: inherit;
+}
+
+.headerInfo {
+  font-size: 12.5px;
+  color: var(--c-editor-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.darkBtn {
+  background: #262b34 !important;
+  color: #e7eaf0 !important;
+  border-color: #353c48 !important;
+}
+
+.editorBody {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--c-editor-border);
+  background: var(--c-editor-chrome);
+}
+
+.railTabs {
+  display: flex;
+  border-bottom: 1px solid var(--c-editor-border);
+}
+
+.railTabs > button {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--c-editor-text-dim);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.railTabs > button.railTabOn {
+  color: var(--c-editor-text);
+  border-bottom-color: var(--c-primary);
+}
+
+.railTools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 8px 12px 0;
+}
+
+.editorBodyFull {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+
+.railMini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-right: 1px solid var(--c-editor-border);
+  background: var(--c-editor-chrome);
+}
+
+.railMiniCount {
+  color: var(--c-editor-text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  writing-mode: vertical-rl;
+}
+
+.railTabs > button.railHide {
+  flex: none;
+  width: 36px;
+  border-bottom-color: transparent;
+}
+
+.railTabs > button.railHide:hover {
+  color: var(--c-editor-text);
+}
+
+.thumbs,
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.thumb,
+.step {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--c-editor-border);
+  border-radius: 10px;
+  background: var(--c-editor-canvas);
+}
+
+.thumbOn {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 1px var(--c-primary) inset;
+}
+
+.thumbTop,
+.stepHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.seq {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.autoTag,
+.editedTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.autoTag {
+  background: rgba(124, 92, 246, 0.25);
+  color: #cdbcff;
+}
+
+.editedTag {
+  background: rgba(36, 163, 106, 0.22);
+  color: #9be2bf;
+}
+
+.grip {
+  margin-left: auto;
+  color: var(--c-editor-text-dim);
+  cursor: grab;
+}
+
+.thumbImg {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0d0f13;
+  cursor: pointer;
+  aspect-ratio: 16 / 10;
+}
+
+.thumbImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.caption {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--c-editor-border);
+  border-radius: 6px;
+  background: #171a20;
+  color: var(--c-editor-text);
+  font-size: 12.5px;
+}
+
+.caption:focus {
+  outline: none;
+  border-color: var(--c-primary);
+}
+
+.thumbMeta {
+  font-size: 11px;
+  color: var(--c-editor-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thumbActions {
+  display: flex;
+  gap: 2px;
+}
+
+.stepAction {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-editor-text-dim);
+}
+
+.stepValue {
+  font-size: 12px;
+  color: #cfd5df;
+  word-break: break-all;
+}
+
+.stepLink {
+  justify-self: start;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #8fb0ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-editor-text-dim);
+}
+
+.editorHost {
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.imageBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--c-editor-border);
+  background: var(--c-editor-chrome);
+  font-size: 13px;
+}
+
+.editorFrame {
+  position: relative;
+  min-height: 0;
+}
+
+/* The screenshot editor normally fills the window; inside the Flow Editor it fills this frame. */
+.editorFrame > * {
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.originalImg {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  border-radius: 6px;
+}
+
+.exportGrid {
+  display: grid;
+  gap: 14px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--c-editor-text-dim);
+}
+
+/* Collage workspace over the Flow Editor. */
+.collageHost {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--c-editor-canvas, #14171c);
+}
+
+/* Drag to reorder: the dragged card fades, a line shows where it will land. */
+.thumb {
+  position: relative;
+  transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.thumb[draggable='true']:active {
+  cursor: grabbing;
+}
+
+.thumbDragging {
+  opacity: 0.35;
+  transform: scale(0.97);
+  border-style: dashed;
+}
+
+.dropBefore::before,
+.dropAfter::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+  pointer-events: none;
+}
+
+.dropBefore::before {
+  top: -8px;
+}
+
+.dropAfter::after {
+  bottom: -8px;
+}
+
+.dropBefore,
+.dropAfter {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Restore split button: main action + menu arrow. */
+.split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.splitMain {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.splitArrow {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  margin-left: -1px;
+  border: 1px solid var(--c-editor-border);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--c-editor-chrome-2);
+  color: var(--c-editor-text);
+  cursor: pointer;
+}
+
+.splitArrow:hover,
+.splitOpen {
+  background: var(--c-editor-hover);
+}
+
+/* A disabled main part still lets a right click reach the group (it opens the dropdown). */
+.splitMain:disabled {
+  pointer-events: none;
+}
+
+.railAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--c-primary) 60%, var(--c-editor-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--c-primary) 22%, transparent);
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.railAdd:hover {
+  filter: brightness(1.15);
+}

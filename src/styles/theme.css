@@ -1,0 +1,33 @@
+/* Dark theme. Applied when <html data-theme="dark"> (resolved from Settings › General › Theme). */
+:root[data-theme='dark'] {
+  --c-primary: #5b97fa;
+  --c-primary-hover: #74a7fb;
+  --c-primary-active: #4f8df7;
+  --c-primary-soft: #1e2a40;
+  --c-primary-soft-strong: #24375a;
+  --c-on-primary: #ffffff;
+
+  --c-bg: #16191f;
+  --c-bg-subtle: #1e2229;
+  --c-bg-muted: #262b33;
+  --c-bg-elevated: #20242c;
+  --c-overlay: rgba(0, 0, 0, 0.6);
+
+  --c-text: #e7eaf0;
+  --c-text-secondary: #9aa3b2;
+  --c-text-tertiary: #6f7887;
+
+  --c-border: #2c313a;
+  --c-border-strong: #3a404c;
+
+  --c-success-soft: #15291f;
+  --c-error-soft: #33191b;
+  --c-warning-soft: #33280f;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}

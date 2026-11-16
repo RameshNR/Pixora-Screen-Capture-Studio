@@ -1,0 +1,308 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-bg-subtle);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  height: 60px;
+  padding: 0 var(--sp-6);
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
+}
+
+.brand img {
+  width: 26px;
+  height: 26px;
+}
+
+.main {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-8) var(--sp-6);
+}
+
+.panel {
+  width: min(760px, 100%);
+  display: grid;
+  gap: var(--sp-5);
+  padding: var(--sp-8);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-xl);
+  background: var(--c-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.center {
+  text-align: center;
+  justify-items: center;
+}
+
+.heroIcon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+}
+
+.h1 {
+  margin: 0;
+  font-size: var(--fs-page-title);
+  font-weight: var(--fw-semibold);
+}
+
+.lead {
+  margin: 0;
+  color: var(--c-text-secondary);
+  font-size: 14px;
+  max-width: 520px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.previewWrap {
+  position: relative;
+  width: 100%;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: #0f1217;
+  aspect-ratio: 16 / 9;
+}
+
+.previewWrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.countOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  color: #fff;
+  font-size: 96px;
+  font-weight: var(--fw-bold);
+}
+
+.liveBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: var(--r-full);
+  background: rgba(15, 18, 23, 0.75);
+  color: #fff;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-recording);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.dotPaused {
+  background: var(--c-warning);
+  animation: none;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.timer {
+  font-size: 40px;
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.sub {
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+  margin-top: 6px;
+}
+
+.controls {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+}
+
+.fact {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--c-bg-subtle);
+}
+
+.fact dt {
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.fact dd {
+  margin: 3px 0 0;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.notes {
+  display: grid;
+  gap: 6px;
+}
+
+.meter {
+  height: 6px;
+  width: 120px;
+  border-radius: var(--r-full);
+  background: var(--c-bg-muted);
+  overflow: hidden;
+}
+
+.meter > div {
+  height: 100%;
+  background: linear-gradient(90deg, #24a36a, #9bd14b 70%, #e0a100);
+  transition: width 80ms linear;
+}
+
+/* ------------------------------- Control bar ------------------------------ */
+.bar {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: #1f232b;
+  color: #e7eaf0;
+  user-select: none;
+}
+
+.barTime {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 92px;
+  padding: 0 8px;
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.barSep {
+  width: 1px;
+  height: 24px;
+  background: #3a404c;
+  margin: 0 2px;
+}
+
+.barStop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--c-recording);
+  color: #fff;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-label);
+}
+
+.barStop:hover {
+  background: #e04340;
+}
+
+.barInfo {
+  flex: 1;
+  min-width: 0;
+  color: #9aa3b2;
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* What Chrome reported when a recording failed. */
+.errorDetail {
+  display: grid;
+  gap: 8px;
+  max-width: 560px;
+  margin: 0 auto 16px;
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.errorDetail > summary {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.errorDetail code {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.15);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.brandText {
+  display: grid;
+  line-height: 1.15;
+}
+
+.brandText small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--c-text-secondary);
+}

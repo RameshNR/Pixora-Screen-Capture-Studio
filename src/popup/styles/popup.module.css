@@ -1,0 +1,1357 @@
+.popup {
+  width: 380px;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-bg);
+}
+
+/* Short views (the running full-page capture): exactly as tall as their content. */
+.popupCompact {
+  min-height: 0;
+}
+
+/* ---------------------------------- Tabs ---------------------------------- */
+/* Pixora name above the tabs. */
+.brandBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+}
+
+.brandName {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--c-text);
+}
+
+.brandTag {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #1aa0ff, #5b2df5 55%, #9b2cf0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--c-bg-subtle);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-tertiary);
+  font-size: 14.5px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.1px;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+
+.tab:hover {
+  color: var(--c-text-secondary);
+}
+
+.tabActive {
+  background: var(--c-bg);
+  color: var(--c-text);
+  border-radius: 14px 14px 0 0;
+}
+
+.tabActive:hover {
+  color: var(--c-text);
+}
+
+.tabActive svg {
+  color: var(--c-text);
+}
+
+.recDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-recording);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------------------------------- Body ---------------------------------- */
+.body {
+  flex: 1;
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ------------------------------ Capture cards ----------------------------- */
+.cards3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.cards2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 88px;
+  padding: 8px 6px;
+  border: 1.5px solid transparent;
+  border-radius: var(--r-lg);
+  background: var(--c-bg-subtle);
+  color: var(--c-text);
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  text-align: center;
+  transition: background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast);
+}
+
+.card:hover:not(:disabled) {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary-soft-strong);
+  transform: translateY(-1px);
+}
+
+.card:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.card:disabled {
+  opacity: 0.5;
+}
+
+.cardIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, #6aa1fa 0%, #4f8df7 55%, #3978e8 100%);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(57, 120, 232, 0.25);
+}
+
+/* Recording mode cards */
+.modeCard {
+  height: 80px;
+  background: var(--c-bg);
+  border-color: var(--c-border);
+  color: var(--c-text-secondary);
+  font-weight: var(--fw-medium);
+}
+
+.modeCard .modeIcon {
+  color: var(--c-text-secondary);
+}
+
+.modeCard:hover:not(:disabled) {
+  background: var(--c-bg-subtle);
+  border-color: var(--c-border-strong);
+}
+
+.modeSelected,
+.modeSelected:hover:not(:disabled) {
+  background: var(--c-primary-soft);
+  border-color: #a9c7fb;
+  color: var(--c-primary);
+  font-weight: var(--fw-semibold);
+}
+
+:root[data-theme='dark'] .modeSelected {
+  border-color: #3d5d93;
+}
+
+.modeSelected .modeIcon {
+  color: var(--c-primary);
+}
+
+/* ------------------------------- List rows -------------------------------- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 42px;
+  padding: 0 12px 0 14px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--c-bg-subtle);
+  color: var(--c-text);
+  font-size: 13.5px;
+  font-weight: var(--fw-medium);
+  text-align: left;
+  transition: background var(--dur-fast);
+}
+
+.row:hover:not(:disabled) {
+  background: var(--c-primary-soft);
+}
+
+.row:disabled {
+  opacity: 0.5;
+}
+
+.rowIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: -4px;
+  border-radius: 8px;
+  background: var(--c-bg);
+  color: var(--c-primary);
+  box-shadow: 0 0 0 1px var(--c-border);
+  flex: none;
+}
+
+/* ------------------------------ Feature row ------------------------------- */
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--c-ai) 28%, var(--c-border));
+  border-radius: var(--r-lg);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--c-ai) 9%, var(--c-bg)) 0%, var(--c-bg) 75%);
+  color: var(--c-text);
+  text-align: left;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast), transform var(--dur-fast) var(--ease);
+}
+
+.feature:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--c-ai) 55%, var(--c-border));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--c-ai) 16%, transparent);
+  transform: translateY(-1px);
+}
+
+.feature:disabled {
+  opacity: 0.55;
+}
+
+.featureIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, #9b82fa 0%, #7c5cf6 60%, #6a48ea 100%);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(124, 92, 246, 0.28);
+  flex: none;
+}
+
+.featureText {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.featureTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: var(--fw-semibold);
+}
+
+.featureDesc {
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.35;
+}
+
+.featureChevron {
+  color: var(--c-text-tertiary);
+  flex: none;
+}
+
+.badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--c-ai);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--fw-bold, 700);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sectionLabel {
+  margin: 6px 2px 0;
+  color: var(--c-text-tertiary);
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.privacy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--c-text-tertiary);
+  font-size: var(--fs-caption);
+}
+
+.privacy svg {
+  color: var(--c-success);
+}
+
+.rowLabel {
+  flex: 1;
+}
+
+.rowTrail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-text-tertiary);
+  font-size: var(--fs-caption);
+}
+
+/* ----------------------------- Save-to section ---------------------------- */
+.saveRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--c-text-secondary);
+  font-size: var(--fs-label);
+}
+
+.notice {
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  font-size: var(--fs-caption);
+  text-align: center;
+}
+
+.warn {
+  padding: 9px 12px;
+  border-radius: var(--r-md);
+  background: var(--c-warning-soft);
+  color: var(--c-warning);
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+}
+
+.errorBox {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--c-error-soft);
+  color: var(--c-error);
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+}
+
+.errorBox strong {
+  display: block;
+  font-size: var(--fs-label);
+}
+
+/* ------------------------------ Device controls --------------------------- */
+.deviceRow {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+}
+
+.split {
+  display: inline-flex;
+  align-items: stretch;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--c-bg-subtle);
+  overflow: hidden;
+}
+
+.splitMain {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--c-error);
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.splitMain:hover {
+  background: var(--c-bg-muted);
+}
+
+.splitOn {
+  color: var(--c-primary);
+}
+
+.splitMore {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  border: 0;
+  border-left: 1px solid var(--c-border);
+  background: transparent;
+  color: var(--c-text-tertiary);
+}
+
+.splitMore:hover {
+  background: var(--c-bg-muted);
+  color: var(--c-text);
+}
+
+.controlBarBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 10px 0 12px;
+  border-radius: var(--r-md);
+  background: var(--c-bg-subtle);
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
+}
+
+.controlBarBox > span {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.controlBarIcon {
+  color: var(--c-text-secondary);
+}
+
+/* Device popover */
+.popover {
+  position: fixed;
+  z-index: 9000;
+  width: 300px;
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-bg-elevated);
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  gap: 12px;
+  animation: pop var(--dur) var(--ease);
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.popTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+}
+
+.preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-md);
+  background: #11141a;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.meter {
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--c-bg-muted);
+  overflow: hidden;
+}
+
+.meterFill {
+  height: 100%;
+  background: linear-gradient(90deg, #24a36a, #9bd14b 70%, #e0a100);
+  transition: width 80ms linear;
+}
+
+.inlineToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-label);
+}
+
+/* ------------------------------ Config toolbar ---------------------------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 2px -6px 0;
+}
+
+.toolbar > :last-child {
+  margin-left: auto;
+}
+
+.moreBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 6px 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--c-text);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+}
+
+.moreBtn:hover {
+  background: var(--c-bg-subtle);
+}
+
+.startBtn {
+  margin-top: 4px;
+  height: 52px !important;
+  font-size: 16px !important;
+}
+
+.startDot {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.startDot::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-primary);
+}
+
+/* ---------------------------- Active recording ---------------------------- */
+.liveCard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-bg-subtle);
+}
+
+.liveHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+}
+
+.liveDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c-recording);
+  box-shadow: 0 0 0 4px rgba(239, 83, 80, 0.18);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.pausedDot {
+  background: var(--c-warning);
+  box-shadow: 0 0 0 4px rgba(217, 138, 0, 0.18);
+  animation: none;
+}
+
+.timer {
+  font-size: 34px;
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.liveMeta {
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+}
+
+.liveActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.liveActions > :first-child,
+.liveActions > :nth-child(2) {
+  flex: 1;
+}
+
+/* ---------------------------- Advanced settings --------------------------- */
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 54px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
+}
+
+.panelBody {
+  max-height: 498px;
+  overflow-y: auto;
+  padding: 4px 16px 16px;
+}
+
+.group {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--c-border);
+  display: grid;
+  gap: 12px;
+}
+
+.group:last-child {
+  border-bottom: 0;
+}
+
+.groupTitle {
+  color: var(--c-text-tertiary);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--fs-label);
+}
+
+.lineLabel {
+  display: grid;
+  gap: 2px;
+}
+
+.lineHint {
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.dateInput {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-sm);
+  background: var(--c-bg);
+  font-size: var(--fs-caption);
+}
+
+/* --------------------------------- Footer --------------------------------- */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  padding: 0 10px 0 8px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-bg-subtle);
+}
+
+.footerLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--c-text-secondary);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-medium);
+}
+
+.footerLink:hover {
+  background: var(--c-bg-muted);
+  color: var(--c-text);
+}
+
+.footerIcons {
+  display: flex;
+  gap: 2px;
+}
+
+.status {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--c-primary-soft);
+}
+
+.areaSource {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 10px;
+  font-size: 12.5px;
+  color: var(--c-text-secondary);
+}
+
+.camStage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2b3445, #1a1f29);
+  overflow: hidden;
+}
+
+.camBubble {
+  position: absolute;
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+  background: #000;
+}
+
+.camBubble video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.grid9 {
+  display: grid;
+  grid-template-columns: repeat(3, 26px);
+  gap: 3px;
+}
+
+.cell {
+  height: 16px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: 4px;
+  background: var(--c-bg-muted);
+  cursor: pointer;
+}
+
+.cellOn {
+  composes: cell;
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.audioWarn {
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--c-warning-soft);
+  color: var(--c-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.audioOk {
+  font-size: 12px;
+  color: var(--c-success);
+}
+
+.areaChooser {
+  display: grid;
+  gap: 10px;
+}
+
+.areaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.areaToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--c-text-secondary);
+}
+
+.linkBtn {
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  color: var(--c-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.areaCard {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.areaCard:hover {
+  border-color: color-mix(in srgb, var(--c-primary) 60%, var(--c-border));
+}
+
+.areaCardOn {
+  border-color: color-mix(in srgb, var(--c-primary) 55%, var(--c-border));
+  background: color-mix(in srgb, var(--c-primary) 8%, transparent);
+}
+
+.areaHead {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 0;
+  position: relative;
+}
+
+.areaCheckInput {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.areaCheck {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--c-border-strong, var(--c-border));
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.areaCardOn .areaCheck {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.areaCheckInput:focus-visible + .areaCheck {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+.areaTitle {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.areaFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-left: 26px;
+}
+
+.areaMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--c-text-secondary);
+}
+
+.areaChip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c-primary) 16%, transparent);
+  color: var(--c-text);
+  font-weight: 600;
+}
+
+.areaNum {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.areaActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.flowRunning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #7c5cf6 14%, var(--c-bg));
+  border: 1px solid color-mix(in srgb, #7c5cf6 40%, transparent);
+  font-size: 13px;
+}
+
+.flowRunning strong {
+  display: block;
+}
+
+.flowToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  margin: 6px 0 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+
+.flowToggle strong {
+  display: block;
+  font-size: 13px;
+}
+
+/* ---------------------------- Flow Capture setup --------------------------- */
+.flowSetup {
+  display: grid;
+  gap: 10px;
+}
+
+.flowIntro {
+  margin: 0;
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+}
+
+.setupCard {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-bg);
+}
+
+.setupTitle {
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  color: var(--c-text);
+}
+
+.setupLabel {
+  font-size: var(--fs-caption);
+  color: var(--c-text-secondary);
+}
+
+.setupHint {
+  display: block;
+  color: var(--c-text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+}
+
+.inlineIcon {
+  vertical-align: -2px;
+  color: var(--c-success);
+}
+
+.setupRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.setupText {
+  display: grid;
+  gap: 2px;
+}
+
+.setupMore {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--c-border);
+}
+
+.flowModes {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.flowMode,
+.flowModeOn {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px 2px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-bg-subtle);
+  color: var(--c-text-secondary);
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+}
+
+.flowMode:hover {
+  border-color: var(--c-border-strong);
+  color: var(--c-text);
+}
+
+.flowModeOn {
+  border-color: #a9c7fb;
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.setupFoot {
+  margin: 0;
+  color: var(--c-text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* The feature card holding a switch (not clickable as a whole). */
+.featureStatic,
+.featureStatic:hover:not(:disabled) {
+  transform: none;
+  cursor: default;
+}
+
+.flowTiming {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: -4px;
+  padding: 0 4px;
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.autoFrame {
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 4px;
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.autoFrameChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip,
+.chipOn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-bg);
+  color: var(--c-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--c-primary);
+  color: var(--c-text);
+}
+
+.chipOn {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+}
+
+/* Flow Capture options under the recording toggle. */
+.flowOptions {
+  border: 1px solid var(--c-border, #e4e7ec);
+  border-radius: 12px;
+  padding: 0 12px;
+}
+
+.flowOptions > summary {
+  padding: 10px 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.flowOptions[open] {
+  padding-bottom: 12px;
+}
+
+.flowOptionsSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-text-muted, #667085);
+  font-size: 12px;
+}
+
+.areaFull,
+.areaShown {
+  margin: 0;
+  padding: 6px 0 0 26px;
+  border-top: 1px dashed var(--c-border);
+  font-size: 11.5px;
+}
+
+.areaCard {
+  position: relative;
+}
+
+.areaHead {
+  padding-right: 34px;
+}
+
+.areaShow {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text-secondary);
+  cursor: pointer;
+}
+
+.areaShow:hover {
+  color: var(--c-text);
+  border-color: var(--c-primary);
+}
+
+.areaShowOn {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+
+.areaCardShown {
+  /* Inside the card: never overlaps the neighbours or gets clipped by the list. */
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c-primary) 55%, transparent);
+}
+
+.areaList {
+  padding: 2px;
+}
+
+.areaFoot {
+  align-items: center;
+}
+
+.areaMeta {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.areaScreens {
+  white-space: nowrap;
+}
+
+.areaFull {
+  color: var(--c-primary);
+}
+
+.areaShown {
+  color: var(--c-text-tertiary);
+}
+
+/* Recording controller in the popup. */
+.liveToolsTitle {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-text-secondary);
+}
+
+.liveTools {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.liveTool {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 9px 4px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.liveTool svg {
+  color: var(--c-text-secondary);
+}
+
+.liveTool:hover:not(:disabled) {
+  border-color: var(--c-primary);
+}
+
+.liveTool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.liveToolOn {
+  border-color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 16%, var(--c-bg));
+}
+
+.liveToolOn svg {
+  color: var(--c-primary);
+}
+
+/* The popup while a full-page capture runs. */
+.fullPage {
+  display: grid;
+  gap: 12px;
+  padding: 22px 20px 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-secondary);
+}
+
+.fullPage p {
+  margin: 0;
+}
+
+.fullPage strong {
+  color: var(--c-text);
+}
+
+.fullPageHeading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.fullPageTitle {
+  margin-top: -6px;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fullPageBar {
+  position: relative;
+  height: 24px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c-primary) 22%, var(--c-bg-muted));
+  overflow: hidden;
+}
+
+.fullPageBar > div {
+  height: 100%;
+  background: var(--c-primary);
+  transition: width 0.25s;
+}
+
+.fullPageBar > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}

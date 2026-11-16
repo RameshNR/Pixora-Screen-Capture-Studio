@@ -1,0 +1,261 @@
+.wrap {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-page-title);
+  font-weight: var(--fw-semibold);
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--c-text-secondary);
+  font-size: var(--fs-label);
+}
+
+.controls {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-bg);
+  overflow: hidden;
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease), border-color var(--dur);
+}
+
+.card:hover {
+  border-color: var(--c-border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 0;
+  background: var(--c-bg-muted);
+  overflow: hidden;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.noThumb {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--c-text-tertiary);
+}
+
+.play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin: -21px 0 0 -21px;
+  border-radius: 50%;
+  background: rgba(15, 18, 23, 0.65);
+  color: #fff;
+  padding-left: 2px;
+  transition: transform var(--dur) var(--ease);
+}
+
+.card:hover .play {
+  transform: scale(1.08);
+}
+
+.duration {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(15, 18, 23, 0.75);
+  color: #fff;
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.kind {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 2px 7px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.9);
+  color: #202938;
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+}
+
+.info {
+  display: grid;
+  gap: 3px;
+  padding: 10px 8px 12px 14px;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 72px 24px;
+  border: 1px dashed var(--c-border-strong);
+  border-radius: var(--r-xl);
+  background: var(--c-bg);
+  text-align: center;
+}
+
+.empty h3 {
+  margin: 8px 0 0;
+  font-size: 17px;
+}
+
+.empty p {
+  max-width: 420px;
+  margin: 0;
+  color: var(--c-text-secondary);
+}
+
+.emptyIcon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+}
+
+.cardSelected,
+.cardSelected:hover {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-primary) 35%, transparent);
+}
+
+/* Selection checkbox: shown on hover, and always while anything is selected. */
+.check {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--c-primary);
+  cursor: pointer;
+}
+
+.card:hover .check,
+.check:focus-within,
+.checkShown,
+.cardSelected .check {
+  opacity: 1;
+}
+
+.selectBar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 44px;
+  padding: 6px 10px 6px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-bg);
+}
+
+.selectBarOn {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.selectAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.selectAll input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--c-primary);
+}
+
+.flex {
+  flex: 1;
+}

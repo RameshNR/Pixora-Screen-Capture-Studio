@@ -1,0 +1,105 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  background: var(--c-overlay);
+  animation: fade var(--dur) var(--ease);
+}
+
+.dialog {
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-lg);
+  background: var(--c-bg-elevated);
+  color: var(--c-text);
+  box-shadow: var(--shadow-lg);
+  outline: none;
+  animation: pop var(--dur) var(--ease);
+}
+
+.dark {
+  background: var(--c-editor-chrome);
+  color: var(--c-editor-text);
+  border: 1px solid var(--c-editor-border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5) 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--fw-semibold);
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.close:hover {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.14);
+}
+
+.body {
+  padding: var(--sp-4) var(--sp-5);
+  overflow-y: auto;
+}
+
+.message {
+  color: var(--c-text-secondary);
+  font-size: var(--fs-body);
+}
+
+.dark .message {
+  color: var(--c-editor-text-dim);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-5) var(--sp-4);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+/* Draggable dialogs: the page behind stays readable, the title bar moves the dialog. */
+.backdropLight {
+  background: rgba(15, 23, 42, 0.18);
+}
+
+.dragHandle {
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}

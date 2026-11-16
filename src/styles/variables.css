@@ -1,0 +1,92 @@
+/* Design tokens — light theme (default). Dark overrides live in theme.css. */
+:root {
+  /* Brand */
+  --c-primary: #4f8df7;
+  --c-primary-hover: #3978e8;
+  --c-primary-active: #2f6bd6;
+  --c-primary-soft: #eef4ff;
+  --c-primary-soft-strong: #dce8ff;
+  --c-on-primary: #ffffff;
+
+  /* Surfaces */
+  --c-bg: #ffffff;
+  --c-bg-subtle: #f6f7f9;
+  --c-bg-muted: #eef0f3;
+  --c-bg-elevated: #ffffff;
+  --c-overlay: rgba(15, 23, 42, 0.45);
+
+  /* Text */
+  --c-text: #202938;
+  --c-text-secondary: #758092;
+  --c-text-tertiary: #9aa3b2;
+  --c-text-inverse: #ffffff;
+
+  /* Lines */
+  --c-border: #e8ebf0;
+  --c-border-strong: #d6dbe3;
+
+  /* Status */
+  --c-success: #24a36a;
+  --c-success-soft: #e7f6ef;
+  --c-error: #e05252;
+  --c-error-soft: #fdecec;
+  --c-warning: #d98a00;
+  --c-warning-soft: #fff5e0;
+  --c-recording: #ef5350;
+  --c-ai: #7c5cf6;
+
+  /* Editor chrome (always dark, like a desktop app) */
+  --c-editor-chrome: #262a33;
+  --c-editor-chrome-2: #2e333d;
+  --c-editor-canvas: #1b1e24;
+  --c-editor-border: #3a404c;
+  --c-editor-text: #e6e9ef;
+  --c-editor-text-dim: #9aa3b2;
+  --c-editor-hover: #363c48;
+
+  /* Typography */
+  --font-sans: 'Inter Variable', 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  --fs-page-title: 22px;
+  --fs-section-title: 15px;
+  --fs-card-title: 14px;
+  --fs-body: 13.5px;
+  --fs-label: 13px;
+  --fs-caption: 12px;
+  --fs-micro: 11px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Spacing (4px grid) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* Radius */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-full: 999px;
+
+  /* Elevation — intentionally soft */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 2px 6px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.1);
+  --shadow-lg: 0 18px 48px rgba(16, 24, 40, 0.16);
+  --ring: 0 0 0 3px rgba(79, 141, 247, 0.35);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+
+  color-scheme: light;
+}

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Travel Booking Portal – Scroll Areas Test</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    background: #eaf2fb;
+    color: #183b60;
+}
+
+/* HEADER */
+.header {
+    background: #fff;
+    border-bottom: 3px solid #2869ad;
+}
+
+.top-bar {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 24px;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: bold;
+    color: #15569a;
+}
+
+.nav {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+
+.nav a {
+    color: #164f87;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.nav a:hover {
+    color: #e34c38;
+    text-decoration: underline;
+}
+
+.login {
+    background: #2869ad;
+    color: white;
+    border: 0;
+    padding: 9px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+/* PAGE TITLE */
+.page-title {
+    background: #d5e8fc;
+    padding: 12px 24px;
+    border-bottom: 1px solid #8bb8e4;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* MAIN CONTENT */
+main {
+    padding: 16px 22px;
+}
+
+.section {
+    background: #fff;
+    border: 1px solid #3976b5;
+    margin-bottom: 22px;
+}
+
+.section-header {
+    background: #356c9e;
+    color: white;
+    padding: 11px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-header .count {
+    font-size: 12px;
+    font-weight: normal;
+    background: rgba(255, 255, 255, 0.18);
+    padding: 3px 9px;
+    border-radius: 10px;
+}
+
+.section-body {
+    padding: 14px;
+}
+
+/* Each section's list scrolls on its own; its height is set so exactly 10 entries show. */
+.scroll-list {
+    overflow-y: auto;
+    border: 1px solid #a6c7e8;
+    background: #f7fbff;
+    scrollbar-gutter: stable;
+}
+
+.scroll-hint {
+    color: #5b7896;
+    font-size: 12px;
+    margin: 8px 2px 0;
+}
+
+/* CONTENT 1 - PACKAGES */
+.package {
+    display: grid;
+    grid-template-columns: 150px 1fr 210px;
+    gap: 15px;
+    padding: 14px;
+    border-bottom: 1px solid #a6c7e8;
+    background: #e4f0ff;
+}
+
+.package:nth-child(even) {
+    background: #eef5ff;
+}
+
+.package img {
+    width: 150px;
+    height: 105px;
+    object-fit: cover;
+    background: #c6d9eb;
+}
+
+.package h3 {
+    margin-bottom: 8px;
+    color: #064d9b;
+}
+
+.package a {
+    color: #064d9b;
+}
+
+.package .num {
+    display: inline-block;
+    min-width: 26px;
+    padding: 2px 6px;
+    margin-right: 6px;
+    border-radius: 10px;
+    background: #2869ad;
+    color: #fff;
+    font-size: 11px;
+    text-align: center;
+}
+
+.price {
+    background: #c3e0ff;
+    padding: 12px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.btn {
+    display: inline-block;
+    background: #2869ad;
+    color: white !important;
+    text-decoration: none;
+    padding: 7px 16px;
+    margin-top: 12px;
+    border-radius: 3px;
+}
+
+/* CONTENT 2 - FLIGHTS */
+.filters {
+    background: #e0e6cf;
+    padding: 15px;
+    margin-bottom: 12px;
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th {
+    background: #a8d0f7;
+    color: #123c66;
+    padding: 11px 8px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #b6d0e9;
+}
+
+tr:nth-child(even) {
+    background: #edf4fc;
+}
+
+tr.selected {
+    background: #a4c6b6;
+}
+
+/* CONTENT 3 - HOTELS */
+.hotel-summary {
+    background: #e0e6cf;
+    padding: 16px;
+    margin-bottom: 12px;
+    font-weight: bold;
+}
+
+.hotel-name {
+    color: #064d9b;
+    font-weight: bold;
+}
+
+.hotel-name a {
+    color: #064d9b;
+}
+
+.rating {
+    color: #e6a500;
+    font-size: 16px;
+}
+
+/* FOOTER */
+footer {
+    background: #183e65;
+    color: white;
+    padding: 25px;
+    text-align: center;
+}
+
+.footer-links {
+    margin-bottom: 12px;
+}
+
+.footer-links a {
+    color: white;
+    text-decoration: none;
+    margin: 0 12px;
+}
+
+/* RESPONSIVE */
+@media(max-width: 768px) {
+    .top-bar {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .nav {
+        justify-content: center;
+        gap: 12px;
+    }
+
+    main {
+        padding: 10px;
+    }
+
+    .package {
+        grid-template-columns: 1fr;
+    }
+
+    .package img {
+        width: 100%;
+        height: 160px;
+    }
+
+    .scroll-list {
+        overflow-x: auto;
+    }
+
+    table {
+        min-width: 750px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header class="header">
+    <div class="top-bar">
+
+        <div class="logo">TRAVEL PORTAL</div>
+
+        <nav class="nav">
+            <a href="#home">Home</a>
+            <a href="#packages">Package Search</a>
+            <a href="#flights">Flight Search</a>
+            <a href="#hotels">Hotel Search</a>
+            <a href="#bookings">My Bookings</a>
+            <a href="#reports">Reports</a>
+            <a href="#help">Help</a>
+        </nav>
+
+        <button class="login">Login</button>
+
+    </div>
+</header>
+
+<div class="page-title">
+    Travel Search Results
+</div>
+
+<main>
+
+<!-- CONTENT 1 -->
+<section class="section" id="packages">
+
+    <div class="section-header">
+        CONTENT 1 - VACATION PACKAGE RESULTS
+        <span class="count" id="pkg-count"></span>
+    </div>
+
+    <div class="section-body">
+
+        <div class="filters">
+            <span>Destination: Orlando</span>
+            <span>Travel Date: Nov 17, 2026</span>
+            <span>Passengers: 2 Adults</span>
+            <span>Sort By:
+                <select>
+                    <option>Price Low to High</option>
+                    <option>Price High to Low</option>
+                </select>
+            </span>
+        </div>
+
+        <div class="scroll-list" id="pkg-list" data-visible="10"></div>
+        <p class="scroll-hint">Showing 10 at a time — scroll inside the box to see all packages.</p>
+
+    </div>
+</section>
+
+<!-- CONTENT 2 -->
+<section class="section" id="flights">
+
+    <div class="section-header">
+        CONTENT 2 - FLIGHT RESULTS
+        <span class="count" id="flt-count"></span>
+    </div>
+
+    <div class="section-body">
+
+        <div class="filters">
+            <span>Departure: Seattle (SEA)</span>
+            <span>Airline:
+                <select><option>All Airlines</option></select>
+            </span>
+            <span>Stops:
+                <select><option>Any Stops</option><option>Nonstop</option></select>
+            </span>
+            <span>Fare Type:
+                <select><option>All Fares</option></select>
+            </span>
+        </div>
+
+        <div class="scroll-list" id="flt-list" data-visible="10" data-header="1">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Airline / Flight</th>
+                        <th>Departure</th>
+                        <th>Arrival</th>
+                        <th>Flight Time</th>
+                        <th>Aircraft</th>
+                        <th>Stops</th>
+                        <th>Fare Type</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody id="flt-rows"></tbody>
+            </table>
+        </div>
+        <p class="scroll-hint">Showing 10 at a time — scroll inside the table to see all flights.</p>
+
+    </div>
+</section>
+
+<!-- CONTENT 3 -->
+<section class="section" id="hotels">
+
+    <div class="section-header">
+        CONTENT 3 - HOTEL RESULTS
+        <span class="count" id="htl-count"></span>
+    </div>
+
+    <div class="section-body">
+
+        <div class="hotel-summary">
+            Orlando, FL | Nov 17, 2026 - Nov 22, 2026
+            <span style="float:right">5 Nights</span>
+        </div>
+
+        <div class="scroll-list" id="htl-list" data-visible="10" data-header="1">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name of Hotel</th>
+                        <th>Rating</th>
+                        <th>Location</th>
+                        <th>Room</th>
+                        <th>Check-in</th>
+                        <th>Check-out</th>
+                        <th>No. of Nights</th>
+                    </tr>
+                </thead>
+                <tbody id="htl-rows"></tbody>
+            </table>
+        </div>
+        <p class="scroll-hint">Showing 10 at a time — scroll inside the table to see all hotels.</p>
+
+    </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-links">
+        <a href="#home">Home</a>
+        <a href="#packages">Packages</a>
+        <a href="#flights">Flights</a>
+        <a href="#hotels">Hotels</a>
+        <a href="#help">Support</a>
+        <a href="#privacy">Privacy Policy</a>
+    </div>
+
+    <p>© 2026 Travel Portal. All Rights Reserved.</p>
+</footer>
+
+<script>
+/* ---------- Test data (works offline: images are drawn here, no downloads) ---------- */
+
+function picture(n, hue) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="210" viewBox="0 0 300 210">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="hsl(${hue},75%,62%)"/><stop offset="1" stop-color="hsl(${(hue + 40) % 360},70%,86%)"/>
+      </linearGradient></defs>
+      <rect width="300" height="210" fill="url(#g)"/>
+      <circle cx="230" cy="55" r="26" fill="#ffe08a"/>
+      <path d="M0 170 L70 105 L120 150 L185 85 L300 170 L300 210 L0 210 Z" fill="hsl(${(hue + 180) % 360},35%,35%)"/>
+      <text x="16" y="38" font-family="Arial" font-size="30" font-weight="bold" fill="#fff">#${n}</text>
+    </svg>`;
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
+const resorts = [
+    "Disney's Port Orleans - Riverside", "Disney's Coronado Springs Resort", "Disney's Pop Century Resort",
+    "Disney's Art of Animation Resort", "Disney's Caribbean Beach Resort", "Disney's All-Star Movies Resort",
+    "Disney's Contemporary Resort", "Disney's Polynesian Village Resort", "Disney's Grand Floridian Resort",
+    "Disney's Beach Club Resort", "Disney's Yacht Club Resort", "Disney's Animal Kingdom Lodge",
+    "Disney's Wilderness Lodge", "Disney's BoardWalk Inn", "Disney's Riviera Resort",
+    "Disney's Saratoga Springs Resort", "Disney's Old Key West Resort", "Disney's Fort Wilderness Cabins",
+    "Universal's Cabana Bay Beach Resort", "Universal's Aventura Hotel", "Loews Royal Pacific Resort",
+    "Loews Portofino Bay Hotel", "Hard Rock Hotel Orlando", "Hilton Orlando Bonnet Creek",
+    "Waldorf Astoria Orlando", "Four Seasons Resort Orlando", "Gaylord Palms Resort",
+    "Caribe Royale Orlando", "Hyatt Regency Grand Cypress", "Signia by Hilton Orlando",
+];
+const streets = ['Riverside Dr', 'Buena Vista Dr', 'Century Dr', 'Animation Way', 'Captain Cook Dr', 'World Dr', 'Epcot Resorts Blvd', 'Osceola Pkwy', 'Hotel Plaza Blvd', 'Universal Blvd'];
+const rooms = ['Standard Location Room', 'Standard Room with 5th Sleeper', 'Royal Guest Room', 'Preferred Location Room', 'Two Queen Beds', 'Mobility Accessible Room', 'Family Suite', 'King Room, Pool View'];
+const starsOf = (k) => '★★★★★'.slice(0, k) + '☆☆☆☆☆'.slice(0, 5 - k);
+const money = (v) => 'USD ' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* CONTENT 1 – 25 vacation packages */
+const pkgList = document.getElementById('pkg-list');
+const PACKAGES = 25;
+for (let i = 1; i <= PACKAGES; i++) {
+    const hotel = resorts[(i - 1) % resorts.length];
+    const nights = 3 + (i % 5);
+    const price = 1290 + i * 87.35 + (i % 3) * 41.2;
+    const days = 2 + (i % 4);
+    pkgList.insertAdjacentHTML('beforeend', `
+        <div class="package">
+            <img src="${picture(i, (i * 37) % 360)}" alt="Package ${i}">
+            <div>
+                <h3><span class="num">${i}</span><a href="#">Orlando: ${hotel} Package</a></h3>
+                ${i % 2 ? 'Stay in the Heart of the Magic' : 'Hotel Accommodation'}<br>
+                ${i % 3 ? 'Theme Park Transportation Included' : 'Round-trip Flight Included'}<br>
+                ${i % 4 ? 'Complimentary Parking' : 'Airport Transfer Included'}<br>
+                ${(4 + i * 1.7).toFixed(1)} miles from City Center
+                <hr style="margin:8px 0;border:0;border-top:1px solid #a6c7e8">
+                <b>Flight:</b> Seattle to Orlando · <b>Hotel:</b> ${hotel}<br>
+                <b>Tickets:</b> ${days}-Day Theme Park Tickets · <b>Nights:</b> ${nights}
+            </div>
+            <div class="price">
+                Total Package Price<br><br>
+                ${money(price)}<br>
+                <a class="btn" href="#">Continue</a>
+            </div>
+        </div>`);
+}
+document.getElementById('pkg-count').textContent = PACKAGES + ' packages';
+
+/* CONTENT 2 – 30 flights */
+const airlines = [['Alaska Airlines', 'AS'], ['American Airlines', 'AA'], ['Delta Air Lines', 'DL'], ['United Airlines', 'UA'], ['Southwest Airlines', 'WN'], ['JetBlue Airways', 'B6'], ['Spirit Airlines', 'NK'], ['Frontier Airlines', 'F9']];
+const aircraft = ['Boeing 737 MAX 9', 'Boeing 737-800', 'Airbus A321', 'Airbus A320neo', 'Boeing 757-200', 'Airbus A220-300', 'Boeing 737-900ER'];
+const via = ['Dallas (DFW)', 'Denver (DEN)', 'Atlanta (ATL)', 'Chicago (ORD)', 'Phoenix (PHX)', 'Houston (IAH)'];
+const fares = ['Economy', 'Main Cabin', 'Economy Plus', 'Basic Economy', 'Premium Economy', 'First'];
+const fltRows = document.getElementById('flt-rows');
+const FLIGHTS = 30;
+const pad = (n) => String(n).padStart(2, '0');
+const clock = (mins) => {
+    const h24 = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    return `${pad(((h24 + 11) % 12) + 1)}:${pad(m)} ${h24 < 12 ? 'AM' : 'PM'}`;
+};
+for (let i = 1; i <= FLIGHTS; i++) {
+    const [name, code] = airlines[(i - 1) % airlines.length];
+    const stops = i % 4 === 0 ? 1 : 0;
+    const dep = (300 + i * 41) % 1440;
+    const dur = stops ? 400 + (i % 5) * 25 : 320 + (i % 4) * 7;
+    const arrive = stops ? via[i % via.length] : 'Orlando (MCO)';
+    const price = i === 1 ? 'Included' : i % 5 === 0 ? 'No Change' : `+${(i * 7.93).toFixed(2)}`;
+    fltRows.insertAdjacentHTML('beforeend', `
+        <tr${i === 1 ? ' class="selected"' : ''}>
+            <td><b>${i}</b></td>
+            <td>${name} ${code} ${100 + i * 37}</td>
+            <td>Seattle (SEA)<br>${clock(dep)}</td>
+            <td>${arrive}<br>${clock((dep + dur + 180) % 1440)}</td>
+            <td>${pad(Math.floor(dur / 60))} hrs ${pad(dur % 60)} mins</td>
+            <td>${aircraft[i % aircraft.length]}</td>
+            <td>${stops}</td>
+            <td>${fares[i % fares.length]}</td>
+            <td>${price}</td>
+        </tr>`);
+}
+document.getElementById('flt-count').textContent = FLIGHTS + ' flights';
+
+/* CONTENT 3 – 28 hotels */
+const htlRows = document.getElementById('htl-rows');
+const HOTELS = 28;
+for (let i = 1; i <= HOTELS; i++) {
+    htlRows.insertAdjacentHTML('beforeend', `
+        <tr>
+            <td><b>${i}</b></td>
+            <td class="hotel-name"><a href="#">${resorts[(i - 1) % resorts.length]}</a></td>
+            <td class="rating">${starsOf(3 + (i % 3))}</td>
+            <td>${1000 + i * 37} ${streets[i % streets.length]}, Orlando, FL</td>
+            <td>${rooms[i % rooms.length]}</td>
+            <td>Nov 17, 2026</td>
+            <td>Nov 22, 2026</td>
+            <td>5</td>
+        </tr>`);
+}
+document.getElementById('htl-count').textContent = HOTELS + ' hotels';
+
+/* Each list is exactly 10 entries tall (plus the table header), so it scrolls on its own. */
+function sizeLists() {
+    document.querySelectorAll('.scroll-list').forEach((box) => {
+        const visible = Number(box.dataset.visible || 10);
+        const items = box.querySelectorAll(box.querySelector('tbody') ? 'tbody tr' : '.package');
+        let height = 0;
+        for (let i = 0; i < Math.min(visible, items.length); i++) height += items[i].getBoundingClientRect().height;
+        if (box.dataset.header) height += box.querySelector('thead').getBoundingClientRect().height;
+        box.style.height = Math.ceil(height) + 2 + 'px';
+    });
+}
+window.addEventListener('load', sizeLists);
+window.addEventListener('resize', sizeLists);
+sizeLists();
+</script>
+
+</body>
+</html>

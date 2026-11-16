@@ -1,0 +1,45 @@
+.tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 260px;
+  padding: 6px 9px;
+  border-radius: var(--r-sm);
+  background: #202938;
+  color: #fff;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  line-height: 1.35;
+  white-space: pre-line;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+  animation: fade var(--dur) var(--ease);
+}
+
+:root[data-theme='dark'] .tooltip {
+  background: #3a404c;
+}
+
+.top {
+  transform: translate(-50%, -100%);
+}
+
+.bottom {
+  transform: translate(-50%, 0);
+}
+
+.left {
+  transform: translate(-100%, -50%);
+}
+
+.right {
+  transform: translate(0, -50%);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

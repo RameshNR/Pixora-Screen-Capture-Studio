@@ -1,0 +1,95 @@
+{
+  "manifest_version": 3,
+  "name": "Pixora – Screen Capture Studio",
+  "short_name": "Pixora",
+  "version": "1.0.0",
+  "description": "Capture visible, full-page or selected-area screenshots, annotate them, and record your tab, desktop or camera in up to 4K.",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Pixora – Screen Capture Studio",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabCapture",
+    "desktopCapture",
+    "system.display",
+    "offscreen",
+    "storage",
+    "unlimitedStorage",
+    "downloads",
+    "notifications",
+    "alarms",
+    "clipboardWrite"
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+G"
+      },
+      "description": "Open Pixora"
+    },
+    "capture-visible": {
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
+      "description": "Capture visible part"
+    },
+    "capture-full": {
+      "suggested_key": {
+        "default": "Alt+Shift+F"
+      },
+      "description": "Capture full page"
+    },
+    "capture-area": {
+      "suggested_key": {
+        "default": "Alt+Shift+A"
+      },
+      "description": "Capture selected area"
+    },
+    "start-recording": {
+      "description": "Start recording this tab"
+    },
+    "pause-resume-recording": {
+      "description": "Pause / resume recording"
+    },
+    "stop-recording": {
+      "description": "Stop recording"
+    },
+    "open-editor": {
+      "description": "Open screenshot editor (annotate local / clipboard image)"
+    },
+    "add-marker": {
+      "description": "Add a chapter marker while recording"
+    },
+    "toggle-annotation": {
+      "description": "Draw on the screen while recording (toggle)"
+    },
+    "flow-capture": {
+      "description": "Flow Capture: capture the current page into the running flow"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "optional_host_permissions": [
+    "<all_urls>"
+  ]
+}
