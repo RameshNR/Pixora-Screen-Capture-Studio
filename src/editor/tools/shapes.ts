@@ -557,19 +557,29 @@ function strokePath(ctx: Ctx2D, pts: Point[]): void {
 export function pointerOutline(path: Point[], width: number): Point[] {
   const w = Math.max(2, width);
   const total = pathLength(path);
-  // Bold proportions: the body ends about twice the line width wide, the head is ~6× as wide.
-  const headLen = Math.min(Math.max(w * 5.5, 22), total * 0.5);
+  // Proportions of a classic "pointer": the head is about twice as long as it is half-wide; the body
+  // widens from a thin rounded tail to about half the head's width where it meets the head.
   const headHalf = Math.max(w * 3, 12);
-  // The body ends a little inside the head, so the barbs stick out behind it.
-  const shaft = trim(path, headLen * 0.75, 'end');
-  const { left, right } = ribbon(shaft, (t) => Math.max(0.75, w * (0.15 + 0.95 * t)));
+  const headLen = Math.min(headHalf * 1.9, total * 0.5);
+  const bodyEnd = headHalf * 0.52;
+  const tail = Math.max(0.75, headHalf * 0.09);
+  // The body ends exactly at the head's straight back edge, and the barbs stick out beyond it on
+  // both sides — so the outline never crosses itself (crossing left white triangles in the fill).
+  const shaft = trim(path, headLen, 'end');
+  const { left, right } = ribbon(shaft, (t) => tail + (bodyEnd - tail) * t);
   const tip = path[path.length - 1]!;
-  const prev = pointAlong(path, Math.min(headLen, total * 0.5), 'end');
-  const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+  const base = shaft[shaft.length - 1] ?? pointAlong(path, headLen, 'end');
+  const angle = Math.atan2(tip.y - base.y, tip.x - base.x);
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
-  const at = (back: number, side: number) => ({ x: tip.x - back * cos - side * sin, y: tip.y - back * sin + side * cos });
-  return [...left, at(headLen, -headHalf), tip, at(headLen, headHalf), ...[...right].reverse()];
+  const barb = (side: number) => ({ x: base.x - side * sin, y: base.y + side * cos });
+  // The body ends exactly on the head's back edge (on a curve the body's own end edge is turned a
+  // little): drop body points past that edge and finish on it, so nothing crosses.
+  const behind = (p: Point) => (p.x - base.x) * cos + (p.y - base.y) * sin < -0.01;
+  const l = left.slice(0, -1).filter(behind);
+  const r = right.slice(0, -1).filter(behind);
+  // (ribbon's `left` is on the positive side of the direction, like `barb(+…)`.)
+  return [...l, barb(bodyEnd), barb(headHalf), tip, barb(-headHalf), barb(-bodyEnd), ...[...r].reverse()];
 }
 
 /** Block arrows: one filled (or outlined) polygon made of shaft and heads. */

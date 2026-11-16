@@ -58,7 +58,7 @@ export const PREMIUM_LINES: Array<{ id: string; label: string; patch: PremiumLin
   PL('pl-orange', 'Orange block', '#F59E0B', 24, L('none', 'triangle', 'block')),
   PL('pl-ocurve', 'Orange curve', '#F59E0B', 7, L('none', 'open', 'line', 'solid', 1)),
   PL('pl-red', 'Red swoosh', '#E5484D', 8, L('none', 'stealth', 'tapered', 'solid', 1)),
-  PL('pl-pointer', 'Red pointer', '#FF0000', 14, L('none', 'triangle', 'pointer')),
+  PL('pl-pointer', 'Red pointer', '#FF0000', 20, L('none', 'triangle', 'pointer')),
   PL('pl-loop', 'Purple loop', '#7C3AED', 6, L('none', 'open', 'loop')),
   PL('pl-dots', 'Dot connector', '#7C3AED', 6, L('circle', 'circle')),
   PL('pl-rings', 'Ring connector', '#7C3AED', 5, L('ring', 'ring', 'line', 'dashed')),
