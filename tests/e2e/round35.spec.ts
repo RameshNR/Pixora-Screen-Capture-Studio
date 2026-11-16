@@ -92,7 +92,10 @@ test('screenshot editor: select-drag pans, cut keeps zoom, image panel, compare,
   await editor.mouse.up();
   await editor.getByRole('button', { name: 'Compare with original' }).first().click();
   await expect(cmp.getByRole('radio', { name: 'Slider' })).toBeEnabled();
-  await cmp.getByRole('checkbox', { name: 'Highlight Changes' }).check({ force: true });
+  // Click the visible label like a user would (the real checkbox is visually hidden, and forcing a
+  // click on it while the window is still opening sometimes landed outside the viewport).
+  await cmp.locator('label', { hasText: 'Highlight Changes' }).click();
+  await expect(cmp.getByRole('checkbox', { name: 'Highlight Changes' })).toBeChecked();
   await expect(cmp.getByText(/% of the picture changed/)).toBeVisible();
   await cmp.getByRole('button', { name: 'Done' }).click();
 
