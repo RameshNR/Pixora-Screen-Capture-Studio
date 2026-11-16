@@ -31,6 +31,16 @@ Before every submission:
 
 **Category:** Productivity (Tools also fits) · **Language:** English
 
+**Additional fields:**
+
+| Field | Value |
+| --- | --- |
+| Official URL | empty (needs a site verified in Google Search Console; optional) |
+| Homepage URL | https://rameshnr.github.io/Pixora-Screen-Capture-Studio/ |
+| Support URL | https://github.com/RameshNR/Pixora-Screen-Capture-Studio/issues |
+| Mature content | off |
+| Item support | optional — on adds a Support tab to the listing (answer in the dashboard) |
+
 **Description:**
 
 > Pixora is a complete screen capture studio that works entirely on your computer — no account, no
