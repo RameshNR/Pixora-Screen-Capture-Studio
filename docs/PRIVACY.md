@@ -5,7 +5,7 @@ permalink: /privacy/
 
 # Pixora – Privacy Policy
 
-_Last updated: 17 November 2026_
+_Last updated: 16 November 2026_
 
 Pixora – Screen Capture Studio ("Pixora") is a browser extension for taking screenshots, recording
 the screen, and annotating the results. This policy explains what Pixora handles and where it goes.
