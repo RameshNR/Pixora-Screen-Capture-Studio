@@ -1,3 +1,8 @@
+---
+title: Privacy Policy
+permalink: /privacy/
+---
+
 # Pixora – Privacy Policy
 
 _Last updated: 16 November 2026_

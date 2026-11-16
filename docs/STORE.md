@@ -127,8 +127,11 @@ user's request and stored only on the user's device. (A picture the user asks to
 address is downloaded from that address to the device; nothing is sent.) Then certify all three
 statements (not sold, not used for unrelated purposes, not used for creditworthiness).
 
-**Privacy policy URL:** publish `docs/PRIVACY.md` at a public address (e.g. a GitHub Pages page or
-a public gist) and paste the link. The store requires a URL even when no data is collected.
+**Privacy policy URL:** https://rameshnr.github.io/Pixora-Screen-Capture-Studio/privacy/
+
+(GitHub Pages publishes the repository's `docs/` folder from `main`; `docs/PRIVACY.md` sets that
+address with `permalink: /privacy/`. Edits pushed to `main` go live within a few minutes. The store
+requires a URL even when no data is collected.)
 
 ## 4. Account and distribution
 
