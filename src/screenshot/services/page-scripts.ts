@@ -187,7 +187,7 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
      * part sits at the bottom (XRebel's toolbar) — belongs to the last screen only. Sticky elements
      * always count as "top": shown again at the end, they could stick at the top a second time.
      */
-    const place = (el: HTMLElement, r: DOMRect, fixed: boolean): Where => {
+    const place = (el: HTMLElement, r: { top: number; height: number }, fixed: boolean): Where => {
       let p = where.get(el);
       if (!p) {
         const headerLike = r.top <= vh * 0.25 && r.height <= vh * 0.5;
@@ -206,24 +206,59 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
       } else hide(el);
     };
 
-    // 1. Fixed and sticky elements on screen.
-    const walker = document.createTreeWalker(document.body ?? document.documentElement, NodeFilter.SHOW_ELEMENT);
-    let count = 0;
-    for (let node = walker.nextNode() as HTMLElement | null; node && count < 60000; node = walker.nextNode() as HTMLElement | null, count++) {
+    /**
+     * Where an element is drawn: its own box, or — for a zero-size wrapper whose visible parts
+     * overflow it (toolbars injected by dev tools often are) — the box around its visible contents,
+     * including open shadow DOM. Null when nothing of it is visible.
+     */
+    const drawnRect = (el: Element): { top: number; bottom: number; height: number } | null => {
+      const own = el.getBoundingClientRect();
+      if (own.width > 0 && own.height > 0) return own;
+      let top = Infinity;
+      let bottom = -Infinity;
+      const stack: Element[] = [...Array.from(el.children), ...(el.shadowRoot ? Array.from(el.shadowRoot.children) : [])];
+      for (let n = 0; stack.length && n < 400; n++) {
+        const d = stack.pop()!;
+        const rr = d.getBoundingClientRect();
+        if (rr.width > 0 && rr.height > 0) {
+          const cs = getComputedStyle(d);
+          if (cs.visibility !== 'hidden' && cs.opacity !== '0' && cs.display !== 'none') {
+            top = Math.min(top, rr.top);
+            bottom = Math.max(bottom, rr.bottom);
+          }
+        }
+        stack.push(...Array.from(d.children));
+        if (d.shadowRoot) stack.push(...Array.from(d.shadowRoot.children));
+      }
+      return top < bottom ? { top, bottom, height: bottom - top } : null;
+    };
+
+    // 1. Fixed and sticky elements on screen — also inside open shadow DOM (widgets injected by
+    //    dev tools / extensions). One inside a shadow tree is hidden through its outermost host, since
+    //    the capture stylesheet can't reach into the shadow tree.
+    const stack: Array<[Element, HTMLElement | null]> = [];
+    const root = document.body ?? document.documentElement;
+    for (let i = root.children.length - 1; i >= 0; i--) stack.push([root.children[i]!, null]);
+    for (let count = 0; stack.length && count < 60000; count++) {
+      const [node, host] = stack.pop()!;
       if (node.hasAttribute('data-glint-overlay')) continue;
+      for (let i = node.children.length - 1; i >= 0; i--) stack.push([node.children[i]!, host]);
+      const shadow = (node as HTMLElement).shadowRoot;
+      if (shadow) for (let i = shadow.children.length - 1; i >= 0; i--) stack.push([shadow.children[i]!, host ?? (node as HTMLElement)]);
       const style = getComputedStyle(node);
       if (style.position !== 'fixed' && style.position !== 'sticky') continue;
       if (style.display === 'none') continue;
-      if (style.visibility === 'hidden' && !hiddenSet.has(node)) continue;
-      const r = node.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue;
-      if (!hiddenSet.has(node) && (r.bottom <= 0 || r.top >= vh)) continue;
+      const target = host ?? (node as HTMLElement);
+      if (style.visibility === 'hidden' && !hiddenSet.has(target)) continue;
+      const r = drawnRect(node);
+      if (!r) continue;
+      if (!hiddenSet.has(target) && (r.bottom <= 0 || r.top >= vh)) continue;
       // A sticky element that sticks inside its own panel (a table header in a scrolling list) is
       // part of that panel's content, not a page header repeated on every frame: keep it.
-      if (style.position === 'sticky' && stickyInsidePanel(node, scroller)) continue;
+      if (style.position === 'sticky' && stickyInsidePanel(node as HTMLElement, scroller)) continue;
       // Sticky elements in the first screen are usually still in their normal place: leave them.
       if (style.position === 'sticky' && phase === 'first') continue;
-      apply(node, place(node, r, style.position === 'fixed'), style.position === 'fixed');
+      apply(target, place(target, r, style.position === 'fixed'), style.position === 'fixed');
     }
 
     // 2. Pages scrolling an inner box: everything outside the box (the header strip, side bars,
@@ -235,9 +270,10 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
         for (const sib of Array.from(parent.children) as HTMLElement[]) {
           if (sib === child || sib.hasAttribute('data-glint-overlay')) continue;
           if (/^(SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|HEAD)$/.test(sib.tagName)) continue;
-          const r = sib.getBoundingClientRect();
-          if (!hiddenSet.has(sib) && (r.width === 0 || r.height === 0)) continue;
-          apply(sib, place(sib, r, true), true);
+          // Zero-size wrappers count by what they draw (their visible contents).
+          const r = drawnRect(sib);
+          if (!r && !hiddenSet.has(sib)) continue;
+          apply(sib, place(sib, r ?? { top: 0, height: 0 }, true), true);
         }
         if (parent === document.body) break;
         child = parent;
