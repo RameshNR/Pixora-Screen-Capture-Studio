@@ -43,9 +43,17 @@
   cursor: pointer;
 }
 
+/* Add image: icon only (its name stays as the tooltip and accessible name). */
 .addBtn {
+  justify-content: center;
+  width: 30px;
+  padding: 0;
   border-color: color-mix(in srgb, var(--c-primary) 60%, var(--c-editor-border));
   background: color-mix(in srgb, var(--c-primary) 22%, transparent);
+}
+
+.addBtn span {
+  display: none;
 }
 
 .addBtn:hover,
@@ -251,11 +259,6 @@
     width: 200px;
   }
 
-  /* The title and Add image share one line: the button shows its icon only. */
-  .addBtn span {
-    display: none;
-  }
-
   .list {
     overflow-x: hidden;
   }
@@ -272,9 +275,5 @@
 @media (max-width: 900px) {
   .rail {
     width: 168px;
-  }
-
-  .addBtn span {
-    display: none;
   }
 }

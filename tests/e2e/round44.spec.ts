@@ -61,9 +61,11 @@ test('full page: a page scrolling a box under a fixed header — header once at 
       #hdr::after { content: ''; position: absolute; left: 300px; top: 100px; border: 14px solid transparent; border-top-color: rgb(0, 0, 255); }
       #main { position: absolute; top: 100px; bottom: 0; left: 0; right: 0; overflow: auto; background: rgb(220, 240, 220); }
       #content { height: 3000px; }
-      #widget { position: fixed; right: 0; bottom: 0; width: 80px; height: 60px; background: rgb(255, 0, 0); z-index: 3; }
+      /* Like XRebel's toolbar: a transparent full-height strip on the right edge, its visible box at the bottom. */
+      #strip { position: fixed; top: 0; right: 0; bottom: 0; width: 80px; z-index: 3; pointer-events: none; }
+      #widget { position: absolute; right: 0; bottom: 0; width: 80px; height: 60px; background: rgb(255, 0, 0); }
     </style>`);
-    document.body.innerHTML = '<div id="hdr"></div><div id="main"><div id="content"></div></div><div id="widget"></div>';
+    document.body.innerHTML = '<div id="hdr"></div><div id="main"><div id="content"></div></div><div id="strip"><div id="widget"></div></div>';
   });
   await page.bringToFront();
   await capture(extPage, baseUrl);

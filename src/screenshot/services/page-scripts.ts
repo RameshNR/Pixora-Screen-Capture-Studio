@@ -180,11 +180,18 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
       el.removeAttribute('data-glint-hide');
       changed = true;
     };
-    /** Where an element sits on screen, decided the first time it is seen. */
-    const place = (el: HTMLElement, r: DOMRect): Where => {
+    /**
+     * Where an element belongs, decided the first time it is seen. Only header-like elements (at the
+     * top edge, less than half the window tall) belong to the first screen; every other fixed
+     * element — a bottom bar, a floating button, or a full-height transparent strip whose visible
+     * part sits at the bottom (XRebel's toolbar) — belongs to the last screen only. Sticky elements
+     * always count as "top": shown again at the end, they could stick at the top a second time.
+     */
+    const place = (el: HTMLElement, r: DOMRect, fixed: boolean): Where => {
       let p = where.get(el);
       if (!p) {
-        p = r.top >= vh / 2 ? 'bottom' : 'top';
+        const headerLike = r.top <= vh * 0.25 && r.height <= vh * 0.5;
+        p = !fixed || headerLike ? 'top' : 'bottom';
         where.set(el, p);
       }
       return p;
@@ -216,7 +223,7 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
       if (style.position === 'sticky' && stickyInsidePanel(node, scroller)) continue;
       // Sticky elements in the first screen are usually still in their normal place: leave them.
       if (style.position === 'sticky' && phase === 'first') continue;
-      apply(node, place(node, r), style.position === 'fixed');
+      apply(node, place(node, r, style.position === 'fixed'), style.position === 'fixed');
     }
 
     // 2. Pages scrolling an inner box: everything outside the box (the header strip, side bars,
@@ -230,7 +237,7 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
           if (/^(SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|HEAD)$/.test(sib.tagName)) continue;
           const r = sib.getBoundingClientRect();
           if (!hiddenSet.has(sib) && (r.width === 0 || r.height === 0)) continue;
-          apply(sib, place(sib, r), true);
+          apply(sib, place(sib, r, true), true);
         }
         if (parent === document.body) break;
         child = parent;
