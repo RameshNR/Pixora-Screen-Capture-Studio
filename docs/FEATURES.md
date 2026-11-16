@@ -608,3 +608,14 @@ Chrome sometimes cannot open an extension's IndexedDB ("Internal error opening b
 
 - The disabled “Cloud — coming in a future release” storage choice was removed from the Record tab (with only “Local” left, the Storage menu did nothing, so it is gone too). Settings still store `local`.
 - Docs refreshed for the release: README (features, install, release build, limitations), [RELEASE_NOTES.md](RELEASE_NOTES.md), [STORE.md](STORE.md) (listing text, permission justifications incl. per-site access for *Add image › From a web address*, the images to upload), [PRIVACY.md](PRIVACY.md) and [PERMISSIONS.md](PERMISSIONS.md) (the web-address picture download), [ARCHITECTURE.md](ARCHITECTURE.md) and [DEVELOPMENT.md](DEVELOPMENT.md) (manual release checklist).
+
+## Round 44 — Full page on pages that scroll a box under a fixed header
+
+Reported on a booking site (a fixed header with a menu, the page content scrolling in a box under it, and the XRebel toolbar fixed at the bottom right):
+
+- **The header is in the image again.** Pages that scroll a full-width inner box are captured as the strip above the box (from the first screen), the whole box content, and the strip below the box (from the last screen) — not the box alone. Boxes with side bars next to them are captured as before (box only).
+- **No repeated bits:** from the second screen on, everything outside the scrolling box is hidden while capturing (only the box is used from those screens), so things that hang over it — like the menu's ▼ “current page” arrow — are not stamped on every screen.
+- **Fixed elements in the right place:** fixed elements in the top half of the window (headers) appear on the first screen only; fixed elements in the bottom half (XRebel and other toolbars, chat buttons, cookie bars) appear on the last screen only — at the bottom of the page — instead of on the first screen as well. Applies to normal pages too.
+- Elements are hidden with an attribute matched by the capture's own stylesheet instead of inline styles, so widgets that rewrite their `style` can't reappear mid-capture; everything is restored afterwards.
+- Stopped early (or the page turned out shorter): the strip below the box is left out, since bottom-fixed elements were still hidden.
+- Tests: `tests/e2e/round44.spec.ts` (box under a fixed header with a hanging arrow and a bottom-right widget: header once at the top, arrow never repeated, widget once at the bottom, full height, page restored; normal page with a fixed header and a bottom widget), `tests/unit/round44.test.ts` (strip sizes).

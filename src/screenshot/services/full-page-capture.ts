@@ -6,7 +6,7 @@ import {
   detectScrollAreas, expandScrollAreas, highlightScrollAreas, preloadLazyContent, preparePageForCapture, restorePageAfterCapture, restoreScrollAreas,
   scrollPageTo, type PageMetrics, type ScrollAreaReport,
 } from './page-scripts';
-import { framesPerPart, planFullPageCapture, stitchFrames, type CapturedFrame } from './image-stitching';
+import { addBands, framesPerPart, pageBands, planFullPageCapture, stitchFrames, type CapturedFrame } from './image-stitching';
 import { captureVisibleTabRaw, type RawCapture } from './visible-capture';
 
 const STEP_TIMEOUT_MS = 10_000;
@@ -87,16 +87,29 @@ export async function captureFullPage(
     let pageTop = 0;
     let perPart = 0;
     let userScale = 1;
+    // A page that scrolls a full-width box under a fixed header (and maybe above a footer): the strip
+    // above the box comes from the first screen and the strip below it from the last, so the image
+    // looks like the whole page instead of the box alone.
+    const bands = pageBands(metrics);
+    /** The kind of the last screen taken: the strip below the box is only right on the real last one. */
+    let lastPhase = 'only';
     /** Stitches the screens collected so far into one image (relative to the page top). */
-    const stitchPart = async () => {
+    const stitchPart = async (isFirstPart: boolean, isLastPart: boolean) => {
       const first = frames[0]!.scrollTop;
       const last = frames[frames.length - 1]!.scrollTop;
       const height = Math.min(plan.captureHeight - (first - pageTop), last - first + metrics.clip.height);
-      return stitchFrames({ frames, clip: metrics.clip, viewportWidth: metrics.viewportWidth, captureHeight: height, userScale });
+      const result = await stitchFrames({ frames, clip: metrics.clip, viewportWidth: metrics.viewportWidth, captureHeight: height, userScale });
+      const top = isFirstPart ? bands.top : 0;
+      // (Stopped early or the page collapsed: bottom-fixed parts were still hidden, so leave it out.)
+      const bottom = isLastPart && (lastPhase === 'last' || lastPhase === 'only') ? bands.bottom : 0;
+      if (!top && !bottom) return result;
+      return { canvas: addBands(result.canvas, metrics, top ? frames[0]!.bitmap : null, bottom ? frames[frames.length - 1]!.bitmap : null, top, bottom), scaled: result.scaled };
     };
     for (let i = 0; i < total; i++) {
       const target = plan.positions[i]!;
-      const actual = await run(tabId, scrollPageTo, target, opts.hideFixedElements && i > 0);
+      const phase = total === 1 ? 'only' : i === 0 ? 'first' : i === total - 1 ? 'last' : 'middle';
+      lastPhase = phase;
+      const actual = await run(tabId, scrollPageTo, target, opts.hideFixedElements, phase);
       const bitmap = await captureVisibleTabRaw(tab.windowId);
       if (i === 0) {
         pageTop = typeof actual === 'number' ? actual : target;
@@ -112,7 +125,7 @@ export async function captureFullPage(
       // before the last planned screen: that one is moved up to the page bottom and overlaps the one
       // before, so it stays in the same image.
       if (frames.length >= perPart && i + 2 < total && !stopRequested && !collapsed) {
-        const { canvas: partCanvas } = await stitchPart();
+        const { canvas: partCanvas } = await stitchPart(parts.length === 0, false);
         parts.push({ blob: await partCanvas.convertToBlob({ type: 'image/png' }), width: partCanvas.width, height: partCanvas.height });
         frames.forEach((f) => f.bitmap.close());
         // The next part starts with the next screen, exactly where this one ends.
@@ -128,7 +141,7 @@ export async function captureFullPage(
       }
     }
 
-    const { canvas, scaled } = await stitchPart();
+    const { canvas, scaled } = await stitchPart(parts.length === 0, true);
     if (scaled) notes.push('The page was too large for a full-resolution image, so it was scaled down to fit Chrome’s image size limits.');
     if (parts.length) notes.push(`The page was too tall for one image, so it is in ${parts.length + 1} images (top to bottom) — all open in the editor’s image panel.`);
     return { canvas, title: metrics.title, url: metrics.url, notes, ...(parts.length ? { parts } : {}) };

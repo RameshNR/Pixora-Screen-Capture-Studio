@@ -76,7 +76,7 @@ export function preparePageForCapture(opts: PrepareOptions): PageMetrics {
     scroller,
     originalScrollTop: scroller.scrollTop,
     originalScrollLeft: scroller.scrollLeft,
-    hidden: [] as Array<[HTMLElement, string]>,
+    hidden: [] as HTMLElement[],
     style,
   };
   if (inner) scroller.setAttribute('data-glint-scroller', '');
@@ -112,13 +112,23 @@ export async function preloadLazyContent(maxHeight: number): Promise<number> {
   return scroller.scrollHeight;
 }
 
+/** Which screen of a full-page capture is being taken. */
+export type CapturePhase = 'only' | 'first' | 'middle' | 'last';
+
 /**
- * Scrolls to `y`, waits for scroll-driven UI to settle, and — when `hideFixed` — hides every fixed /
- * sticky element currently on screen. The scan runs on *every* step because many sites only make
- * their header fixed after the page has scrolled (it would otherwise be stamped onto each frame).
- * Returns the actual scroll position.
+ * Scrolls to `y`, waits for scroll-driven UI to settle, and — when `hideFixed` — hides what would
+ * otherwise be repeated on every screen:
+ *  - fixed / sticky elements on screen (scanned on *every* step, because many sites only make their
+ *    header fixed after the page has scrolled). Those in the top half (headers) stay on the first
+ *    screen; those in the bottom half (chat buttons, cookie bars, toolbars like XRebel) show only on
+ *    the last screen, where they belong at the bottom of the page;
+ *  - on pages that scroll an inner box under a fixed header (`data-glint-scroller`), everything
+ *    outside that box from the second screen on — including bits that hang over it, like a menu's
+ *    “current page” arrow — since only the box is used from those screens.
+ * Elements are hidden by an attribute matched in the capture stylesheet, so a widget that rewrites
+ * its own `style` can't bring itself back. Returns the actual scroll position.
  */
-export async function scrollPageTo(y: number, hideFixed: boolean): Promise<number> {
+export async function scrollPageTo(y: number, hideFixed: boolean, phase: CapturePhase = 'middle'): Promise<number> {
   // Injected with executeScript: helpers must live inside the function.
   /** True when a sticky element's nearest scrolling ancestor is a panel, not the page. */
   const stickyInsidePanel = (el: HTMLElement, pageScroller: HTMLElement): boolean => {
@@ -129,8 +139,12 @@ export async function scrollPageTo(y: number, hideFixed: boolean): Promise<numbe
     }
     return false;
   };
+  type Where = 'top' | 'bottom';
   const w = window as unknown as Window & {
-    __glintCapture?: { scroller: HTMLElement; hidden: Array<[HTMLElement, string]>; hiddenSet?: WeakSet<HTMLElement> };
+    __glintCapture?: {
+      scroller: HTMLElement; hidden: HTMLElement[]; style: HTMLStyleElement;
+      hiddenSet?: Set<HTMLElement>; where?: WeakMap<HTMLElement, Where>; hideRule?: boolean;
+    };
   };
   const state = w.__glintCapture;
   const scroller = state?.scroller ?? ((document.scrollingElement || document.documentElement) as HTMLElement);
@@ -142,26 +156,86 @@ export async function scrollPageTo(y: number, hideFixed: boolean): Promise<numbe
   await frames();
   await wait(150);
 
-  if (hideFixed && state) {
-    if (!state.hiddenSet) state.hiddenSet = new WeakSet();
+  if (hideFixed && state && phase !== 'only') {
+    if (!state.hiddenSet) state.hiddenSet = new Set();
+    if (!state.where) state.where = new WeakMap();
+    if (!state.hideRule) {
+      state.style.textContent += '[data-glint-hide]{visibility:hidden!important;}';
+      state.hideRule = true;
+    }
     const vh = window.innerHeight;
+    const hiddenSet = state.hiddenSet;
+    const where = state.where;
     let changed = false;
+    const hide = (el: HTMLElement) => {
+      if (hiddenSet.has(el)) return;
+      hiddenSet.add(el);
+      state.hidden.push(el);
+      el.setAttribute('data-glint-hide', '');
+      changed = true;
+    };
+    const show = (el: HTMLElement) => {
+      if (!hiddenSet.has(el)) return;
+      hiddenSet.delete(el);
+      el.removeAttribute('data-glint-hide');
+      changed = true;
+    };
+    /** Where an element sits on screen, decided the first time it is seen. */
+    const place = (el: HTMLElement, r: DOMRect): Where => {
+      let p = where.get(el);
+      if (!p) {
+        p = r.top >= vh / 2 ? 'bottom' : 'top';
+        where.set(el, p);
+      }
+      return p;
+    };
+    /** First screen: keep the top ones; middle screens: none; last screen: only the bottom ones. */
+    const apply = (el: HTMLElement, p: Where, fixedOnly: boolean) => {
+      if (phase === 'first') {
+        if (p === 'bottom' && fixedOnly) hide(el);
+      } else if (phase === 'last') {
+        if (p === 'bottom') show(el);
+        else hide(el);
+      } else hide(el);
+    };
+
+    // 1. Fixed and sticky elements on screen.
     const walker = document.createTreeWalker(document.body ?? document.documentElement, NodeFilter.SHOW_ELEMENT);
     let count = 0;
     for (let node = walker.nextNode() as HTMLElement | null; node && count < 60000; node = walker.nextNode() as HTMLElement | null, count++) {
-      if (state.hiddenSet.has(node)) continue;
+      if (node.hasAttribute('data-glint-overlay')) continue;
       const style = getComputedStyle(node);
       if (style.position !== 'fixed' && style.position !== 'sticky') continue;
-      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      if (style.display === 'none') continue;
+      if (style.visibility === 'hidden' && !hiddenSet.has(node)) continue;
       const r = node.getBoundingClientRect();
-      if (r.bottom <= 0 || r.top >= vh || r.width === 0 || r.height === 0) continue;
+      if (r.width === 0 || r.height === 0) continue;
+      if (!hiddenSet.has(node) && (r.bottom <= 0 || r.top >= vh)) continue;
       // A sticky element that sticks inside its own panel (a table header in a scrolling list) is
       // part of that panel's content, not a page header repeated on every frame: keep it.
       if (style.position === 'sticky' && stickyInsidePanel(node, scroller)) continue;
-      state.hiddenSet.add(node);
-      state.hidden.push([node, node.style.getPropertyValue('visibility')]);
-      node.style.setProperty('visibility', 'hidden', 'important');
-      changed = true;
+      // Sticky elements in the first screen are usually still in their normal place: leave them.
+      if (style.position === 'sticky' && phase === 'first') continue;
+      apply(node, place(node, r), style.position === 'fixed');
+    }
+
+    // 2. Pages scrolling an inner box: everything outside the box (the header strip, side bars,
+    //    overlays that hang over the box). Only the box is used from screens after the first.
+    if (scroller.hasAttribute('data-glint-scroller')) {
+      let child: HTMLElement = scroller;
+      let parent = scroller.parentElement;
+      while (parent) {
+        for (const sib of Array.from(parent.children) as HTMLElement[]) {
+          if (sib === child || sib.hasAttribute('data-glint-overlay')) continue;
+          if (/^(SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|HEAD)$/.test(sib.tagName)) continue;
+          const r = sib.getBoundingClientRect();
+          if (!hiddenSet.has(sib) && (r.width === 0 || r.height === 0)) continue;
+          apply(sib, place(sib, r), true);
+        }
+        if (parent === document.body) break;
+        child = parent;
+        parent = parent.parentElement;
+      }
     }
     if (changed) await frames();
   }
@@ -176,16 +250,13 @@ export function restorePageAfterCapture(): void {
       scroller: HTMLElement;
       originalScrollTop: number;
       originalScrollLeft: number;
-      hidden: Array<[HTMLElement, string]>;
+      hidden: HTMLElement[];
       style: HTMLStyleElement;
     };
   };
   const state = w.__glintCapture;
   if (!state) return;
-  for (const [el, prev] of state.hidden) {
-    if (prev) el.style.setProperty('visibility', prev);
-    else el.style.removeProperty('visibility');
-  }
+  for (const el of state.hidden) el.removeAttribute('data-glint-hide');
   state.style.remove();
   state.scroller.removeAttribute('data-glint-scroller');
   state.scroller.scrollTop = state.originalScrollTop;

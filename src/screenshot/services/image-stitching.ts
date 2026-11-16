@@ -27,6 +27,56 @@ export function planFullPageCapture(totalHeight: number, viewportHeight: number,
   return { positions: unique, captureHeight, truncated };
 }
 
+/**
+ * A page that scrolls a full-width inner box under a fixed header / above a fixed footer: the CSS
+ * heights of the strips above and below the box, which the image takes once (from the first and the
+ * last screen). Zero for normal pages and for boxes with side bars next to them.
+ */
+export function pageBands(m: {
+  usesInnerScroller: boolean;
+  viewportWidth: number;
+  viewportHeight: number;
+  clip: { x: number; y: number; width: number; height: number };
+}): { top: number; bottom: number } {
+  const { clip } = m;
+  if (!m.usesInnerScroller) return { top: 0, bottom: 0 };
+  const fullWidth = clip.x <= 4 && clip.x + clip.width >= m.viewportWidth - 24;
+  if (!fullWidth) return { top: 0, bottom: 0 };
+  return {
+    top: Math.max(0, Math.round(clip.y)),
+    bottom: Math.max(0, Math.round(m.viewportHeight - (clip.y + clip.height))),
+  };
+}
+
+/**
+ * Adds the strip above the scrolled box (from the first screen) and below it (from the last screen)
+ * to a stitched image of the box, at the same scale.
+ */
+export function addBands(
+  content: OffscreenCanvas,
+  m: { viewportWidth: number; clip: { x: number; y: number; width: number; height: number } },
+  topFrame: ImageBitmap | null,
+  bottomFrame: ImageBitmap | null,
+  top: number,
+  bottom: number,
+): OffscreenCanvas {
+  const px = content.width / m.clip.width;
+  const topPx = topFrame ? Math.round(top * px) : 0;
+  const bottomPx = bottomFrame ? Math.round(bottom * px) : 0;
+  const out = new OffscreenCanvas(content.width, content.height + topPx + bottomPx);
+  const ctx = out.getContext('2d');
+  if (!ctx) throw new Error('2D context unavailable');
+  ctx.imageSmoothingQuality = 'high';
+  const strip = (bmp: ImageBitmap, cssY: number, cssH: number, destY: number, destH: number) => {
+    const ratio = bmp.width / m.viewportWidth;
+    ctx.drawImage(bmp, Math.round(m.clip.x * ratio), Math.round(cssY * ratio), Math.round(m.clip.width * ratio), Math.round(cssH * ratio), 0, destY, out.width, destH);
+  };
+  if (topFrame && topPx) strip(topFrame, m.clip.y - top, top, 0, topPx);
+  ctx.drawImage(content, 0, topPx);
+  if (bottomFrame && bottomPx) strip(bottomFrame, m.clip.y + m.clip.height, bottom, topPx + content.height, bottomPx);
+  return out;
+}
+
 /** Largest part of a split full-page capture, in device pixels (tall images get slow to edit). */
 export const PART_MAX_PX = 24_000;
 

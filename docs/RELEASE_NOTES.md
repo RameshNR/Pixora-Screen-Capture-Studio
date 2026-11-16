@@ -11,6 +11,9 @@ own computer. No account, no uploads, no tracking.
   included (a chooser shows each one on the page), sticky table headers kept. Progress and **Stop**
   open in Pixora's popup. Pages taller than one image allows (~32 000 px) are saved as several
   full-resolution images; the limit is 100 000 px by default and up to 500 000 px in Settings.
+- Pages that scroll a box under a fixed header (booking systems, web apps) are captured with their
+  header once at the top; headers, menu arrows and toolbars fixed to the window (like XRebel) are
+  never repeated — top ones appear once at the top, bottom ones once at the bottom.
 - Entire screen / app window: a countdown (3 s or more, set in Settings) after you pick, so you can
   get the screen ready; optionally without the taskbar.
 - On-device text recognition (OCR) and sensitive-information detection.
