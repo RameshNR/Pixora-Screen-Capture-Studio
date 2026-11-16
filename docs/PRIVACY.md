@@ -5,7 +5,7 @@ permalink: /privacy/
 
 # Pixora – Privacy Policy
 
-_Last updated: 16 November 2026_
+_Last updated: 17 November 2026_
 
 Pixora – Screen Capture Studio ("Pixora") is a browser extension for taking screenshots, recording
 the screen, and annotating the results. This policy explains what Pixora handles and where it goes.
@@ -29,8 +29,13 @@ or share data with anyone.
 | The folder you choose for saving (optional) | When you pick one in Settings | A handle to that folder, in your browser; you can remove it in Settings |
 | A picture you add from a web address (optional) | Only when you type or paste the address in *Add image › From a web address* | Pixora downloads that picture from the address (without your cookies) and keeps it with your captures. Like any download, the site you named receives the request; Pixora sends it nothing else |
 
-Pixora does **not** collect personally identifiable information, health, financial, authentication
-or location data, personal communications, or web history, and it does not track what you browse.
+In the Chrome Web Store's terms, Pixora therefore handles three kinds of user data — **website
+content** (what you capture), **user activity** (the clicks and steps of a Flow Capture, and the
+mouse position and clicks used for click effects and zoom while you record) and **web history** (the
+address and title of each page you capture, with the time) — only on your computer, only for
+capturing, and never sends them anywhere. Pixora does **not** ask for or keep personally identifiable
+information, health, financial, authentication or location data, or personal communications, and it
+does not track what you browse outside the captures you make.
 
 ## Sharing
 

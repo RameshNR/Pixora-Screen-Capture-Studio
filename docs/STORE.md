@@ -131,11 +131,20 @@ product. Don't put personal data (emails, names, accounts) in them.
 **Remote code:** No, I am not using remote code. (All code, the OCR engine and its language data
 are in the package. `wasm-unsafe-eval` is only for the bundled OCR WebAssembly.)
 
-**Data usage** — tick **none** of the data types. Pixora does not collect or transmit any user data
-to the developer or anyone else; captures, recordings and Flow Capture steps are created at the
-user's request and stored only on the user's device. (A picture the user asks to add from a web
-address is downloaded from that address to the device; nothing is sent.) Then certify all three
-statements (not sold, not used for unrelated purposes, not used for creditworthiness).
+**Data usage** — Google requires disclosing data an extension *handles*, even when it is only
+processed and stored on the user's device ([User Data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq):
+“Extensions are required to disclose how they handle user data, even when data is processed or
+stored locally on a user's device”; screenshots are its own example). Tick:
+
+- ☑ **Website content** — screenshots, recordings, recognised text
+- ☑ **User activity** — Flow Capture clicks / steps; clicks and mouse position for click effects and zoom while recording
+- ☑ **Web history** — the page address, title and time stored with each capture and Flow Capture step
+
+Leave unticked: personally identifiable information, health, financial and payment, authentication
+(passwords are masked and never stored), personal communications, location.
+
+Then certify all three statements (not sold or transferred, not used for unrelated purposes, not used
+for creditworthiness). The privacy policy describes the same three kinds of data, kept on the device.
 
 **Privacy policy URL:** https://rameshnr.github.io/Pixora-Screen-Capture-Studio/privacy/
 
