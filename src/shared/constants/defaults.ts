@@ -2,7 +2,7 @@ import type { Settings } from '../types';
 
 export const APP_NAME = 'Pixora';
 export const SETTINGS_STORAGE_KEY = 'glint.settings';
-export const SETTINGS_VERSION = 7;
+export const SETTINGS_VERSION = 8;
 
 export const DEFAULT_FILENAME_PATTERN = 'Pixora {type} {date} at {time}';
 
@@ -75,7 +75,7 @@ export const DEFAULT_SETTINGS: Settings = {
     cursorEffects: {
       cursor: false, cursorSize: 36, cursorColor: '#FFD84D', style: 'ring', leftColor: '#4F8DF7', rightColor: '#E05252', radius: 26,
       opacity: 0.85, durationMs: 600,
-      pointer: false, pointerDesign: 'arrow', pointerSize: 28, pointerColor: '#FFFFFF', pointerOutline: '#111827', smoothing: 0.6, hideSystemCursor: false,
+      pointer: false, pointerDesign: 'arrow', pointerSize: 28, pointerColor: '#FFFFFF', pointerOutline: '#111827', smoothing: 0, hideSystemCursor: false,
     },
     zoom: { autoOnClick: false, level: 2, transitionMs: 600, holdMs: 1800, easing: 'ease-in-out' },
     spotlight: { radius: 0.18, dim: 0.6 },

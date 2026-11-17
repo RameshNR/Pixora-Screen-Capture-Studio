@@ -242,7 +242,7 @@ export function AdvancedRecordingSettings({ settings, updateRec, updateSchedule,
               <Slider label="Cursor size" min={14} max={96} value={rec.cursorEffects.pointerSize ?? 28} format={(v) => `${v}px`} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerSize: v } })} />
               <ColorRow label="Cursor colour" value={rec.cursorEffects.pointerColor ?? '#FFFFFF'} onChange={(c) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerColor: c } })} />
               <ColorRow label="Outline colour" value={rec.cursorEffects.pointerOutline ?? '#111827'} onChange={(c) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerOutline: c } })} />
-              <Slider label="Smooth movement" min={0} max={0.9} step={0.05} value={rec.cursorEffects.smoothing ?? 0.6} format={(v) => (v < 0.05 ? 'Off' : `${Math.round(v * 100)}%`)} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, smoothing: v } })} />
+              <Slider label="Smooth movement" min={0} max={0.9} step={0.05} value={rec.cursorEffects.smoothing ?? 0} format={(v) => (v < 0.05 ? 'Off' : `${Math.round(v * 100)}%`)} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, smoothing: v } })} />
               <Line label="Hide the real cursor" hint="In the recorded page only, so the styled cursor is the one people see">
                 <ToggleSwitch size="sm" label="Hide the real cursor" checked={Boolean(rec.cursorEffects.hideSystemCursor)} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, hideSystemCursor: v } })} />
               </Line>

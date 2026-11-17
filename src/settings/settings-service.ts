@@ -38,6 +38,8 @@ export function normalizeSettings(raw: unknown): Settings {
   if (from < 6) s.recording.controlBar = false;
   // v7: long pages are split into several full-resolution images, so the default limit is much higher.
   if (from < 7 && s.screenshot.fullPage.maxHeight === 30000) s.screenshot.fullPage.maxHeight = 100000;
+  // v8: the styled recording pointer follows the mouse exactly (the 60% glide trailed behind it).
+  if (from < 8 && s.recording.cursorEffects?.smoothing === 0.6) s.recording.cursorEffects.smoothing = 0;
   s.version = DEFAULT_SETTINGS.version;
   s.screenshot.quality = Math.min(1, Math.max(0.1, s.screenshot.quality));
   s.screenshot.delaySeconds = Math.min(300, Math.max(0, Math.round(s.screenshot.delaySeconds)));

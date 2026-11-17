@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, ChevronDown, Mic, MicOff, PanelsTopLeft } from 'lucide-react';
+import { Camera, CameraOff, ChevronDown, Mic, MicOff, PanelsTopLeft, Volume2, VolumeX } from 'lucide-react';
 import type { RecordingSettings } from '@/shared/types';
 import { Tooltip } from '@/shared/components/Tooltip';
 import { Select } from '@/shared/components/Dropdown';
@@ -342,6 +342,35 @@ function PermissionPrompt({ kind }: { kind: 'camera' | 'microphone' }) {
 }
 
 /* ------------------------------- Control bar ----------------------------- */
+/**
+ * System sound (what the computer plays) in screen / window / tab recordings. For a screen, Chrome's
+ * share dialog also shows "Share system audio", which must stay ticked.
+ */
+export function SystemSoundToggle({ rec, update }: { rec: RecordingSettings; update: RecUpdate }) {
+  const camera = rec.mode === 'camera';
+  const on = rec.systemAudio && !camera;
+  const tip = camera
+    ? 'System sound: not used for Camera Only recordings'
+    : `System sound: ${on ? 'on' : 'off'}${on && rec.mode === 'desktop' ? ' — keep “Share system audio” ticked in Chrome’s share dialog' : ''}`;
+  return (
+    <div className={styles.split}>
+      <Tooltip content={tip}>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="System sound"
+          disabled={camera}
+          className={`${styles.splitMain} ${on ? styles.splitOn : ''}`}
+          onClick={() => update({ systemAudio: !rec.systemAudio })}
+        >
+          {on ? <Volume2 size={18} /> : <VolumeX size={18} />}
+        </button>
+      </Tooltip>
+    </div>
+  );
+}
+
 export function ControlBarToggle({ rec, update }: { rec: RecordingSettings; update: RecUpdate }) {
   return (
     <div className={styles.controlBarBox}>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { planEncoding, type EncodingAnswer } from '@/recording/services/codec-service';
+import { normalizeSettings } from '@/settings/settings-service';
+import { glideAlpha } from '@/shared/utils/cursor-glide';
 
 const all = () => true;
 /** A graphics card that hardware-encodes H.264 up to `maxW` wide (VP9 only in software). */
@@ -37,5 +39,15 @@ describe('recording: a format the graphics card can encode (the computer stays r
   it('a 1080p screen is never shrunk further; errors from the browser are ignored', async () => {
     const hd = { width: 1920, height: 1080 };
     expect(await planEncoding(hd, opts, all, async () => { throw new Error('unsupported query'); })).toEqual({ size: hd, videoCodec: 'auto', efficient: false });
+  });
+});
+
+describe('recording pointer: follows the mouse exactly by default', () => {
+  it('v8: the old 60% glide is switched off; another chosen value is kept', () => {
+    const old = (smoothing: number) => normalizeSettings({ version: 7, recording: { cursorEffects: { pointer: true, smoothing } } }).recording.cursorEffects.smoothing;
+    expect(old(0.6)).toBe(0);
+    expect(old(0.3)).toBe(0.3);
+    expect(normalizeSettings({}).recording.cursorEffects.smoothing).toBe(0);
+    expect(glideAlpha(16, 0)).toBe(1); // no glide: the whole distance at once
   });
 });

@@ -117,9 +117,16 @@
   min-width: 0;
 }
 
-/* Recent captures and the settings pages use the whole width of the window. */
+/* Recent captures uses the whole width of the window … */
 .wide {
   width: 100%;
+}
+
+/* … settings pages a readable width (name and control close together), centred. */
+.narrow {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
 }
 
 @media (max-width: 760px) {

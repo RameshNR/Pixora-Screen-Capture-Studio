@@ -431,6 +431,8 @@ function init(): void {
     let hideStyle: HTMLStyleElement | null = null;
     const target = { x: -100, y: -100 };
     const cur = { x: -100, y: -100 };
+    /** The pointer glides towards the mouse (smoothing on); otherwise it is moved in the mouse event. */
+    let glide = false;
     let pointerOffset = { x: 0, y: 0 };
     if (styled && fx) {
       const design = fx.pointerDesign ?? 'arrow';
@@ -461,7 +463,8 @@ function init(): void {
         hideStyle.textContent = '*, *::before, *::after { cursor: none !important; }';
         document.documentElement.appendChild(hideStyle);
       }
-      const smoothing = fx.smoothing ?? 0.6;
+      const smoothing = fx.smoothing ?? 0;
+      glide = smoothing >= 0.05;
       let last = performance.now();
       const tick = (now: number) => {
         // Glide towards the mouse (time-based, short: smooth on video without trailing behind).
@@ -474,7 +477,8 @@ function init(): void {
         if (pointerEl) pointerEl.style.transform = `translate(${cur.x - pointerOffset.x}px, ${cur.y - pointerOffset.y}px)`;
         pointerRaf = requestAnimationFrame(tick);
       };
-      pointerRaf = requestAnimationFrame(tick);
+      // Without glide the pointer is moved in the mouse event itself (no frame of delay).
+      if (glide) pointerRaf = requestAnimationFrame(tick);
     }
     // Cursor positions for zoom / spotlight in the recording (sent only while recording, only to Pixora).
     let port: chrome.runtime.Port | null = null;
@@ -502,6 +506,11 @@ function init(): void {
         }
         target.x = e.clientX;
         target.y = e.clientY;
+        if (!glide) {
+          cur.x = e.clientX;
+          cur.y = e.clientY;
+          pointerEl.style.transform = `translate(${cur.x - pointerOffset.x}px, ${cur.y - pointerOffset.y}px)`;
+        }
       }
       if (halo) {
         halo.style.display = 'block';

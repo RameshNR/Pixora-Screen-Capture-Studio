@@ -388,7 +388,7 @@
 /* ------------------------------ Device controls --------------------------- */
 .deviceRow {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto auto auto 1fr;
   gap: 8px;
 }
 
@@ -1354,4 +1354,14 @@
   font-weight: 600;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* A short, quiet hint under the recording controls. */
+.tip {
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--c-bg-subtle);
+  color: var(--c-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.45;
 }

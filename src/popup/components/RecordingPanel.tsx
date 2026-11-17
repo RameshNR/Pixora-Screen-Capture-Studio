@@ -12,7 +12,7 @@ import type { ActiveTabInfo } from '../hooks/useActiveTab';
 import { openPermissionPage, useMediaDevices } from '../hooks/useMediaDevices';
 import { ActionRow, FeatureRow, RecordingModeCard } from './CaptureModeCard';
 import { FlowRecordingOptions, requestFlowAccess } from './FlowSetup';
-import { CameraControl, ControlBarToggle, MicControl } from './AudioControls';
+import { CameraControl, ControlBarToggle, MicControl, SystemSoundToggle } from './AudioControls';
 import { RecordingToolbar } from './RecordingToolbar';
 import { ActiveRecording, command } from './ActiveRecording';
 import styles from '../styles/popup.module.css';
@@ -106,8 +106,15 @@ export function RecordingPanel({ settings, updateRec, updateFlow, activeTab, sta
       <div className={styles.deviceRow}>
         <CameraControl rec={rec} update={updateRec} devices={devices} locked={rec.mode === 'camera'} />
         <MicControl rec={rec} update={updateRec} devices={devices} />
+        <SystemSoundToggle rec={rec} update={updateRec} />
         <ControlBarToggle rec={rec} update={updateRec} />
       </div>
+      {rec.mode === 'desktop' && (
+        <div className={styles.tip}>
+          Recording a whole screen? Chrome shows a “sharing your screen” bar — click <b>Hide</b> on it during the countdown so it isn’t recorded.
+          {rec.systemAudio ? <> Keep <b>Share system audio</b> ticked in Chrome’s dialog for sound.</> : null}
+        </div>
+      )}
 
       <RecordingToolbar rec={rec} update={updateRec} onMore={onMore} />
 

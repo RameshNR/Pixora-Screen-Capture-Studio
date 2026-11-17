@@ -118,10 +118,10 @@ describe('device mockups', () => {
 });
 
 describe('recording cursor', () => {
-  it('has a styled, smoothed cursor available (off by default)', () => {
+  it('has a styled cursor available (off by default), following the mouse exactly unless smoothing is chosen', () => {
     const fx = DEFAULT_SETTINGS.recording.cursorEffects;
     expect(fx.pointer).toBe(false);
     expect(fx.pointerDesign).toBe('arrow');
-    expect(fx.smoothing).toBeGreaterThan(0);
+    expect(fx.smoothing).toBe(0);
   });
 });
