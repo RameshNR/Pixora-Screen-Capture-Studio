@@ -9,7 +9,7 @@ site access is described below).
 | `activeTab` | Capturing the visible tab, and injecting the overlay/full-page helpers into the tab you invoked Pixora on |
 | `scripting` | Injecting the area selector, countdown, click effects, cursor tracking, live drawing and full-page scroll helpers, only after a user action |
 | `tabCapture` | Recording "This Tab" and "Custom (This Tab)" |
-| `desktopCapture` | Chrome's screen / window / tab picker for desktop recording and "Entire Screen & App Window" screenshots |
+| `desktopCapture` | Chrome's screen / window / tab picker for desktop recording, "Entire Screen & App Window" screenshots and the optional real browser header (tabs, address bar, bookmarks) on screenshots |
 | `system.display` | Reads each monitor's work area so "without taskbar" screenshots and recordings can leave out the taskbar / dock, and places Pixora's small windows (countdown, optional control bar) on screen (no user-visible warning) |
 | `offscreen` | A hidden document that runs MediaRecorder for tab recordings (service workers can't) and creates download URLs |
 | `storage` | Settings, editor preferences and recording state |

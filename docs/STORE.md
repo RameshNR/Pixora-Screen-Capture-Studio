@@ -117,7 +117,7 @@ product. Don't put personal data (emails, names, accounts) in them.
 | `activeTab` | Capture the tab the user invoked Pixora on (toolbar button or shortcut) and add the capture helpers to it. |
 | `scripting` | After a user action, inject the area selector, countdown, full-page scrolling helper, click / key highlights, live drawing and Flow Capture step tracker into that tab. |
 | `tabCapture` | Record the current tab's video and audio when the user chooses "This tab". |
-| `desktopCapture` | Show Chrome's screen / window picker when the user records or screenshots the desktop or a window. |
+| `desktopCapture` | Show Chrome's screen / window picker when the user records or screenshots the desktop or a window, or (optional setting) adds the real browser header — tabs, address bar, bookmarks — to a screenshot. |
 | `system.display` | Read monitor work areas so captures can leave out the taskbar and Pixora's windows are placed on screen. |
 | `offscreen` | Run MediaRecorder and video processing in an offscreen document (a service worker cannot record). |
 | `storage` | Save settings and the current recording / capture state. |

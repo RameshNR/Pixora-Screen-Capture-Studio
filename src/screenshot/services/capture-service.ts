@@ -11,7 +11,8 @@ import { downloadCaptureFromBackground } from '@/background/download-manager';
 import { injectOverlay, sendOverlay } from '@/background/overlay';
 import { captureArea } from './area-capture';
 import { captureFullPage } from './full-page-capture';
-import { captureVisible, type RawCapture } from './visible-capture';
+import { captureVisible, getPageInfo, type RawCapture } from './visible-capture';
+import { addHeaderToCapture, captureBrowserHeader } from './header-capture';
 import { addAreaImage, cancelPendingCapture, takePendingFlowArea } from '@/background/flow-manager';
 
 interface PendingArea {
@@ -55,6 +56,7 @@ export async function takeScreenshot(
       const current = opts.delaySeconds ? (await chrome.tabs.query({ active: true, windowId: tab.windowId }))[0] ?? tab : tab;
       raw = await captureVisible(current, settings.screenshot.scale);
     }
+    if (settings.screenshot.browserHeader) raw = await withBrowserHeader(raw, tab, settings);
     await finishScreenshot(raw, settings, tab, Boolean(opts.ocr));
   } catch (err) {
     await reportCaptureError(err, settings);
@@ -95,6 +97,25 @@ export async function completeAreaScreenshot(rect: PixelRect, viewport: { width:
 export async function cancelAreaScreenshot(): Promise<void> {
   await cancelPendingCapture();
   await chrome.storage.session.remove(PENDING_AREA_KEY);
+}
+
+/**
+ * "Include browser header": the real tabs / address bar / bookmarks on top. Skipped or failed
+ * (dialog closed, another window picked) → the screenshot is kept as it is.
+ */
+async function withBrowserHeader(raw: RawCapture, tab: chrome.tabs.Tab, settings: Settings): Promise<RawCapture> {
+  await clearBadge();
+  const header = await captureBrowserHeader(tab.windowId);
+  if (!header) return raw;
+  try {
+    const dpr = (await getPageInfo(tab)).dpr || 1;
+    return await addHeaderToCapture(raw, header, settings.screenshot.scale === 'css' && dpr > 1 ? 1 / dpr : 1);
+  } catch (err) {
+    logger.warn('browser header not added', err);
+    return raw;
+  } finally {
+    header.close();
+  }
 }
 
 /** Opens Pixora's popup (it shows the running capture); ignored where Chrome doesn't allow it. */

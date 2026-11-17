@@ -112,3 +112,42 @@ for (const lay of LAYOUTS) {
     expect(await page.evaluate(() => document.querySelector('style[data-glint-capture]'))).toBeNull();
   });
 }
+
+test('screenshot editor: the picture never goes blank while the window is resized', async ({ context, extensionId }) => {
+  const editor = await context.newPage();
+  await editor.setViewportSize({ width: 1500, height: 900 });
+  await editor.goto(`chrome-extension://${extensionId}/editor.html?import=1`);
+  const png = Buffer.from(await editor.evaluate(async () => { const c = new OffscreenCanvas(1600, 900); const x = c.getContext('2d')!; x.fillStyle = '#dde'; x.fillRect(0, 0, 1600, 900); return Array.from(new Uint8Array(await (await c.convertToBlob()).arrayBuffer())); }));
+  await editor.locator('input[type="file"]').first().setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: png });
+  await expect(editor.getByRole('img', { name: 'Screenshot canvas' })).toBeVisible();
+  await editor.waitForTimeout(500);
+  // Look at the middle of the canvas between every task (where the browser may paint): it must
+  // always show the picture, never a cleared canvas.
+  await editor.evaluate(() => {
+    const w = window as unknown as { __blank: number; __samples: number };
+    w.__blank = 0;
+    w.__samples = 0;
+    const canvas = document.querySelector('canvas')!;
+    const ctx = canvas.getContext('2d')!;
+    const ch = new MessageChannel();
+    const end = Date.now() + 4000;
+    ch.port1.onmessage = () => {
+      const a = ctx.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data[3]!;
+      w.__samples++;
+      if (a === 0) w.__blank++;
+      if (Date.now() < end) ch.port2.postMessage(0);
+    };
+    ch.port2.postMessage(0);
+  });
+  for (const [width, height] of [[1300, 820], [1100, 760], [1400, 880], [1000, 700], [1250, 800]] as const) {
+    await editor.setViewportSize({ width, height });
+    await editor.waitForTimeout(300);
+  }
+  await editor.waitForTimeout(1000);
+  const r = await editor.evaluate(() => {
+    const w = window as unknown as { __blank: number; __samples: number };
+    return { blank: w.__blank, samples: w.__samples };
+  });
+  expect(r.samples).toBeGreaterThan(50);
+  expect(r.blank).toBe(0);
+});

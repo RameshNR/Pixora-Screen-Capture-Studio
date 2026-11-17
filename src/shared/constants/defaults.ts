@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
     excludeTaskbar: false,
     desktopDelaySeconds: 3,
     autoFrame: { browser: false, background: false, border: false },
+    browserHeader: false,
   },
   recording: {
     mode: 'desktop',

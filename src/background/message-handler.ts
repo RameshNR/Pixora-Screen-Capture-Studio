@@ -3,6 +3,7 @@ import { fail, ok } from '@/shared/messaging/client';
 import { logger } from '@/shared/utils/logger';
 import { cancelAreaScreenshot, completeAreaScreenshot, takeScreenshot } from '@/screenshot/services/capture-service';
 import { findScrollAreas, highlightScrollArea, requestFullPageStop } from '@/screenshot/services/full-page-capture';
+import { onHeaderResult } from '@/screenshot/services/header-capture';
 import {
   getPending, getRecordingState, onAreaCancelled, onAreaSelected, onHostEvent, onHostFinished, resizeControlBar,
   sendCommand, startRecording,
@@ -40,6 +41,10 @@ async function handle(msg: BackgroundMessage, sender: chrome.runtime.MessageSend
       return takeScreenshot(msg.mode, msg.tabId, { delaySeconds: msg.delaySeconds, ocr: msg.ocr, scrollAreas: msg.scrollAreas });
     case 'screenshot/scroll-areas':
       return findScrollAreas(msg.tabId);
+    case 'screenshot/header':
+      // Only Pixora's own header window (never a web page) supplies it.
+      if (!fromContentScript(sender)) onHeaderResult(msg.dataUrl);
+      return null;
     case 'screenshot/stop-full':
       // Only Pixora's own progress window (not a web page) can stop it.
       if (!fromContentScript(sender)) requestFullPageStop();

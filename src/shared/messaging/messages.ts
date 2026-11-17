@@ -53,6 +53,8 @@ export type BackgroundMessage =
   | { target: 'background'; type: 'flow/undo' }
   | { target: 'background'; type: 'flow/minimize'; minimized: boolean }
   | { target: 'background'; type: 'flow/page-image'; item: FlowItem | null }
+  /** From Pixora's header window: the browser header strip (PNG data URL), or null when skipped. */
+  | { target: 'background'; type: 'screenshot/header'; dataUrl: string | null }
   | { target: 'background'; type: 'history/open'; captureId: string }
   | { target: 'background'; type: 'schedule/update' };
 
@@ -169,6 +171,8 @@ export function isBackgroundMessage(msg: unknown): msg is BackgroundMessage {
           msg.scrollAreas.every((a) => isObj(a) && isNum(a.index) && isNum(a.screens) && a.screens >= 0 && a.screens <= 200)));
     case 'screenshot/stop-full':
       return true;
+    case 'screenshot/header':
+      return msg.dataUrl === null || (isStr(msg.dataUrl) && msg.dataUrl.startsWith('data:image/png;base64,') && msg.dataUrl.length < 40_000_000);
     case 'screenshot/scroll-areas':
       return isNum(msg.tabId);
     case 'screenshot/highlight-area':

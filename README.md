@@ -19,6 +19,7 @@ task you click through into a guide with a picture of every step.
 ### Screenshots
 - **Visible part, full page, selected area, delayed** (3–300 s), **entire screen or app window** (with a countdown, optionally without the taskbar).
 - **Full pages of any length:** fixed headers handled, lazy content loaded, panels that scroll on their own included (you choose which), table headers kept. Pages too tall for one image are saved as several full-resolution images. Progress and **Stop** are shown in Pixora's popup.
+- **Real browser header (optional):** include your actual tabs, address bar and bookmarks bar on top of visible and full-page screenshots (Chrome asks which window to share).
 - **Extract text (OCR)** on your device, and **find sensitive information** (emails, account numbers, keys) to hide.
 
 ![Screenshot editor](docs/images/editor.png)

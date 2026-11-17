@@ -76,6 +76,10 @@ const PAGES: Record<string, string> = {
 export interface Fixtures {
   /** Media encoding (MediaRecorder) produces no data in headless Chromium, so recording specs run headed. */
   headed: boolean;
+  /** Extra Chrome switches (a test's own `--auto-select-desktop-capture-source` replaces the default). */
+  chromeArgs: string[];
+  /** The window's real size instead of an emulated 1280×800 view (emulation rescales the page in the window). */
+  realViewport: boolean;
   context: BrowserContext;
   extensionId: string;
   serviceWorker: Worker;
@@ -100,13 +104,15 @@ async function ensureServer(): Promise<string> {
 
 export const test = base.extend<Fixtures>({
   headed: [process.env.HEADED === '1', { option: true }],
-  context: async ({ headed }, use) => {
+  chromeArgs: [[], { option: true }],
+  realViewport: [false, { option: true }],
+  context: async ({ headed, chromeArgs, realViewport }, use) => {
     const userDataDir = mkdtempSync(join(tmpdir(), 'glint-e2e-'));
     const media = ensureFakeMedia();
     const context = await chromium.launchPersistentContext(userDataDir, {
       channel: 'chromium',
       headless: !headed,
-      viewport: { width: 1280, height: 800 },
+      viewport: realViewport ? null : { width: 1280, height: 800 },
       ...(process.env.E2E_DPR ? { deviceScaleFactor: Number(process.env.E2E_DPR) } : {}),
       acceptDownloads: true,
       args: [
@@ -116,7 +122,9 @@ export const test = base.extend<Fixtures>({
         '--use-fake-device-for-media-stream',
         `--use-file-for-fake-video-capture=${media.video}`,
         `--use-file-for-fake-audio-capture=${media.audio}`,
-        '--auto-select-desktop-capture-source=Entire screen',
+        // A test's own source choice replaces this default.
+        ...(chromeArgs.some((a) => a.startsWith('--auto-select-desktop-capture-source=')) ? [] : ['--auto-select-desktop-capture-source=Entire screen']),
+        ...chromeArgs,
         '--autoplay-policy=no-user-gesture-required',
       ],
     });

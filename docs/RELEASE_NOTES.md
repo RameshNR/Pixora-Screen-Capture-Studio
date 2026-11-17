@@ -16,6 +16,8 @@ own computer. No account, no uploads, no tracking.
   never repeated — top ones appear once at the top, bottom ones once at the bottom.
 - Entire screen / app window: a countdown (3 s or more, set in Settings) after you pick, so you can
   get the screen ready; optionally without the taskbar.
+- Optional **real browser header**: visible and full-page screenshots can include your real tabs,
+  address bar and bookmarks bar (Settings › Screenshots; Chrome asks which window to share).
 - On-device text recognition (OCR) and sensitive-information detection.
 
 ### Image editor

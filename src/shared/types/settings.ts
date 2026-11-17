@@ -63,6 +63,11 @@ export interface ScreenshotSettings {
   desktopDelaySeconds: number;
   /** Frames added automatically to every new screenshot (all off unless chosen). */
   autoFrame: AutoFrame;
+  /**
+   * Visible / full-page screenshots get the real browser header (tabs, address bar, bookmarks) on
+   * top, from a picture of the Chrome window (Chrome asks which window to share each time).
+   */
+  browserHeader: boolean;
 }
 
 export interface AutoFrame {

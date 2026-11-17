@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { applyTheme } from '@/shared/hooks/useTheme';
 import styles from './progress.module.css';
+import { HeaderGrab } from './HeaderGrab';
 
 /** Channel between the countdown window and the "Entire Screen & App Window" screenshot page. */
 export const COUNTDOWN_CHANNEL = 'pixora-desktop-countdown';
@@ -9,12 +10,12 @@ export const COUNTDOWN_CHANNEL = 'pixora-desktop-countdown';
 /**
  * A small window of its own (never part of a capture):
  *  - `?mode=countdown&s=3`: seconds left before an "Entire Screen & App Window" screenshot.
+ *  - `?mode=header&win=<id>`: the browser header (tabs, address bar, bookmarks) for a screenshot.
  */
 export function ProgressApp() {
   const params = useMemo(() => new URLSearchParams(location.search), []);
-  const mode = params.get('mode') === 'countdown' ? 'countdown' : 'fullpage';
   useEffect(() => applyTheme('dark'), []);
-  void mode;
+  if (params.get('mode') === 'header') return <HeaderGrab windowId={Number(params.get('win'))} />;
   return <Countdown seconds={Math.max(3, Math.min(60, Number(params.get('s')) || 3))} />;
 }
 

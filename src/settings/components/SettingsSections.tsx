@@ -123,6 +123,9 @@ export function ScreenshotSection({ settings, update }: Props) {
       <SettingRow label="Full page: maximum height" hint="Very long pages are captured up to this height (you can stop earlier from the popup). Pages too tall for one image are saved as several full-resolution images.">
         <Select label="Maximum height" value={s.fullPage.maxHeight} onChange={(maxHeight) => set({ fullPage: { maxHeight } })} options={[...new Set([20000, 50000, 100000, 200000, 500000, s.fullPage.maxHeight])].sort((a, b) => a - b).map((h) => ({ value: h, label: `${h.toLocaleString()} px` }))} />
       </SettingRow>
+      <SettingRow label="Include the real browser header" hint="Visible and full-page screenshots get your real tabs, address bar and bookmarks bar on top. Chrome’s screenshot only sees the page, so after each capture Chrome asks which window to share: pick this Chrome window and click Share (Cancel keeps the screenshot without it).">
+        <ToggleSwitch label="Include the real browser header (tabs, address bar, bookmarks)" checked={s.browserHeader} onChange={(browserHeader) => set({ browserHeader })} />
+      </SettingRow>
       <SettingRow label="Add browser window to every screenshot" hint="Off by default. New screenshots open in the editor with an address bar and tab title (all capture modes).">
         <ToggleSwitch label="Add browser window to every screenshot" checked={s.autoFrame.browser} onChange={(browser) => set({ autoFrame: { ...s.autoFrame, browser } })} />
       </SettingRow>

@@ -218,11 +218,14 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     if (!canvas) return;
     const w = Math.max(1, Math.round(view.width * dpr));
     const h = Math.max(1, Math.round(view.height * dpr));
-    if (canvas.width !== w) canvas.width = w;
-    if (canvas.height !== h) canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const raf = requestAnimationFrame(() =>
+    // Resizing the canvas clears it: done in the same frame as the drawing, so the browser never
+    // shows the cleared canvas in between (the picture flickered while the window was resized,
+    // focused or restored).
+    const raf = requestAnimationFrame(() => {
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
       renderScene(
         ctx,
         doc,
@@ -232,8 +235,8 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
           eraserCursor: tool === 'eraser' && eraserAt ? { ...eraserAt, r: toolStyles.eraser.size / 2 } : null,
         },
         { width: view.width, height: view.height },
-      ),
-    );
+      );
+    });
     return () => cancelAnimationFrame(raf);
   }, [doc, zoom, originX, originY, dpr, selectedId, draft, crop, cut, eraserTrail, eraserAt, tool, toolStyles.eraser.size, view.width, view.height, textEdit, fontsTick]);
 
