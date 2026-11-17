@@ -25,6 +25,15 @@ export interface PrepareOptions {
 export function preparePageForCapture(opts: PrepareOptions): PageMetrics {
   const w = window as unknown as Window & { __glintCapture?: Record<string, unknown> };
   const doc = document;
+  // Applied BEFORE measuring: hiding scrollbars widens the page (and boxes inside it) by the
+  // scrollbar's width, so widths measured with them showing would crop the right edge.
+  // `scrollbar-width` on every element too — a site's own scrollbar-color/width disables ::-webkit-scrollbar.
+  const style = doc.createElement('style');
+  style.setAttribute('data-glint-capture', '');
+  style.textContent =
+    'html,body,*{scroll-behavior:auto!important;}' +
+    (opts.hideScrollbars ? 'html,body,*{scrollbar-width:none!important;}::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;}' : '');
+  doc.documentElement.appendChild(style);
   const root = (doc.scrollingElement || doc.documentElement) as HTMLElement;
   const vw = doc.documentElement.clientWidth || window.innerWidth;
   const vh = window.innerHeight;
@@ -64,13 +73,6 @@ export function preparePageForCapture(opts: PrepareOptions): PageMetrics {
       total = best.scrollHeight;
     }
   }
-
-  const style = doc.createElement('style');
-  style.setAttribute('data-glint-capture', '');
-  style.textContent =
-    'html,body,*{scroll-behavior:auto!important;}' +
-    (opts.hideScrollbars ? 'html,body{scrollbar-width:none!important;}::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;}' : '');
-  doc.documentElement.appendChild(style);
 
   w.__glintCapture = {
     scroller,
