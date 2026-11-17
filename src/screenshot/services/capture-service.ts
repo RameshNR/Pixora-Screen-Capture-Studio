@@ -105,7 +105,8 @@ export async function cancelAreaScreenshot(): Promise<void> {
  */
 async function withBrowserHeader(raw: RawCapture, tab: chrome.tabs.Tab, settings: Settings): Promise<RawCapture> {
   await clearBadge();
-  const header = await captureBrowserHeader(tab.windowId);
+  // The header must come from the window at the size it had for the screenshot (checked there).
+  const header = await captureBrowserHeader(tab.windowId, { tabId: tab.id, width: tab.width, height: tab.height });
   if (!header) return raw;
   try {
     const dpr = (await getPageInfo(tab)).dpr || 1;

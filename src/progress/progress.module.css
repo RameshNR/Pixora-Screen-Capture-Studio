@@ -95,12 +95,115 @@
   color: transparent;
 }
 
-.row {
-  display: flex;
-  gap: 8px;
+/* Browser header window: sized like the browser window; a centred card that reflows at any size. */
+.headerPage {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: linear-gradient(180deg, #1a1e38, #121628);
+  color: #eef0ff;
+  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-.row > * {
-  flex: 1;
-  padding: 0 10px;
+.headerCard {
+  width: 100%;
+  max-width: 620px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 19px;
+}
+
+.headerLead {
+  margin: 0;
+  color: #c4c9ea;
+}
+
+.steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.steps li {
+  display: grid;
+  grid-template-columns: 26px 18px 1fr;
+  align-items: start;
+  gap: 8px;
+  counter-increment: step;
+}
+
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #7c5cff;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.steps li > svg {
+  margin-top: 4px;
+  color: #a78bfa;
+}
+
+.windowName {
+  display: inline-block;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: rgba(124, 92, 255, 0.22);
+  color: #fff;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.problem {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fde6b0;
+}
+
+.problemDetails {
+  margin-top: 6px;
+  color: #c9b98a;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.headerActions > button {
+  padding: 0 16px;
+}
+
+.primary {
+  background: #7c5cff;
+  color: #fff;
 }

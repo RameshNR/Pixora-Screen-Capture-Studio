@@ -88,6 +88,14 @@ describe('browser header: finding the page in the window picture', () => {
     expect(headerRect(frame, page)).toEqual({ x: 0, y: 0, width: 400, height: 90 });
   });
 
+  it('the page picture a pixel wider than the window picture (125% scaling, window not maximised)', () => {
+    // Seen on a real window: window picture 1294 px wide, page 1295 px.
+    const frame = windowShot(page, { header: 100, border: 0 });
+    const narrow: Pixels = { width: frame.width - 1, height: frame.height, data: new Uint8ClampedArray((frame.width - 1) * frame.height * 4) };
+    for (let y = 0; y < frame.height; y++) narrow.data.set(frame.data.subarray(y * frame.width * 4, (y * frame.width + frame.width - 1) * 4), y * narrow.width * 4);
+    expect(headerRect(narrow, page)).toEqual({ x: 0, y: 0, width: 399, height: 100 });
+  });
+
   it('no header (full-screen window): nothing to add', () => {
     expect(headerRect(windowShot(page, { header: 0, border: 0 }), page)).toBeNull();
     expect(headerRect(windowShot(page, { header: 4, border: 0 }), page)).toBeNull();
@@ -95,7 +103,8 @@ describe('browser header: finding the page in the window picture', () => {
 });
 
 describe('browser header: size above the screenshot', () => {
-  it('stretched to the screenshot width when within 3% (scrollbar, border)', () => {
+  it('stretched to the screenshot width when within 6% (scrollbar, border, slightly resized window)', () => {
+    expect(headerLayout({ width: 1060, height: 100 }, 1000, 1)).toEqual({ width: 1000, height: 94, canvasWidth: 1000 });
     expect(headerLayout({ width: 1000, height: 100 }, 985, 1)).toEqual({ width: 985, height: 99, canvasWidth: 985 });
   });
   it('a much wider header (DevTools docked) keeps its size and widens the result', () => {
@@ -122,5 +131,24 @@ describe('browser header: setting and message', () => {
     expect(isBackgroundMessage(msg('https://example.com/a.png'))).toBe(false);
     expect(isBackgroundMessage(msg('data:text/html;base64,AAAA'))).toBe(false);
     expect(isBackgroundMessage(msg(42))).toBe(false);
+  });
+});
+
+describe('browser header: the window must match the screenshot', async () => {
+  const { headerWindowQuery, sameAsScreenshot } = await import('@/screenshot/services/header-capture');
+  it('passes the tab and page-area size to the header window', () => {
+    expect(headerWindowQuery(7, { tabId: 12, width: 1536, height: 744 })).toBe('mode=header&win=7&tab=12&vw=1536&vh=744');
+    expect(headerWindowQuery(7, {})).toBe('mode=header&win=7');
+  });
+  it('same tab and size: ok; resized window or another tab: not', () => {
+    const shot = { tabId: 12, width: 1536, height: 744 };
+    expect(sameAsScreenshot({ id: 12, width: 1536, height: 744 }, shot)).toBe('ok');
+    expect(sameAsScreenshot({ id: 12, width: 1537, height: 743 }, shot)).toBe('ok'); // rounding
+    expect(sameAsScreenshot({ id: 12, width: 1500, height: 744 }, shot)).toBe('ok'); // slightly smaller: fitted
+    expect(sameAsScreenshot({ id: 12, width: 1536, height: 714 }, shot)).toBe('ok'); // bookmarks bar shown
+    expect(sameAsScreenshot({ id: 12, width: 1280, height: 744 }, shot)).toBe('size'); // no longer maximised
+    expect(sameAsScreenshot({ id: 12, width: 1536, height: 600 }, shot)).toBe('size');
+    expect(sameAsScreenshot({ id: 13, width: 1536, height: 744 }, shot)).toBe('tab');
+    expect(sameAsScreenshot(undefined, shot)).toBe('tab');
   });
 });

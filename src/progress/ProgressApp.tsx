@@ -15,7 +15,10 @@ export const COUNTDOWN_CHANNEL = 'pixora-desktop-countdown';
 export function ProgressApp() {
   const params = useMemo(() => new URLSearchParams(location.search), []);
   useEffect(() => applyTheme('dark'), []);
-  if (params.get('mode') === 'header') return <HeaderGrab windowId={Number(params.get('win'))} />;
+  if (params.get('mode') === 'header') {
+    const num = (k: string) => (params.get(k) ? Number(params.get(k)) : undefined);
+    return <HeaderGrab windowId={Number(params.get('win'))} shot={{ tabId: num('tab'), width: num('vw'), height: num('vh') }} />;
+  }
   return <Countdown seconds={Math.max(3, Math.min(60, Number(params.get('s')) || 3))} />;
 }
 

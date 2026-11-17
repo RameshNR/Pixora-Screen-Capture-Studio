@@ -18,16 +18,18 @@ export function onHeaderResult(dataUrl: string | null): void {
 }
 
 /** How long the dialog may stay open before the screenshot is kept without the header. */
-const HEADER_TIMEOUT_MS = 3 * 60_000;
+const HEADER_TIMEOUT_MS = 10 * 60_000;
 
 /** Opens the header window next to `windowId` and waits for the strip (null: skipped / failed). */
-export async function captureBrowserHeader(windowId: number): Promise<ImageBitmap | null> {
+export async function captureBrowserHeader(windowId: number, shot: { tabId?: number; width?: number; height?: number } = {}): Promise<ImageBitmap | null> {
   onHeaderResult(null); // an older request still waiting ends now
+  // As large as the browser window and over it: Chrome's dialog is drawn inside this window, so a
+  // small window made it cramped. (It minimises itself before the picture.)
   const source = await chrome.windows.get(windowId).catch(() => null);
-  const width = 440;
-  const height = 250;
-  const left = source?.left !== undefined && source.width !== undefined ? Math.round(source.left + (source.width - width) / 2) : undefined;
-  const top = source?.top !== undefined ? source.top + 120 : undefined;
+  const width = Math.max(560, Math.min(source?.width ?? 1000, 1600));
+  const height = Math.max(520, Math.min(source?.height ?? 760, 1100));
+  const left = source?.left !== undefined && source.width !== undefined ? Math.max(0, Math.round(source.left + (source.width - width) / 2)) : undefined;
+  const top = source?.top !== undefined && source.height !== undefined ? Math.max(0, Math.round(source.top + (source.height - height) / 2)) : undefined;
 
   const answer = new Promise<string | null>((resolve) => {
     pending = resolve;
@@ -42,7 +44,7 @@ export async function captureBrowserHeader(windowId: number): Promise<ImageBitma
   const timer = setTimeout(() => onHeaderResult(null), HEADER_TIMEOUT_MS);
   try {
     const helper = await chrome.windows.create({
-      url: chrome.runtime.getURL(`progress.html?mode=header&win=${windowId}`),
+      url: chrome.runtime.getURL(`progress.html?${headerWindowQuery(windowId, shot)}`),
       type: 'popup', width, height, left, top, focused: true,
     });
     helperId = helper?.id;
@@ -60,6 +62,33 @@ export async function captureBrowserHeader(windowId: number): Promise<ImageBitma
     if (pending) onHeaderResult(null);
     if (helperId !== undefined) void chrome.windows.remove(helperId).catch(() => undefined);
   }
+}
+
+/** Query of the header window: the browser window, and the tab and page-area size of the screenshot. */
+export function headerWindowQuery(windowId: number, shot: { tabId?: number; width?: number; height?: number }): string {
+  const q = new URLSearchParams({ mode: 'header', win: String(windowId) });
+  if (shot.tabId !== undefined) q.set('tab', String(shot.tabId));
+  if (shot.width) q.set('vw', String(shot.width));
+  if (shot.height) q.set('vh', String(shot.height));
+  return q.toString();
+}
+
+/** Width difference (CSS px) still fitted automatically: rounding, a slightly different window. */
+export const fitWidthLimit = (width: number) => Math.max(16, Math.round(width * 0.05));
+/** Height difference allowed (the bookmarks bar shown / hidden changes the page height only). */
+export const fitHeightLimit = (height: number) => Math.max(48, Math.round(height * 0.1));
+
+/**
+ * Whether the browser window still shows the screenshot's tab at about the screenshot's size (the
+ * header must match the screenshot). Small differences are fitted automatically; a big one (e.g. no
+ * longer maximised) is reported. `now` is the window's active tab now.
+ */
+export function sameAsScreenshot(now: { id?: number; width?: number; height?: number } | undefined, shot: { tabId?: number; width?: number; height?: number }): 'ok' | 'tab' | 'size' {
+  if (!now) return 'tab';
+  if (shot.tabId !== undefined && now.id !== shot.tabId) return 'tab';
+  if (shot.width && now.width && Math.abs(now.width - shot.width) > fitWidthLimit(shot.width)) return 'size';
+  if (shot.height && now.height && Math.abs(now.height - shot.height) > fitHeightLimit(shot.height)) return 'size';
+  return 'ok';
 }
 
 /** Draws `header` above `image` (sizes from headerLayout); a wider header widens the result. */

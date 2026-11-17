@@ -1,11 +1,28 @@
 import type { ReactNode } from 'react';
 import styles from './Settings.module.css';
 
-export function SettingsSection({ title, description, children, id }: { title: string; description?: ReactNode; children: ReactNode; id?: string }) {
+/** A settings page: its title, then its groups side by side (one column on narrow windows). */
+export function SettingsPage({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
   return (
-    <section className={styles.section} id={id} aria-labelledby={id ? `${id}-title` : undefined}>
+    <div className={styles.page}>
+      <header className={styles.pageHead}>
+        <h1 className={styles.pageTitle}>{title}</h1>
+        {description && <p className={styles.pageDescription}>{description}</p>}
+      </header>
+      <div className={styles.groups}>{children}</div>
+    </div>
+  );
+}
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/** One group of settings with a heading (e.g. Screenshot › Full page). */
+export function SettingsSection({ title, description, children, id }: { title: string; description?: ReactNode; children: ReactNode; id?: string }) {
+  const key = id ?? `set-${slug(title)}`;
+  return (
+    <section className={styles.section} id={key} aria-labelledby={`${key}-title`}>
       <header className={styles.head}>
-        <h2 className={styles.title} id={id ? `${id}-title` : undefined}>
+        <h2 className={styles.title} id={`${key}-title`}>
           {title}
         </h2>
         {description && <p className={styles.description}>{description}</p>}

@@ -2,7 +2,7 @@ import { intervalLabel, SHOT_DELAY_OPTIONS } from '@/flow/components/FlowAutoOpt
 import { useEffect, useState } from 'react';
 import { ExternalLink, RotateCcw, Trash2 } from 'lucide-react';
 import type { DeepPartial, Settings } from '@/shared/types';
-import { SettingRow, SettingsSection, InlineNotice } from '@/shared/components/Settings';
+import { SettingRow, SettingsPage, SettingsSection } from '@/shared/components/Settings';
 import { Select } from '@/shared/components/Dropdown';
 import { RadioGroup, Slider, TextField, ToggleSwitch } from '@/shared/components/FormControls';
 import { Button } from '@/shared/components/Button';
@@ -44,7 +44,8 @@ function FilenamePreview({ pattern, type }: { pattern: string; type: 'Screenshot
 export function GeneralSection({ settings, update }: Props) {
   const g = settings.general;
   return (
-    <SettingsSection id="general" title="General" description="Appearance and default behaviour.">
+    <SettingsPage title="General" description="Appearance, the popup and file names for everything Pixora saves.">
+      <SettingsSection title="Appearance & popup">
       <SettingRow label="Theme">
         <RadioGroup label="Theme" value={g.theme} onChange={(theme) => void update({ general: { theme } })} options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
       </SettingRow>
@@ -54,14 +55,19 @@ export function GeneralSection({ settings, update }: Props) {
       <SettingRow label="Language" hint="More languages are planned.">
         <Select label="Language" value={g.language} onChange={(language) => void update({ general: { language } })} options={[{ value: 'auto', label: 'Browser default (English)' }, { value: 'en', label: 'English' }]} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="File names" description="Used for screenshots; recordings have their own under Recording.">
       <SettingRow label="Default file name" hint={<FilenamePreview pattern={g.filenamePattern} type="Screenshot" />} stacked>
         <TextField value={g.filenamePattern} onChange={(e) => void update({ general: { filenamePattern: e.target.value } })} aria-label="Default file name pattern" />
         <span style={{ fontSize: 12, color: 'var(--c-text-secondary)' }}>Tokens: {'{type} {date} {time} {timestamp} {title} {host} {yyyy} {mm} {dd} {hh} {min} {ss}'}</span>
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Notifications">
       <SettingRow label="Notifications" hint="System notifications for saved captures, errors and scheduled recordings.">
         <ToggleSwitch label="Notifications" checked={g.notifications} onChange={(notifications) => void update({ general: { notifications } })} />
       </SettingRow>
-    </SettingsSection>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
@@ -70,7 +76,27 @@ export function ScreenshotSection({ settings, update }: Props) {
   const s = settings.screenshot;
   const set = (patch: DeepPartial<Settings['screenshot']>) => void update({ screenshot: patch });
   return (
-    <SettingsSection id="screenshot" title="Screenshot" description="Capture and export defaults.">
+    <SettingsPage title="Screenshot" description="How screenshots are taken, what happens after, and how they are saved.">
+      <SettingsSection title="Capture" description="Visible part, full page and selected area.">
+      <SettingRow label="Default capture mode" hint="Press Enter in the popup to capture with this mode.">
+        <Select label="Default capture mode" value={s.defaultMode} onChange={(defaultMode) => set({ defaultMode })} options={[{ value: 'visible', label: 'Visible part' }, { value: 'full', label: 'Full page' }, { value: 'area', label: 'Selected area' }]} />
+      </SettingRow>
+      <SettingRow label="Capture delay" hint="Default for “Visible Part after Delay”.">
+        <Select label="Capture delay" value={s.delaySeconds} onChange={(delaySeconds) => set({ delaySeconds })} options={[...new Set([...SCREENSHOT_DELAY_OPTIONS, s.delaySeconds])].sort((a, b) => a - b).map((d) => ({ value: d, label: d === 0 ? 'No delay' : `${d} second${d === 1 ? '' : 's'}` }))} />
+      </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="After capturing">
+      <SettingRow label="Open the editor after capturing">
+        <ToggleSwitch label="Open editor" checked={s.autoOpenEditor} onChange={(autoOpenEditor) => set({ autoOpenEditor })} />
+      </SettingRow>
+      <SettingRow label="Save automatically" hint="Downloads every screenshot as soon as it is captured.">
+        <ToggleSwitch label="Save automatically" checked={s.autoSave} onChange={(autoSave) => set({ autoSave })} />
+      </SettingRow>
+      <SettingRow label="Copy to clipboard" hint="Copies the screenshot when the editor opens (Chrome only allows clipboard access from the focused editor page).">
+        <ToggleSwitch label="Copy to clipboard" checked={s.copyToClipboard} disabled={!s.autoOpenEditor} onChange={(copyToClipboard) => set({ copyToClipboard })} />
+      </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Image format & size">
       <SettingRow label="Default image format" hint="Captures are kept lossless; the format is applied when you save.">
         <RadioGroup label="Image format" value={s.format} onChange={(format) => set({ format })} options={[{ value: 'png', label: 'PNG' }, { value: 'jpeg', label: 'JPEG' }, { value: 'webp', label: 'WebP' }]} />
       </SettingRow>
@@ -81,31 +107,18 @@ export function ScreenshotSection({ settings, update }: Props) {
           </div>
         </SettingRow>
       )}
-      <SettingRow label="Default capture mode" hint="Press Enter in the popup to capture with this mode.">
-        <Select label="Default capture mode" value={s.defaultMode} onChange={(defaultMode) => set({ defaultMode })} options={[{ value: 'visible', label: 'Visible part' }, { value: 'full', label: 'Full page' }, { value: 'area', label: 'Selected area' }]} />
-      </SettingRow>
-      <SettingRow label="Capture delay" hint="Default for “Visible Part after Delay”.">
-        <Select label="Capture delay" value={s.delaySeconds} onChange={(delaySeconds) => set({ delaySeconds })} options={[...new Set([...SCREENSHOT_DELAY_OPTIONS, s.delaySeconds])].sort((a, b) => a - b).map((d) => ({ value: d, label: d === 0 ? 'No delay' : `${d} second${d === 1 ? '' : 's'}` }))} />
-      </SettingRow>
       <SettingRow label="Image scaling" hint="Device pixels keep full HiDPI sharpness; CSS pixels produce smaller images on high-DPI screens.">
         <RadioGroup label="Image scaling" value={s.scale} onChange={(scale) => set({ scale })} options={[{ value: 'device', label: 'Device pixels' }, { value: 'css', label: 'CSS pixels' }]} />
       </SettingRow>
-      <SettingRow label="Open the editor after capturing">
-        <ToggleSwitch label="Open editor" checked={s.autoOpenEditor} onChange={(autoOpenEditor) => set({ autoOpenEditor })} />
-      </SettingRow>
-      <SettingRow label="Save automatically" hint="Downloads every screenshot as soon as it is captured.">
-        <ToggleSwitch label="Save automatically" checked={s.autoSave} onChange={(autoSave) => set({ autoSave })} />
-      </SettingRow>
-      <SettingRow label="Copy to clipboard" hint="Copies the screenshot when the editor opens (Chrome only allows clipboard access from the focused editor page).">
-        <ToggleSwitch label="Copy to clipboard" checked={s.copyToClipboard} disabled={!s.autoOpenEditor} onChange={(copyToClipboard) => set({ copyToClipboard })} />
-      </SettingRow>
-      <SettingRow label="Full page: hide sticky headers & floating elements" hint="Prevents fixed headers, chat bubbles and banners from repeating down the page.">
+      </SettingsSection>
+      <SettingsSection title="Full page" description="Only for Full page screenshots.">
+      <SettingRow label="Hide sticky headers & floating elements" hint="Prevents fixed headers, chat bubbles and banners from repeating down the page.">
         <ToggleSwitch label="Hide fixed elements" checked={s.fullPage.hideFixedElements} onChange={(hideFixedElements) => set({ fullPage: { hideFixedElements } })} />
       </SettingRow>
-      <SettingRow label="Full page: load lazy content first" hint="Scrolls through the page once so lazy-loaded images appear.">
+      <SettingRow label="Load lazy content first" hint="Scrolls through the page once so lazy-loaded images appear.">
         <ToggleSwitch label="Preload lazy content" checked={s.fullPage.preloadLazyContent} onChange={(preloadLazyContent) => set({ fullPage: { preloadLazyContent } })} />
       </SettingRow>
-      <SettingRow label="Full page: scrollable panels" hint="Pages can have panels that scroll on their own (sidebars, chats, code views). Choose them before each capture, capture only the page, or include every panel.">
+      <SettingRow label="Scrollable panels" hint="Pages can have panels that scroll on their own (sidebars, chats, code views). Choose them before each capture, capture only the page, or include every panel.">
         <Select
           label="Scrollable panels"
           value={s.fullPage.scrollAreas}
@@ -117,17 +130,19 @@ export function ScreenshotSection({ settings, update }: Props) {
           ]}
         />
       </SettingRow>
-      <SettingRow label="Full page: hide scrollbars">
+      <SettingRow label="Hide scrollbars" hint="The page is measured after they are hidden, so nothing is cut off at the right.">
         <ToggleSwitch label="Hide scrollbars" checked={s.fullPage.hideScrollbars} onChange={(hideScrollbars) => set({ fullPage: { hideScrollbars } })} />
       </SettingRow>
-      <SettingRow label="Full page: maximum height" hint="Very long pages are captured up to this height (you can stop earlier from the popup). Pages too tall for one image are saved as several full-resolution images.">
+      <SettingRow label="Maximum height" hint="Very long pages are captured up to this height (you can stop earlier from the popup). Pages too tall for one image are saved as several full-resolution images.">
         <Select label="Maximum height" value={s.fullPage.maxHeight} onChange={(maxHeight) => set({ fullPage: { maxHeight } })} options={[...new Set([20000, 50000, 100000, 200000, 500000, s.fullPage.maxHeight])].sort((a, b) => a - b).map((h) => ({ value: h, label: `${h.toLocaleString()} px` }))} />
       </SettingRow>
-      <SettingRow label="Include the real browser header" hint="Visible and full-page screenshots get your real tabs, address bar and bookmarks bar on top. Chrome’s screenshot only sees the page, so after each capture Chrome asks which window to share: pick this Chrome window and click Share (Cancel keeps the screenshot without it).">
+      </SettingsSection>
+      <SettingsSection title="Browser header & frames" description="Added on top of / around new screenshots.">
+      <SettingRow label="Include the real browser header" hint="Your real tabs, address bar and bookmarks on top of visible and full-page screenshots. After each capture, choose this Chrome window in Chrome’s “Choose what to share” dialog.">
         <ToggleSwitch label="Include the real browser header (tabs, address bar, bookmarks)" checked={s.browserHeader} onChange={(browserHeader) => set({ browserHeader })} />
       </SettingRow>
-      <SettingRow label="Add browser window to every screenshot" hint="Off by default. New screenshots open in the editor with an address bar and tab title (all capture modes).">
-        <ToggleSwitch label="Add browser window to every screenshot" checked={s.autoFrame.browser} onChange={(browser) => set({ autoFrame: { ...s.autoFrame, browser } })} />
+      <SettingRow label="Drawn browser frame on every screenshot" hint="Off by default. New screenshots open in the editor with an address bar and tab title (all capture modes).">
+        <ToggleSwitch label="Drawn browser frame on every screenshot" checked={s.autoFrame.browser} onChange={(browser) => set({ autoFrame: { ...s.autoFrame, browser } })} />
       </SettingRow>
       <SettingRow label="Add background to every screenshot" hint="Off by default. Padding, background colour and rounded corners, from your last choices in the editor.">
         <ToggleSwitch label="Add background to every screenshot" checked={s.autoFrame.background} onChange={(background) => set({ autoFrame: { ...s.autoFrame, background } })} />
@@ -135,17 +150,20 @@ export function ScreenshotSection({ settings, update }: Props) {
       <SettingRow label="Add border to every screenshot" hint="Off by default. A border around the image (it comes with the background, as in the editor).">
         <ToggleSwitch label="Add border to every screenshot" checked={s.autoFrame.border} onChange={(border) => set({ autoFrame: { ...s.autoFrame, border } })} />
       </SettingRow>
-      <SettingRow label="Entire screen / window delay" hint="After you pick the screen or window, a countdown window shows the seconds left; it closes just before the picture.">
-        <Select label="Entire screen / window delay" value={Math.max(3, s.desktopDelaySeconds ?? 3)} onChange={(desktopDelaySeconds) => set({ desktopDelaySeconds })}
+      </SettingsSection>
+      <SettingsSection title="Entire screen & app window" description="Only for “Entire Screen & App Window” screenshots.">
+      <SettingRow label="Delay after picking" hint="After you pick the screen or window, a countdown window shows the seconds left; it closes just before the picture.">
+        <Select label="Delay after picking" value={Math.max(3, s.desktopDelaySeconds ?? 3)} onChange={(desktopDelaySeconds) => set({ desktopDelaySeconds })}
           options={[3, 5, 10, 15].map((n) => ({ value: n, label: `${n} seconds` }))} />
       </SettingRow>
-      <SettingRow label="Entire screen without taskbar" hint="“Entire Screen & App Window” screenshots of a whole screen leave out the taskbar / dock.">
+      <SettingRow label="Leave out the taskbar" hint="“Entire Screen & App Window” screenshots of a whole screen leave out the taskbar / dock.">
         <ToggleSwitch label="Screen screenshots without taskbar" checked={s.excludeTaskbar} onChange={(excludeTaskbar) => set({ excludeTaskbar })} />
       </SettingRow>
       <SettingRow label="Mouse cursor" hint="Chrome’s tab screenshot API never includes the mouse cursor. Use “Entire Screen & App Window” to capture it.">
         <span style={{ color: 'var(--c-text-secondary)', fontSize: 12 }}>Not available for tab screenshots</span>
       </SettingRow>
-    </SettingsSection>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
@@ -160,7 +178,8 @@ export function RecordingSection({ settings, update }: Props) {
     void listDevices('videoinput').then(setCams).catch(() => undefined);
   }, []);
   return (
-    <SettingsSection id="recording" title="Recording" description="Video, audio and overlay defaults. 4K needs a 4K source (display, window or tab) and is recorded at the real source pixels.">
+    <SettingsPage title="Recording" description="Video, audio and on-screen defaults for screen, tab and camera recordings.">
+      <SettingsSection title="Video" description="4K needs a 4K source (display, window or tab) and is recorded at the real source pixels.">
       <SettingRow label="Default recording mode">
         <Select label="Recording mode" value={r.mode} onChange={(mode) => set({ mode })} options={[{ value: 'tab', label: 'This tab' }, { value: 'area', label: 'Custom area of this tab' }, { value: 'desktop', label: 'Desktop / window' }, { value: 'camera', label: 'Camera only' }]} />
       </SettingRow>
@@ -176,17 +195,13 @@ export function RecordingSection({ settings, update }: Props) {
       <SettingRow label="Video bitrate" hint="0 = automatic (≈ 7.5 Mbps at 1080p30, ≈ 30 Mbps at 4K30).">
         <TextField type="number" min={0} max={250000} value={r.videoBitrateKbps} suffix="kbps" style={{ width: 110 }} onChange={(e) => set({ videoBitrateKbps: Number(e.target.value) || 0 })} aria-label="Video bitrate" />
       </SettingRow>
-      <SettingRow label="Audio bitrate">
-        <Select label="Audio bitrate" value={r.audioBitrateKbps} onChange={(audioBitrateKbps) => set({ audioBitrateKbps })} options={[64, 96, 128, 192, 256, 320].map((b) => ({ value: b, label: `${b} kbps` }))} />
+      </SettingsSection>
+      <SettingsSection title="Audio">
+      <SettingRow label="Record microphone by default">
+        <ToggleSwitch label="Microphone" checked={r.micEnabled} onChange={(micEnabled) => set({ micEnabled })} />
       </SettingRow>
       <SettingRow label="Default microphone">
         <Select label="Default microphone" value={r.micDeviceId} onChange={(micDeviceId) => set({ micDeviceId })} options={[{ value: 'default', label: 'System default' }, ...mics.filter((m) => m.deviceId !== 'default').map((m) => ({ value: m.deviceId, label: m.label }))]} />
-      </SettingRow>
-      <SettingRow label="Default camera">
-        <Select label="Default camera" value={r.cameraDeviceId} onChange={(cameraDeviceId) => set({ cameraDeviceId })} options={[{ value: 'default', label: 'System default' }, ...cams.map((c) => ({ value: c.deviceId, label: c.label }))]} />
-      </SettingRow>
-      <SettingRow label="Record microphone by default">
-        <ToggleSwitch label="Microphone" checked={r.micEnabled} onChange={(micEnabled) => set({ micEnabled })} />
       </SettingRow>
       <SettingRow label="Record system / tab audio">
         <ToggleSwitch label="System audio" checked={r.systemAudio} onChange={(systemAudio) => set({ systemAudio })} />
@@ -197,21 +212,30 @@ export function RecordingSection({ settings, update }: Props) {
       <SettingRow label="Echo cancellation" hint="Removes speaker sound picked up by the microphone.">
         <ToggleSwitch label="Echo cancellation" checked={r.echoCancellation} onChange={(echoCancellation) => set({ echoCancellation })} />
       </SettingRow>
-      <SettingRow label="Maximum duration">
-        <Select label="Maximum duration" value={r.maxDurationMinutes} onChange={(maxDurationMinutes) => set({ maxDurationMinutes })} options={[...new Set([...MAX_DURATION_OPTIONS, r.maxDurationMinutes])].sort((a, b) => a - b).map((m) => ({ value: m, label: m === 0 ? 'No limit' : `${m} minutes` }))} />
+      <SettingRow label="Audio bitrate">
+        <Select label="Audio bitrate" value={r.audioBitrateKbps} onChange={(audioBitrateKbps) => set({ audioBitrateKbps })} options={[64, 96, 128, 192, 256, 320].map((b) => ({ value: b, label: `${b} kbps` }))} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Camera">
+      <SettingRow label="Default camera">
+        <Select label="Default camera" value={r.cameraDeviceId} onChange={(cameraDeviceId) => set({ cameraDeviceId })} options={[{ value: 'default', label: 'System default' }, ...cams.map((c) => ({ value: c.deviceId, label: c.label }))]} />
+      </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="While recording">
       <SettingRow label="Countdown">
         <Select label="Countdown" value={r.countdownSeconds} onChange={(countdownSeconds) => set({ countdownSeconds })} options={[...new Set([...COUNTDOWN_OPTIONS, r.countdownSeconds])].sort((a, b) => a - b).map((s) => ({ value: s, label: s === 0 ? 'Off' : `${s} seconds` }))} />
+      </SettingRow>
+      <SettingRow label="Maximum duration">
+        <Select label="Maximum duration" value={r.maxDurationMinutes} onChange={(maxDurationMinutes) => set({ maxDurationMinutes })} options={[...new Set([...MAX_DURATION_OPTIONS, r.maxDurationMinutes])].sort((a, b) => a - b).map((m) => ({ value: m, label: m === 0 ? 'No limit' : `${m} minutes` }))} />
       </SettingRow>
       <SettingRow label="Record screen without taskbar" hint="Desktop recordings of a whole screen are cropped to leave out the taskbar / dock.">
         <ToggleSwitch label="Record without taskbar" checked={r.excludeTaskbar} onChange={(excludeTaskbar) => set({ excludeTaskbar })} />
       </SettingRow>
-      <SettingRow label="Advanced Video Editor" hint="On the video page: draw on frames with the image editor's tools, timed overlays, animations and effects.">
-        <ToggleSwitch label="Advanced Video Editor" checked={r.advancedVideoEditor} onChange={(advancedVideoEditor) => set({ advancedVideoEditor })} />
-      </SettingRow>
       <SettingRow label="Show control bar" hint="A small floating window with pause / stop. It is never part of tab recordings.">
         <ToggleSwitch label="Control bar" checked={r.controlBar} onChange={(controlBar) => set({ controlBar })} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Clicks, keys & cursor" description="Shown in the recording.">
       <SettingRow label="Highlight mouse clicks">
         <ToggleSwitch label="Highlight clicks" checked={r.highlightClicks} onChange={(highlightClicks) => set({ highlightClicks })} />
       </SettingRow>
@@ -221,13 +245,19 @@ export function RecordingSection({ settings, update }: Props) {
       <SettingRow label="Mouse cursor" hint="Desktop recordings always include the cursor. Chrome never draws it in tab recordings — enable click highlights instead.">
         <span style={{ color: 'var(--c-text-secondary)', fontSize: 12 }}>Controlled by Chrome</span>
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="After recording">
+      <SettingRow label="Advanced Video Editor" hint="On the video page: draw on frames with the image editor's tools, timed overlays, animations and effects.">
+        <ToggleSwitch label="Advanced Video Editor" checked={r.advancedVideoEditor} onChange={(advancedVideoEditor) => set({ advancedVideoEditor })} />
+      </SettingRow>
       <SettingRow label="Recording file name" hint={<FilenamePreview pattern={r.filenamePattern} type="Recording" />} stacked>
         <TextField value={r.filenamePattern} onChange={(e) => set({ filenamePattern: e.target.value })} aria-label="Recording file name pattern" />
       </SettingRow>
       <SettingRow label="Download recordings automatically">
         <ToggleSwitch label="Auto-save recordings" checked={r.autoSave} onChange={(autoSave) => set({ autoSave })} />
       </SettingRow>
-    </SettingsSection>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
@@ -236,7 +266,8 @@ export function FlowSection({ settings, update }: Props) {
   const f = settings.flow;
   const set = (patch: DeepPartial<Settings['flow']>) => void update({ flow: patch });
   return (
-    <SettingsSection title="Flow Capture" description="Step-by-step screenshot sessions across pages and sites. Start from the popup (Screenshot tab) or together with a recording.">
+    <SettingsPage title="Flow Capture" description="Step-by-step screenshot sessions across pages and sites. Start from the popup (Screenshot tab) or together with a recording.">
+      <SettingsSection title="Capturing steps">
       <SettingRow label="Default capture mode">
         <Select
           label="Default flow capture mode"
@@ -263,6 +294,8 @@ export function FlowSection({ settings, update }: Props) {
       <SettingRow label="Click pictures" hint="After click: the screen once the page reacted. On click: the moment you press the mouse button (or Enter / Space on a focused button). On hover: the button under the pointer just before you click it. For flows and recordings.">
         <RadioGroup label="Click pictures" size="sm" value={f.shotTiming} onChange={(shotTiming) => set({ shotTiming })} options={[{ value: 'after-click', label: 'After click' }, { value: 'on-click', label: 'On click' }, { value: 'on-hover', label: 'On hover' }]} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Scrolling & timing">
       <SettingRow label="Scroll steps" hint="Record scrolling further than the minimum distance as a step.">
         <ToggleSwitch label="Scroll steps" checked={f.scroll} onChange={(scroll) => set({ scroll })} />
       </SettingRow>
@@ -275,19 +308,26 @@ export function FlowSection({ settings, update }: Props) {
       <SettingRow label="Wait before each picture" hint="Automatic waits until the page has reacted and finished loading. No delay pictures the screen at once. Used by flows and by Flow Capture during recordings.">
         <Select label="Wait before picture" value={f.shotDelayMs ?? -1} onChange={(shotDelayMs) => set({ shotDelayMs })} options={SHOT_DELAY_OPTIONS} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Privacy">
       <SettingRow label="Form values" hint="Passwords, one-time codes, payment and account numbers are always masked. Ordinary values are kept only if you allow it.">
         <RadioGroup label="Flow form values" size="sm" value={f.values} onChange={(values) => set({ values })} options={[{ value: 'non-sensitive', label: 'Keep ordinary values' }, { value: 'never', label: 'Never keep values' }]} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="With recordings">
       <SettingRow label="With recordings" hint="Track the browser flow while recording a tab, area or desktop.">
         <ToggleSwitch label="Flow Capture with recordings" checked={f.withRecording} onChange={(withRecording) => set({ withRecording })} />
       </SettingRow>
       <SettingRow label="During Camera Only recordings" hint="Off unless you choose it: tracks the page you were on while recording your camera.">
         <ToggleSwitch label="Flow Capture during Camera Only" checked={f.inCameraMode} onChange={(inCameraMode) => set({ inCameraMode })} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Flow Editor">
       <SettingRow label="Ask before deleting images" hint="In the Flow Editor. Turned off by “Don't ask me again” in the delete question.">
         <ToggleSwitch label="Ask before deleting flow images" checked={f.confirmDelete} onChange={(confirmDelete) => set({ confirmDelete })} />
       </SettingRow>
-    </SettingsSection>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
@@ -320,7 +360,8 @@ export function StorageSection({ settings, update }: Props) {
   }
 
   return (
-    <SettingsSection id="storage" title="Storage" description="Where files go and how long captures are kept. Everything stays on this device.">
+    <SettingsPage title="Storage" description="Where files go and how long captures are kept. Everything stays on this device.">
+      <SettingsSection title="Saving files">
       <SettingRow label="Save location" hint="Chrome’s Downloads folder, or any folder on this computer (outside Chrome too). Files from the editor, video page, Flow Editor and collage go there; captures saved automatically in the background use Downloads.">
         <RadioGroup label="Save location" size="sm" value={s.location === 'folder' && s.folderName ? 'folder' : 'downloads'}
           onChange={async (loc) => {
@@ -348,6 +389,8 @@ export function StorageSection({ settings, update }: Props) {
       <SettingRow label="File name pattern" hint="Edit in General (screenshots) and Recording (videos).">
         <span style={{ color: 'var(--c-text-secondary)', fontSize: 12 }}>{settings.general.filenamePattern}</span>
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Recent captures">
       <SettingRow label="Keep captures in Recent captures for">
         <Select label="Retention" value={s.retentionDays} onChange={(retentionDays) => void update({ storage: { retentionDays } })} options={[{ value: 0, label: 'Forever' }, { value: 7, label: '7 days' }, { value: 30, label: '30 days' }, { value: 90, label: '90 days' }]} />
       </SettingRow>
@@ -386,7 +429,8 @@ export function StorageSection({ settings, update }: Props) {
           refresh();
         }}
       />
-    </SettingsSection>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
@@ -400,7 +444,8 @@ export function ShortcutsSection() {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
   return (
-    <SettingsSection id="shortcuts" title="Keyboard shortcuts" description="Shortcuts work on any page. Chrome manages them so they don’t clash with other extensions.">
+    <SettingsPage title="Keyboard shortcuts">
+      <SettingsSection title="Shortcuts on any page" description="Chrome manages them so they don’t clash with other extensions.">
       {commands.map((c) => (
         <SettingRow key={c.name} label={c.name === '_execute_action' ? 'Open Pixora' : c.description || c.name}>
           {c.shortcut ? <kbd style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--c-border-strong)', background: 'var(--c-bg-subtle)', fontFamily: 'var(--font-sans)', fontSize: 12 }}>{c.shortcut}</kbd> : <span style={{ color: 'var(--c-text-tertiary)', fontSize: 12 }}>Not set</span>}
@@ -411,12 +456,15 @@ export function ShortcutsSection() {
           Customize
         </Button>
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="In the screenshot editor">
       <SettingRow label="Editor shortcuts" stacked>
         <span style={{ color: 'var(--c-text-secondary)', fontSize: 12, lineHeight: 1.7 }}>
           Ctrl+Z undo · Ctrl+Y redo · Ctrl+C copy · Ctrl+S save · Delete remove selection · Esc cancel · V select · P pen · G highlighter · R rectangle · O ellipse · A arrow · L line · T text · B blur · X pixelate · N marker · E eraser · C crop · Space pan · Ctrl+scroll zoom
         </span>
       </SettingRow>
-    </SettingsSection>
+      </SettingsSection>
+    </SettingsPage>
   );
 }
 
@@ -432,7 +480,8 @@ export function AdvancedSection({ settings, update }: Props) {
     void storageHealthy().then(setHealthy);
   }, []);
   return (
-    <SettingsSection id="advanced" title="Advanced">
+    <SettingsPage title="Advanced" description="Pixora has no account, no analytics and never uploads your captures.">
+      <SettingsSection title="Video encoding">
       <SettingRow label="Hardware acceleration" hint="Used for video export and format conversion (WebCodecs).">
         <Select label="Hardware acceleration" value={a.hardwareAcceleration} onChange={(hardwareAcceleration) => void update({ advanced: { hardwareAcceleration } })} options={[{ value: 'auto', label: 'Automatic' }, { value: 'prefer-hardware', label: 'Prefer GPU' }, { value: 'prefer-software', label: 'Prefer CPU' }]} />
       </SettingRow>
@@ -442,6 +491,8 @@ export function AdvancedSection({ settings, update }: Props) {
       <SettingRow label="Experimental features" hint="Prefers the AV1 codec when the codec is automatic (smaller files, higher CPU use; falls back if unsupported).">
         <ToggleSwitch label="Experimental features" checked={a.experimental} onChange={(experimental) => void update({ advanced: { experimental } })} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Troubleshooting">
       <SettingRow label="Debug logging" hint="Writes detailed logs to the console of each extension page and shows technical error details.">
         <ToggleSwitch label="Debug logging" checked={a.debugLogging} onChange={(debugLogging) => void update({ advanced: { debugLogging } })} />
       </SettingRow>
@@ -472,7 +523,6 @@ export function AdvancedSection({ settings, update }: Props) {
           Clear cache
         </Button>
       </SettingRow>
-      <InlineNotice>Pixora has no account, no analytics and never uploads your captures.</InlineNotice>
       <ConfirmationDialog
         open={confirmRepair}
         title="Repair Pixora’s storage?"
@@ -506,6 +556,7 @@ export function AdvancedSection({ settings, update }: Props) {
           toast.success('Settings reset');
         }}
       />
-    </SettingsSection>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

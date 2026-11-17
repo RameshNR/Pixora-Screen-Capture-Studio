@@ -77,12 +77,9 @@
   min-width: 0;
 }
 
-.narrow {
-  max-width: 760px;
-}
-
+/* Recent captures and the settings pages use the whole width of the window. */
 .wide {
-  max-width: 1400px;
+  width: 100%;
 }
 
 @media (max-width: 760px) {

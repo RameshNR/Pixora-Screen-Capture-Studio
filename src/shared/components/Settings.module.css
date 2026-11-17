@@ -1,3 +1,36 @@
+/* A settings page: title, then groups in as many columns as fit (full width of the window). */
+.page {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.pageHead {
+  display: grid;
+  gap: 4px;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: var(--fs-page-title);
+  font-weight: var(--fw-semibold);
+}
+
+.pageDescription {
+  margin: 0;
+  color: var(--c-text-secondary);
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+  gap: var(--sp-5);
+  align-items: start;
+}
+
+.groups > .section {
+  margin-bottom: 0;
+}
+
 .section {
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);

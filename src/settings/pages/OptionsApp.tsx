@@ -62,7 +62,7 @@ export function OptionsApp() {
         {!settings ? (
           <Spinner size={22} />
         ) : (
-          <div className={route === 'history' ? styles.wide : styles.narrow}>
+          <div className={styles.wide}>
             {route === 'welcome' && <Welcome />}
             {route === 'history' && <HistoryView settings={settings} />}
             {route === 'general' && <GeneralSection settings={settings} update={update} />}
