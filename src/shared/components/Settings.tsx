@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import styles from './Settings.module.css';
 
-/** A settings page: icon, title and actions, then its groups side by side (one column on narrow windows). */
+/** A settings page: icon, title and actions, then its groups one under another. */
 export function SettingsPage({ title, description, icon, actions, children }: { title: string; description?: ReactNode; icon?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
     <div className={styles.page}>

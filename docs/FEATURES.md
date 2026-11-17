@@ -662,3 +662,4 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - **Purple accents** on these pages: toggles, selected segments (filled), the selected sidebar item (gradient) and dialogs shown over the page; the sidebar shows *Pixora · Screen Capture Studio*. Dark theme: a deep blue-purple gradient background with a translucent sidebar; light theme: soft tints.
 - Not added from the mock-up: a *Pixora Pro — Upgrade* card (there is no paid version, account or cloud sync, and every control must do real work).
 - Tests: `tests/e2e/round47.spec.ts` (page heading and titled group regions; Cancel keeps settings; Reset restores the Screenshot settings and leaves Recording settings as they were).
+- (Follow-up) Groups are shown **one under another** in a single full-width column (side-by-side cards left empty space under the shorter ones).

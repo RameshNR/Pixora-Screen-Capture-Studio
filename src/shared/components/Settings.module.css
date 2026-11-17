@@ -1,4 +1,4 @@
-/* A settings page: icon, title and actions, then groups in as many columns as fit (full width). */
+/* A settings page: icon, title and actions, then its groups one under another (full width, no gaps). */
 .page {
   display: grid;
   gap: var(--sp-6);
@@ -51,7 +51,7 @@
 
 .groups {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sp-5);
   align-items: start;
 }
