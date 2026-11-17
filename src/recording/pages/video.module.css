@@ -298,9 +298,9 @@
   --c-primary-active: #5b3be8;
   --c-primary-soft: #efeaff;
   --c-primary-soft-strong: #e2d9ff;
-  --studio-tabs: #eceaf7;
+  --studio-tabs: #ebe7fb;
   --player-max-h: max(240px, calc(100vh - 480px));
-  background: radial-gradient(1200px 600px at 20% -10%, #ece8ff 0%, transparent 60%), var(--c-bg-subtle);
+  background: radial-gradient(1200px 600px at 20% -10%, #e4ddff 0%, transparent 60%), var(--c-bg-subtle);
 }
 
 :global(:root[data-theme='dark']) .studio {
@@ -558,4 +558,9 @@
   font-size: 10.5px;
   line-height: 17px;
   font-weight: 700;
+}
+
+:global(:root[data-theme='light']) .studio .side {
+  border: 1px solid var(--c-border);
+  box-shadow: var(--shadow-md);
 }

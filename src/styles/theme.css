@@ -37,15 +37,21 @@
 :root[data-theme='light'][data-chrome='themed'] {
   --c-editor-scheme: light;
   --c-editor-chrome: #ffffff;
-  --c-editor-chrome-2: #f3f4f8;
-  --c-editor-canvas: #eceef3;
-  --c-editor-border: #dde1e8;
-  --c-editor-text: #1f2430;
-  --c-editor-text-dim: #5d6576;
-  --c-editor-hover: #eceff5;
-  --c-editor-dot: rgba(15, 23, 42, 0.07);
+  --c-editor-chrome-2: #f1f3f8;
+  --c-editor-canvas: #dfe3ec;
+  --c-editor-border: #d2d7e2;
+  --c-editor-text: #1b2030;
+  --c-editor-text-dim: #556070;
+  --c-editor-hover: #e9ecf3;
+  --c-editor-dot: rgba(15, 23, 42, 0.12);
   --c-editor-field: #ffffff;
-  --c-editor-field-border: #d3d8e1;
+  --c-editor-field-border: #c9cfdb;
   --c-editor-thumb: #e3e6ec;
-  --c-editor-line: rgba(15, 23, 42, 0.16);
+  --c-editor-line: rgba(15, 23, 42, 0.18);
+  /* Light page backgrounds and panels with clear separation. */
+  --c-bg-subtle: #eceff5;
+  --c-bg-muted: #e5e8f0;
+  --c-border: #d8dce6;
+  --c-border-strong: #c3c9d6;
+  --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 20px rgba(15, 23, 42, 0.08);
 }

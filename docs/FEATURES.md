@@ -700,3 +700,8 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - Frames picked by hand are kept when switching side tabs (the Frames panel stays mounted).
 - Flow name: its own row — only the field takes focus (clicking the label/row no longer focuses it), the field fills the row, and its focus ring no longer overlaps the label.
 - Test: tests/e2e/round52.spec.ts (headless, with a real WebM made by Playwright's page recording).
+
+### Round 53 – Flow Editor light theme; clearer light contrast
+- The Flow Editor follows Settings › General › Theme too (it was always dark). Its thumbnails, captions, name field, buttons, tags and links use the editor colours; the Flow bar shown while capturing stays dark.
+- Light theme contrast on the image editor, video page and Flow Editor: the page background is a clear grey-lavender (#eceff5), panels stay white with visible borders and a soft shadow, the editor canvas is a darker grey (#dfe3ec) with a stronger dot grid, and text is darker. Settings and the popup are unchanged.
+- Test: tests/e2e/round52.spec.ts also checks the Flow Editor in light and dark.

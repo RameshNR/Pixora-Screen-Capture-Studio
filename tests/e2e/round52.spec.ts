@@ -80,7 +80,25 @@ test('video page: "Create flow" builds a flow from frames added by hand; frames 
   // The header button creates the flow, opens the Flow Editor, and becomes "Open flow".
   const flowPage = waitForPage(context, (u) => u.includes('/flow.html?id='));
   await page.getByRole('button', { name: 'Create flow (1)' }).click();
-  await flowPage;
+  const flow = await flowPage;
   await expect(page.getByRole('button', { name: /^Open flow/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Flow steps/ })).toBeVisible();
+
+  // The Flow Editor follows the theme too (Settings › General › Theme), light and dark.
+  const pageBg = () => flow.evaluate(() => {
+    const el = document.querySelector('[class*="editorPage"]');
+    const m = el ? getComputedStyle(el).backgroundColor.match(/\d+/g)!.map(Number) : [0, 0, 0];
+    return (m[0]! + m[1]! + m[2]!) / 3;
+  });
+  const setTheme = (theme: string) => extPage.evaluate(async (theme) => {
+    const k = 'glint.settings';
+    const cur = ((await chrome.storage.local.get(k))[k] ?? {}) as Record<string, Record<string, unknown>>;
+    await chrome.storage.local.set({ [k]: { ...cur, general: { ...(cur.general ?? {}), theme } } });
+  }, theme);
+  await setTheme('light');
+  await expect(flow.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect.poll(pageBg).toBeGreaterThan(190);
+  await setTheme('dark');
+  await expect(flow.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect.poll(pageBg).toBeLessThan(60);
 });

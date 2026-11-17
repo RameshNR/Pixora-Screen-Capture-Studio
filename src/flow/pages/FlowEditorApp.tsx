@@ -11,7 +11,7 @@ import { Button, IconButton } from '@/shared/components/Button';
 import { Checkbox } from '@/shared/components/FormControls';
 import { ConfirmationDialog } from '@/shared/components/Modal';
 import { Spinner } from '@/shared/components/Progress';
-import { applyTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/useTheme';
 import { broadcast, errorInfoOf, onBroadcast } from '@/shared/messaging/client';
 import { getCapture, getCaptureBlob, updateCapture } from '@/history/history-service';
 import { formatDateTime } from '@/shared/utils/format';
@@ -41,8 +41,10 @@ interface Loaded {
  * own undo / redo history while the editor is open; originals are preserved.
  */
 export function FlowEditorApp() {
-  useEffect(() => applyTheme('dark'), []);
   const { settings } = useSettings();
+  // Follows Settings › General › Theme, with the light editor colours (styles/theme.css).
+  useTheme(settings?.general.theme);
+  useEffect(() => { document.documentElement.dataset.chrome = 'themed'; }, []);
   const toast = useToast();
   const flowId = new URLSearchParams(location.search).get('id') ?? '';
   const [flow, setFlow] = useState<FlowDoc | null>(null);

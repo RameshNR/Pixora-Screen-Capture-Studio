@@ -1130,3 +1130,8 @@
   width: 100%;
   resize: none;
 }
+
+:global(:root[data-theme='light']) .rail,
+:global(:root[data-theme='light']) .trim {
+  box-shadow: var(--shadow-md);
+}
