@@ -705,3 +705,8 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - The Flow Editor follows Settings › General › Theme too (it was always dark). Its thumbnails, captions, name field, buttons, tags and links use the editor colours; the Flow bar shown while capturing stays dark.
 - Light theme contrast on the image editor, video page and Flow Editor: the page background is a clear grey-lavender (#eceff5), panels stay white with visible borders and a soft shadow, the editor canvas is a darker grey (#dfe3ec) with a stronger dot grid, and text is darker. Settings and the popup are unchanged.
 - Test: tests/e2e/round52.spec.ts also checks the Flow Editor in light and dark.
+
+### Round 54 – Video frames: no Canvas2D readback warning
+- Chrome logged "Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true" (Extensions › Errors, video page) after adding frames. Cause: `trimBars` (removes black bars from a grabbed frame) read pixels from applyRedactions' shared GPU drawing canvas; `willReadFrequently` only applies when a canvas's context is first created, so asking for it there had no effect.
+- Fix: `trimBars` copies the frame into a fresh canvas made for reading and reads that once; the shared canvas (also used per frame by exports) stays GPU-backed and fast. It also always returns a private copy.
+- Test: tests/e2e/round52.spec.ts adds frames repeatedly and asserts no readback warning (fails on the old code).

@@ -49,6 +49,8 @@ test('video page: "Create flow" builds a flow from frames added by hand; frames 
     b64,
   );
   const page = await context.newPage();
+  const consoleLines: string[] = [];
+  page.on('console', (m) => consoleLines.push(m.text()));
   await page.setViewportSize({ width: 1500, height: 950 });
   await page.goto(`chrome-extension://${extensionId}/video.html?id=v_flow`);
 
@@ -67,6 +69,14 @@ test('video page: "Create flow" builds a flow from frames added by hand; frames 
   await page.getByRole('tab', { name: /^Frames/ }).click();
   await expect(frames.getByRole('listitem')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Create flow (1)' })).toBeVisible();
+
+  // Grabbing frames again and again doesn't read pixels back from the GPU drawing canvas
+  // (Chrome's "Multiple readback operations using getImageData…" warning). Same frame = skipped.
+  for (let i = 0; i < 4; i++) {
+    await page.getByRole('button', { name: /^Add this frame/ }).click();
+    await expect(page.getByText(/^Same picture as frame 1/).first()).toBeVisible();
+  }
+  expect(consoleLines.filter((l) => /willReadFrequently|readback/i.test(l))).toEqual([]);
 
   // Flow name: only the field takes focus, and it fills the row.
   const nameField = page.getByRole('textbox', { name: 'Flow name' });

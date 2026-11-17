@@ -30,16 +30,25 @@ export function findBars(data: Uint8ClampedArray, width: number, height: number,
   return { top: min(top, height), bottom: min(bottom, height), left: min(left, width), right: min(right, width) };
 }
 
-/** The canvas without its black bars (the same canvas when there are none). */
+/**
+ * A copy of the canvas without its black bars.
+ *
+ * The pixels are read from a fresh canvas made for reading (`willReadFrequently`), never from the
+ * one passed in: that is the shared drawing canvas of applyRedactions (GPU-backed, also used per
+ * frame by exports). Reading it back repeatedly is slow and makes Chrome log "Multiple readback
+ * operations using getImageData are faster with the willReadFrequently attribute".
+ */
 export function trimBars(canvas: OffscreenCanvas): OffscreenCanvas {
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return canvas;
   const { width, height } = canvas;
+  const copy = new OffscreenCanvas(width, height);
+  const ctx = copy.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return canvas;
+  ctx.drawImage(canvas, 0, 0);
   const b = findBars(ctx.getImageData(0, 0, width, height).data, width, height);
   const w = width - b.left - b.right;
   const h = height - b.top - b.bottom;
-  if ((w === width && h === height) || w < 16 || h < 16) return canvas;
+  if ((w === width && h === height) || w < 16 || h < 16) return copy;
   const out = new OffscreenCanvas(w, h);
-  out.getContext('2d')!.drawImage(canvas, b.left, b.top, w, h, 0, 0, w, h);
+  out.getContext('2d')!.drawImage(copy, b.left, b.top, w, h, 0, 0, w, h);
   return out;
 }
