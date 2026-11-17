@@ -29,6 +29,34 @@
 
 .groups > .section {
   margin-bottom: 0;
+  /* Each group its own colour (same order on every page): a top edge, a title marker and a tinted head. */
+  border-top: 3px solid var(--accent);
+}
+
+.groups > .section:nth-child(6n + 1) { --accent: #4f8df7; }
+.groups > .section:nth-child(6n + 2) { --accent: #22b07d; }
+.groups > .section:nth-child(6n + 3) { --accent: #f59e0b; }
+.groups > .section:nth-child(6n + 4) { --accent: #a855f7; }
+.groups > .section:nth-child(6n + 5) { --accent: #ef5d8f; }
+.groups > .section:nth-child(6n + 6) { --accent: #14b8c4; }
+
+.groups > .section > .head {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.groups > .section .title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.groups > .section .title::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+  flex: none;
 }
 
 .section {
