@@ -653,3 +653,12 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - Tests: `tests/unit/round45.test.ts` (window query; same tab and size → ok, resized → size, other tab → tab); `tests/e2e/round46.spec.ts` (resized after the screenshot: the message shows, nothing is saved yet, and once the size is back the screenshot is saved with the header).
 - **Coloured settings groups:** each group on a settings page has its own accent colour — a 3 px top edge, a square marker before its title and a lightly tinted heading (blue, green, amber, purple, pink, teal, then again), in the same order on every page, in light and dark themes.
 - Chrome's *Share an application window* dialog is Chrome's own: its size can't be changed by an extension (Pixora's window behind it names the window to choose).
+
+### Round 47 — Settings page redesign
+
+- **Page header:** a gradient icon tile, large title and description, and **Reset to defaults** on the right (General, Screenshot, Recording, Flow Capture, Storage, Advanced). It asks first and resets only that page's settings — other pages and captures are kept (Storage: files go to Downloads again).
+- **Groups:** an icon tile in the group's colour, a gradient-tinted heading, rounded cards with a soft shadow; colours in a fixed order (blue, purple, teal, green, pink, amber). Three columns on wide windows, one on narrow.
+- **Every setting has an icon** before its name (76 settings, 26 groups); rows whose control sits under the text keep the icon beside the text.
+- **Purple accents** on these pages: toggles, selected segments (filled), the selected sidebar item (gradient) and dialogs shown over the page; the sidebar shows *Pixora · Screen Capture Studio*. Dark theme: a deep blue-purple gradient background with a translucent sidebar; light theme: soft tints.
+- Not added from the mock-up: a *Pixora Pro — Upgrade* card (there is no paid version, account or cloud sync, and every control must do real work).
+- Tests: `tests/e2e/round47.spec.ts` (page heading and titled group regions; Cancel keeps settings; Reset restores the Screenshot settings and leaves Recording settings as they were).

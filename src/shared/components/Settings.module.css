@@ -1,18 +1,41 @@
-/* A settings page: title, then groups in as many columns as fit (full width of the window). */
+/* A settings page: icon, title and actions, then groups in as many columns as fit (full width). */
 .page {
   display: grid;
-  gap: var(--sp-5);
+  gap: var(--sp-6);
 }
 
 .pageHead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageIcon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--c-primary), #a855f7);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--c-primary) 35%, transparent);
+}
+
+.pageText {
   display: grid;
   gap: 4px;
+  flex: 1;
+  min-width: 220px;
 }
 
 .pageTitle {
   margin: 0;
-  font-size: var(--fs-page-title);
-  font-weight: var(--fw-semibold);
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .pageDescription {
@@ -20,43 +43,106 @@
   color: var(--c-text-secondary);
 }
 
+.pageActions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .groups {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
   gap: var(--sp-5);
   align-items: start;
 }
 
+/* Each group its own colour (same order on every page): icon tile, tinted heading and edge. */
+.groups > .section:nth-child(6n + 1) { --accent: #4f8df7; }
+.groups > .section:nth-child(6n + 2) { --accent: #a855f7; }
+.groups > .section:nth-child(6n + 3) { --accent: #14b8c4; }
+.groups > .section:nth-child(6n + 4) { --accent: #22b07d; }
+.groups > .section:nth-child(6n + 5) { --accent: #ef5d8f; }
+.groups > .section:nth-child(6n + 6) { --accent: #f59e0b; }
+
 .groups > .section {
   margin-bottom: 0;
-  /* Each group its own colour (same order on every page): a top edge, a title marker and a tinted head. */
-  border-top: 3px solid var(--accent);
+  border-radius: 18px;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--c-border));
+  box-shadow: 0 10px 30px rgba(15, 18, 40, 0.08);
 }
 
-.groups > .section:nth-child(6n + 1) { --accent: #4f8df7; }
-.groups > .section:nth-child(6n + 2) { --accent: #22b07d; }
-.groups > .section:nth-child(6n + 3) { --accent: #f59e0b; }
-.groups > .section:nth-child(6n + 4) { --accent: #a855f7; }
-.groups > .section:nth-child(6n + 5) { --accent: #ef5d8f; }
-.groups > .section:nth-child(6n + 6) { --accent: #14b8c4; }
+:global(:root[data-theme='dark']) .groups > .section {
+  background: color-mix(in srgb, var(--c-bg) 82%, transparent);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
+}
 
 .groups > .section > .head {
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 4%, transparent));
+  border-bottom-color: color-mix(in srgb, var(--accent) 22%, var(--c-border));
+}
+
+.groupIcon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 13px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--c-bg));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .groups > .section .title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
 }
 
-.groups > .section .title::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--accent);
-  flex: none;
+.groups > .section .rows {
+  padding: 4px 6px;
+}
+
+.groups > .section .row {
+  padding: 14px 14px;
+}
+
+/* A row with a leading icon (label and hint next to it). */
+.row.withIcon {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+}
+
+.row.withIcon.stacked {
+  grid-template-columns: 26px minmax(0, 1fr);
+  row-gap: var(--sp-2);
+}
+
+.row.withIcon.stacked .rowIcon {
+  align-self: start;
+  margin-top: 2px;
+}
+
+.row.withIcon.stacked .control {
+  grid-column: 2;
+  flex-wrap: wrap;
+}
+
+.rowIcon {
+  display: grid;
+  place-items: center;
+  color: var(--c-text-secondary);
+}
+
+/* Options page: purple selected states (segments) like the toggles. */
+.groups [role='radiogroup'] > [role='radio'][aria-checked='true'] {
+  background: var(--c-primary);
+  color: #fff;
 }
 
 .section {
@@ -159,4 +245,14 @@
 .success {
   background: var(--c-success-soft);
   color: var(--c-success);
+}
+
+/* In icon rows the control column is sized by the control itself (segments stay on one line). */
+.row.withIcon:not(.stacked) .control {
+  max-width: none;
+  justify-content: flex-end;
+}
+
+.row.withIcon:not(.stacked) .control [role='radiogroup'] {
+  flex-wrap: nowrap;
 }

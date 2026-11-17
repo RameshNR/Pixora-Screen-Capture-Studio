@@ -2,7 +2,35 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
-  background: var(--c-bg-subtle);
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(124, 92, 255, 0.14), transparent 60%),
+    radial-gradient(900px 600px at 0% 100%, rgba(79, 141, 247, 0.08), transparent 60%),
+    var(--c-bg-subtle);
+}
+
+/* Pixora purple for selected items, toggles and buttons on these pages (on the whole document, so
+   dialogs shown over the page match too). */
+:global(html):has(.layout) {
+  --c-primary: #6d4aff;
+  --c-primary-hover: #7d5eff;
+  --c-primary-active: #5b38f0;
+  --c-primary-soft: #efeaff;
+  --c-primary-soft-strong: #e2d9ff;
+}
+
+:global(html[data-theme='dark']):has(.layout) {
+  --c-primary: #7c5cff;
+  --c-primary-hover: #8f74ff;
+  --c-primary-active: #6a48f5;
+  --c-primary-soft: #2a2350;
+  --c-primary-soft-strong: #352a6a;
+}
+
+:global(:root[data-theme='dark']) .layout {
+  background:
+    radial-gradient(1200px 520px at 85% -10%, rgba(124, 92, 255, 0.28), transparent 60%),
+    radial-gradient(900px 600px at 0% 100%, rgba(79, 141, 247, 0.12), transparent 60%),
+    linear-gradient(180deg, #151833, #0f1226);
 }
 
 .sidebar {
@@ -27,8 +55,19 @@
 }
 
 .brand img {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
+}
+
+.brandText {
+  display: grid;
+  line-height: 1.2;
+}
+
+.brandText small {
+  color: var(--c-text-tertiary);
+  font-size: 11px;
+  font-weight: var(--fw-medium);
 }
 
 .navGroup {
@@ -61,8 +100,9 @@
 
 .navActive,
 .navActive:hover {
-  background: var(--c-primary-soft);
-  color: var(--c-primary);
+  background: linear-gradient(135deg, var(--c-primary), #9b6bff);
+  color: #fff;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--c-primary) 35%, transparent);
 }
 
 .version {
@@ -153,4 +193,10 @@
   height: auto;
   border-radius: var(--r-lg);
   background: #fff;
+}
+
+/* Dark: the sidebar is a translucent panel over the page gradient. */
+:global(:root[data-theme='dark']) .sidebar {
+  background: rgba(16, 19, 42, 0.72);
+  border-right-color: rgba(255, 255, 255, 0.07);
 }

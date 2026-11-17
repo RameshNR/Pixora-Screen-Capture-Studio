@@ -45,7 +45,10 @@ export function OptionsApp() {
       <nav className={styles.sidebar} aria-label="Sections">
         <div className={styles.brand}>
           <img src="/icons/icon-48.png" alt="" />
-          <span>Pixora</span>
+          <span className={styles.brandText}>
+            Pixora
+            <small>Screen Capture Studio</small>
+          </span>
         </div>
         {NAV.map((n) => (
           <div key={n.id}>
