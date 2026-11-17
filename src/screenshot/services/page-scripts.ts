@@ -193,7 +193,11 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
       let p = where.get(el);
       if (!p) {
         const headerLike = r.top <= vh * 0.25 && r.height <= vh * 0.5;
-        p = !fixed || headerLike ? 'top' : 'bottom';
+        // Only what is already pinned to the window on the first screen can be a window toolbar.
+        // Something first seen pinned later became fixed while scrolling (a "sticky" sidebar or
+        // header made fixed by the page's script): it is page content, kept where it was on the
+        // first screen and never stamped again at the end.
+        p = phase !== 'first' || !fixed || headerLike ? 'top' : 'bottom';
         where.set(el, p);
       }
       return p;

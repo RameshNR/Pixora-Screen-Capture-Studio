@@ -148,3 +148,53 @@ test('full page: normal page — fixed header only at the top, fixed bottom widg
   expect(shot.red.length).toBeGreaterThan(0);
   expect(Math.min(...shot.red)).toBeGreaterThan(shot.height - (60 + 4) * dpr);
 });
+
+test('full page: a sidebar that becomes fixed while scrolling appears once (in its place), not again at the end', async ({ context, extPage, baseUrl }) => {
+  test.setTimeout(120_000);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 900, height: 500 });
+  await page.goto(`${baseUrl}/long`);
+  await page.evaluate(() => {
+    document.head.insertAdjacentHTML('beforeend', `<style>
+      body { margin: 0; background: rgb(220, 240, 220); }
+      #main { width: 600px; height: 4000px; }
+      /* Like the cruise "summary" box: taller than half the window, made fixed by the page's script. */
+      #side { position: absolute; top: 40px; left: 650px; width: 200px; height: 320px; background: rgb(255, 0, 0); }
+      #side.stuck { position: fixed; top: 0; }
+    </style>`);
+    document.body.innerHTML = '<div id="main"></div><div id="side"></div>';
+    window.addEventListener('scroll', () => document.getElementById('side')!.classList.toggle('stuck', window.scrollY > 40));
+  });
+  await page.bringToFront();
+  await capture(extPage, baseUrl);
+  const shot = await colourRows(extPage);
+  const dpr = await page.evaluate(() => devicePixelRatio);
+  // Only where it is on the first screen.
+  expect(shot.red.length).toBeGreaterThan(0);
+  expect(Math.min(...shot.red)).toBeLessThanOrEqual(Math.ceil(40 * dpr) + 1);
+  expect(Math.max(...shot.red)).toBeLessThan((40 + 320 + 4) * dpr);
+});
+
+test('full page: a CSS sticky sidebar appears once (in its place)', async ({ context, extPage, baseUrl }) => {
+  test.setTimeout(120_000);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 900, height: 500 });
+  await page.goto(`${baseUrl}/long`);
+  await page.evaluate(() => {
+    document.head.insertAdjacentHTML('beforeend', `<style>
+      body { margin: 0; background: rgb(220, 240, 220); }
+      #row { display: flex; gap: 50px; }
+      #main { width: 600px; height: 4000px; }
+      #col { width: 200px; padding-top: 40px; }
+      #side { position: sticky; top: 0; height: 320px; background: rgb(255, 0, 0); }
+    </style>`);
+    document.body.innerHTML = '<div id="row"><div id="main"></div><div id="col"><div id="side"></div></div></div>';
+  });
+  await page.bringToFront();
+  await capture(extPage, baseUrl);
+  const shot = await colourRows(extPage);
+  const dpr = await page.evaluate(() => devicePixelRatio);
+  expect(shot.red.length).toBeGreaterThan(0);
+  expect(Math.min(...shot.red)).toBeLessThanOrEqual(Math.ceil(40 * dpr) + 1);
+  expect(Math.max(...shot.red)).toBeLessThan((40 + 320 + 4) * dpr);
+});
