@@ -152,3 +152,56 @@ export function describeMime(mime: string): string {
   const container = m.includes('mp4') ? 'MP4' : m.includes('matroska') ? 'MKV' : 'WebM';
   return [container, [video, audio].filter(Boolean).join(' + ')].filter(Boolean).join(' · ');
 }
+
+/** What the browser says about encoding one format (MediaCapabilities.encodingInfo). */
+export interface EncodingAnswer {
+  supported: boolean;
+  smooth: boolean;
+  powerEfficient: boolean;
+}
+
+export interface EncodingPlan {
+  /** Size to record at (the source size, or smaller when only a smaller size is hardware-encoded). */
+  size: Dimensions;
+  /** Codec to prefer ('auto' keeps the normal choice). */
+  videoCodec: VideoCodecPreference;
+  /** A hardware (power-efficient) encoder handles it: the computer stays responsive. */
+  efficient: boolean;
+}
+
+/**
+ * Picks a format the graphics card can encode, so recording doesn't slow the whole computer.
+ * Tries the source size first, then (only when `mayShrink`, i.e. resolution "Original") 1440p and
+ * 1080p; for each size the codecs of `container` in the usual order (only the preferred one when
+ * the user chose a codec). The first supported, smooth, power-efficient one wins; when none is,
+ * the source size is kept with `efficient: false`.
+ */
+export async function planEncoding(
+  source: Dimensions,
+  opts: { container: VideoContainer; videoPref: VideoCodecPreference; fps: number; bitrateKbps: number; mayShrink: boolean },
+  isTypeSupported: (mime: string) => boolean,
+  encodingInfo: (q: { contentType: string; width: number; height: number; bitrate: number; framerate: number }) => Promise<EncodingAnswer>,
+): Promise<EncodingPlan> {
+  const sizes: Dimensions[] = [source];
+  if (opts.mayShrink) {
+    for (const box of [{ width: 2560, height: 1440 }, { width: 1920, height: 1080 }]) {
+      const s = fitWithin(source, box);
+      if (s.width < sizes[sizes.length - 1]!.width) sizes.push(s);
+    }
+  }
+  const codecs = buildCandidates(opts.container, opts.videoPref, 'auto', false)
+    .filter((c) => opts.videoPref === 'auto' || c.video === opts.videoPref)
+    .filter((c) => isTypeSupported(c.mime));
+  for (const size of sizes) {
+    const bitrate = resolveVideoBitrate(opts.bitrateKbps, size.width, size.height, opts.fps);
+    for (const c of codecs) {
+      try {
+        const a = await encodingInfo({ contentType: c.mime, width: size.width, height: size.height, bitrate, framerate: opts.fps });
+        if (a.supported && a.smooth && a.powerEfficient) return { size, videoCodec: opts.videoPref === 'auto' ? c.video : opts.videoPref, efficient: true };
+      } catch {
+        /* this format can't be asked about: try the next */
+      }
+    }
+  }
+  return { size: source, videoCodec: opts.videoPref, efficient: false };
+}

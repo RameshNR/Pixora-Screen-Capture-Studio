@@ -12,7 +12,7 @@ import { AudioMixer } from './audio-service';
 import { assembleChunks, deleteSession, dropMemoryChunks, saveSessionMeta, updateSessionActiveMs, type SessionMeta } from './chunk-store';
 import { downloadBlob } from '@/shared/utils/download';
 import { sendToBackground } from '@/shared/messaging/client';
-import { describeMime, resolveVideoBitrate, selectMimeType } from './codec-service';
+import { describeMime, planEncoding, resolveVideoBitrate, selectMimeType } from './codec-service';
 import { ChunkedRecorder } from './media-recorder-service';
 import { getCameraStream, getMicStream, stopStream } from './media-stream-service';
 import { generateVideoThumbnail } from './thumbnail';
@@ -77,12 +77,50 @@ export class RecordingSession {
     return this.accumulatedMs + (this.resumedAt !== null ? Date.now() - this.resumedAt : 0);
   }
 
+  /** See prepare(): returns the codec to prefer; may lower the capture size (resolution "Original" only). */
+  private async chooseEfficientEncoding(track: MediaStreamTrack, videoCodec: RecordingConfig['videoCodec']): Promise<RecordingConfig['videoCodec']> {
+    const caps = (navigator as Navigator & { mediaCapabilities?: MediaCapabilities }).mediaCapabilities;
+    const src = track.getSettings();
+    if (!caps?.encodingInfo || !src.width || !src.height) return videoCodec;
+    const { config } = this;
+    try {
+      const plan = await planEncoding(
+        { width: src.width, height: src.height },
+        { container: config.container, videoPref: videoCodec, fps: config.fps, bitrateKbps: config.videoBitrateKbps, mayShrink: config.resolution === 'original' },
+        (m) => MediaRecorder.isTypeSupported(m),
+        (q) => caps.encodingInfo({ type: 'record', video: q }),
+      );
+      if (!plan.efficient) {
+        this.notes.push(`This computer has no hardware encoder for ${src.width}×${src.height} video, so it is encoded on the processor, which can slow the computer (and the mouse) while recording. If it does, choose 1080p or 1440p in Settings › Recording › Resolution.`);
+        return videoCodec;
+      }
+      if (plan.size.width < src.width) {
+        try {
+          await track.applyConstraints({ width: { max: plan.size.width }, height: { max: plan.size.height } });
+          this.notes.push(`Recorded at ${plan.size.width}×${plan.size.height} instead of ${src.width}×${src.height}: the graphics card can't encode the full size, and encoding it on the processor would slow the computer (and the mouse). Choose a resolution in Settings › Recording to record at another size.`);
+        } catch {
+          this.notes.push(`This computer can't hardware-encode ${src.width}×${src.height} video, which can slow it while recording. If it does, choose 1080p or 1440p in Settings › Recording › Resolution.`);
+          return videoCodec;
+        }
+      }
+      return plan.videoCodec;
+    } catch {
+      return videoCodec;
+    }
+  }
+
   /** Acquires microphone / camera, builds the pipeline and the MediaRecorder. */
   async prepare(source: SessionSource): Promise<ActualRecordingInfo> {
     this.source = source;
     const { config } = this;
     const primaryVideo = source.stream.getVideoTracks()[0];
     if (!primaryVideo) throw new AppError('source-unavailable', 'Source stream has no video track');
+
+    // A format the graphics card can encode: encoding a large screen (4K) on the processor slows the
+    // whole computer, mouse included. With resolution "Original" a smaller size is used when only
+    // that is hardware-encoded; otherwise the user is told.
+    let videoCodec = config.videoCodec;
+    if (config.mode !== 'camera') videoCodec = await this.chooseEfficientEncoding(primaryVideo, videoCodec);
 
     // Microphone
     if (config.mic.enabled) {
@@ -154,7 +192,7 @@ export class RecordingSession {
     const audioTrack = this.mixer?.track ?? null;
 
     // Codec / container
-    const selection = selectMimeType(config.container, config.videoCodec, config.audioCodec, audioTrack !== null, (m) => MediaRecorder.isTypeSupported(m));
+    const selection = selectMimeType(config.container, videoCodec, config.audioCodec, audioTrack !== null, (m) => MediaRecorder.isTypeSupported(m));
     if (!selection) throw new AppError('unsupported-codec', 'No MediaRecorder MIME type supported');
     this.warnings.push(...selection.warnings);
 
