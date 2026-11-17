@@ -170,7 +170,7 @@
   border: 0;
   border-radius: 6px;
   overflow: hidden;
-  background: #0d0f13;
+  background: var(--c-editor-thumb);
   cursor: pointer;
   aspect-ratio: 16 / 10;
 }
@@ -230,7 +230,7 @@
   padding: 0 8px;
   border: 1px solid var(--c-editor-border);
   border-radius: 6px;
-  background: #171a20;
+  background: var(--c-editor-field);
   color: var(--c-editor-text);
   font: inherit;
   font-size: 12.5px;
@@ -276,4 +276,8 @@
   .rail {
     width: 168px;
   }
+}
+
+:global(:root[data-theme='light'][data-chrome='themed']) .edited {
+  color: #13774a;
 }

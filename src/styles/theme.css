@@ -31,3 +31,21 @@
 
   color-scheme: dark;
 }
+
+/* Light image / video editor: used when the theme is light on pages that follow it
+   (<html data-chrome="themed">, set by the image editor and the video page). */
+:root[data-theme='light'][data-chrome='themed'] {
+  --c-editor-scheme: light;
+  --c-editor-chrome: #ffffff;
+  --c-editor-chrome-2: #f3f4f8;
+  --c-editor-canvas: #eceef3;
+  --c-editor-border: #dde1e8;
+  --c-editor-text: #1f2430;
+  --c-editor-text-dim: #5d6576;
+  --c-editor-hover: #eceff5;
+  --c-editor-dot: rgba(15, 23, 42, 0.07);
+  --c-editor-field: #ffffff;
+  --c-editor-field-border: #d3d8e1;
+  --c-editor-thumb: #e3e6ec;
+  --c-editor-line: rgba(15, 23, 42, 0.16);
+}

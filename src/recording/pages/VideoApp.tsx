@@ -22,7 +22,7 @@ import { InlineNotice } from '@/shared/components/Settings';
 import { Tooltip } from '@/shared/components/Tooltip';
 import { useToast } from '@/shared/components/Toast';
 import { useSettings } from '@/shared/hooks/useSettings';
-import { applyTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/useTheme';
 import { broadcast, errorInfoOf } from '@/shared/messaging/client';
 import { addCapture, deleteCapture, getCapture, getCaptureBlob, listCaptures, updateCapture } from '@/history/history-service';
 import { downloadBlob, SAVED_TO_FOLDER, showInFolder } from '@/shared/utils/download';
@@ -42,8 +42,10 @@ import styles from './video.module.css';
 /** Recording result page: playback, metadata, rename, download, trim and format conversion. */
 export function VideoApp() {
   const { settings, update: updateSettings } = useSettings();
-  // The video studio is always dark (like the image editor).
-  useEffect(() => applyTheme('dark'), []);
+  // Follows Settings › General › Theme (light, dark or the computer's setting).
+  useTheme(settings?.general.theme);
+  // The editor colours (--c-editor-*) switch to their light set too (styles/theme.css).
+  useEffect(() => { document.documentElement.dataset.chrome = 'themed'; }, []);
   const toast = useToast();
   const params = useMemo(() => new URLSearchParams(location.search), []);
   const id = params.get('id') ?? '';

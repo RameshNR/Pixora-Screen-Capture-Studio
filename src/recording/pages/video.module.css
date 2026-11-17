@@ -290,13 +290,25 @@
 }
 
 /* ---------------------------- Visual Capture Studio ---------------------------- */
-/* The video page: dark navy panels with a purple accent; player, timeline and tools fit the window. */
+/* The video page: purple accent; dark navy panels in the dark theme, soft white panels in the light
+   theme (the player and timeline strip stay dark, like any video player). */
 .studio {
   --c-primary: #7c5cff;
+  --c-primary-hover: #6a48f5;
+  --c-primary-active: #5b3be8;
+  --c-primary-soft: #efeaff;
+  --c-primary-soft-strong: #e2d9ff;
+  --studio-tabs: #eceaf7;
+  --player-max-h: max(240px, calc(100vh - 480px));
+  background: radial-gradient(1200px 600px at 20% -10%, #ece8ff 0%, transparent 60%), var(--c-bg-subtle);
+}
+
+:global(:root[data-theme='dark']) .studio {
   --c-primary-hover: #8f74ff;
   --c-primary-active: #6a48f5;
   --c-primary-soft: #2a2350;
   --c-primary-soft-strong: #352a6a;
+  --studio-tabs: #11142a;
   --c-bg: #161a2e;
   --c-bg-subtle: #0e1121;
   --c-bg-muted: #1f2440;
@@ -306,7 +318,6 @@
   --c-text: #eef0ff;
   --c-text-secondary: #a3a9cc;
   --c-text-tertiary: #737aa3;
-  --player-max-h: max(240px, calc(100vh - 480px));
   background: radial-gradient(1200px 600px at 20% -10%, #1b1f3d 0%, transparent 60%), var(--c-bg-subtle);
 }
 
@@ -327,13 +338,13 @@
   max-height: calc(100vh - 60px - 36px);
   overflow: auto;
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .studio .sideTabs {
   padding: 4px;
   border-radius: 12px;
-  background: #11142a;
+  background: var(--studio-tabs);
 }
 
 .studio .sideTab {
@@ -543,7 +554,7 @@
   min-width: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, currentColor 16%, transparent);
   font-size: 10.5px;
   line-height: 17px;
   font-weight: 700;

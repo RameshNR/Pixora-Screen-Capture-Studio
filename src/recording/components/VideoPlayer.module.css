@@ -6,6 +6,14 @@
   overflow: hidden;
   background: #0f1217;
   box-shadow: var(--shadow-md);
+  /* The player is always dark (like any video player), also in the light theme. */
+  --c-editor-scheme: dark;
+  --c-editor-canvas: #1b1e24;
+  --c-editor-border: #3a404c;
+  --c-editor-text: #e6e9ef;
+  --c-editor-text-dim: #9aa3b2;
+  --c-editor-hover: #363c48;
+  color-scheme: dark;
 }
 
 .fs {

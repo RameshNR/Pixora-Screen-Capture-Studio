@@ -685,3 +685,9 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - Applies everywhere files are saved: editor (image, PDF, Word), collage, video page, video frames, Flow exports, Recent captures.
 - `downloadOutcome(id)` in src/shared/utils/download.ts reports complete / cancelled / Chrome's interrupt reason (also handles an item that ended before listening, or was removed).
 - Tests: tests/unit/round50.test.ts.
+
+### Round 51 – Light theme for the image editor and video page
+- The image editor (with collage) and the video page now follow Settings › General › Theme (Light, Dark, or the computer's setting) instead of always being dark.
+- Light: white toolbar and panels, a soft grey canvas with a dot grid, purple accents on the video page; the video player and timeline strip stay dark, like any video player. Dark looks as before.
+- How: the editor colours (`--c-editor-*`) get a light set in styles/theme.css for pages that set `<html data-chrome="themed">` (the image editor and video page only — the recording control bar, Flow bar, Flow editor, teleprompter and helper windows stay dark). Hard-coded dark colours (zoom field, keyboard keys, thumbnails, name fields, menus, saved badge, side tabs) now use these colours.
+- Test: tests/e2e/round51.spec.ts (headless; light and dark, background and text contrast).

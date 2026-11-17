@@ -15,7 +15,7 @@ import { broadcast, errorInfoOf } from '@/shared/messaging/client';
 import { addCapture, getCapture, getCaptureBlob, updateCapture } from '@/history/history-service';
 import { copyImageToClipboard, copyText, downloadBlob } from '@/shared/utils/download';
 import { buildFilename, stripExtension } from '@/shared/utils/filename';
-import { applyTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/useTheme';
 import { generateImageThumbnail } from '@/recording/services/thumbnail';
 import type { Annotation, EditorDoc, MarkerAnnotation, Frame, Rect, Tool, ToolStyles, Watermark } from '../types';
 import { BACKGROUND_DEFAULTS, BORDER_DEFAULTS, DEFAULT_TOOL_STYLES, EMPTY_FRAME } from '../types';
@@ -88,8 +88,10 @@ export function EditorApp() {
   const savedDocs = useRef(new Map<string, EditorDoc>());
   const currentId = load.status === 'ready' ? load.record.id : null;
 
-  // The editor chrome is always dark (desktop-app style); keep tokens consistent.
-  useEffect(() => applyTheme('dark'), []);
+  // Follows Settings › General › Theme (light, dark or the computer's setting).
+  useTheme(settings?.general.theme);
+  // The editor colours (--c-editor-*) switch to their light set too (styles/theme.css).
+  useEffect(() => { document.documentElement.dataset.chrome = 'themed'; }, []);
 
   const openCapture = useCallback(async (id: string) => {
     setLoad({ status: 'loading' });

@@ -35,7 +35,14 @@
   --c-recording: #ef5350;
   --c-ai: #7c5cf6;
 
-  /* Editor chrome (always dark, like a desktop app) */
+  /* Editor chrome: dark like a desktop app; the image and video editors switch to the light set
+     (theme.css) when Settings › General › Theme is light. */
+  --c-editor-scheme: dark;
+  --c-editor-dot: rgba(255, 255, 255, 0.045);
+  --c-editor-field: #262b34;
+  --c-editor-field-border: #353c48;
+  --c-editor-thumb: #0d0f13;
+  --c-editor-line: rgba(255, 255, 255, 0.15);
   --c-editor-chrome: #262a33;
   --c-editor-chrome-2: #2e333d;
   --c-editor-canvas: #1b1e24;
