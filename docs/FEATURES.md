@@ -679,3 +679,9 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - Settings pages (max 1080px wide) now start right next to the sidebar instead of being centred in a wide window; Recent captures still uses the full width.
 - Flow Capture › "Take screenshots on": the row's name and description sit on one line, with the interaction chips (and All / None) underneath at full width, so the label is no longer squeezed into a narrow column. The picker no longer repeats its title inside Settings.
 - Test: tests/e2e/round49.spec.ts (headless).
+
+### Round 50 – "Ask where to save" waits for you
+- With Settings › Storage › "Ask where to save" on (or Save as…), Chrome returns the download while its Save-as dialog is still open. Pixora now waits for the dialog: the "Saved" message appears only after the file is really written, and nothing is shown if the dialog is closed without saving (a real failure such as a full disk is reported).
+- Applies everywhere files are saved: editor (image, PDF, Word), collage, video page, video frames, Flow exports, Recent captures.
+- `downloadOutcome(id)` in src/shared/utils/download.ts reports complete / cancelled / Chrome's interrupt reason (also handles an item that ended before listening, or was removed).
+- Tests: tests/unit/round50.test.ts.

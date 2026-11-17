@@ -829,7 +829,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           if (!isStorageUnavailable(err)) throw err;
           return false;
         });
-        if (kept) toast.success(saveAs ? 'Saving…' : 'Downloaded', `${filename}.${ext}`);
+        if (kept) toast.success(saveAs || settings.storage.askWhereToSave ? 'Saved' : 'Downloaded', `${filename}.${ext}`);
         else toast.info('Downloaded', `${filename}.${ext} is saved. Pixora’s storage could not be opened, so Recent captures was not updated — restart Chrome.`);
       } catch (err) {
         const info = errorInfoOf(err);

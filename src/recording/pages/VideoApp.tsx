@@ -255,7 +255,7 @@ export function VideoApp() {
           subfolder: settings.storage.subfolder,
         });
         if (!data) setRecord(await updateCapture(record.id, { downloadId }));
-        toast.success(saveAs ? 'Saving…' : 'Download started', name ?? record.name);
+        toast.success(saveAs || settings.storage.askWhereToSave ? 'Saved' : 'Download started', name ?? record.name);
       } catch (err) {
         const info = errorInfoOf(err);
         if (info.code !== 'cancelled') toast.error(info);

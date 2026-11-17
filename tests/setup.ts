@@ -101,7 +101,7 @@ export function installChromeMock() {
       setTitle: vi.fn(async () => undefined),
     },
     notifications: { create: vi.fn(async () => 'n'), clear: vi.fn(async () => true), onClicked: makeEvent() },
-    downloads: { download: vi.fn(async () => 1), onChanged: makeEvent(), search: vi.fn(async () => []), show: vi.fn() },
+    downloads: { download: vi.fn(async () => 1), onChanged: makeEvent(), onErased: makeEvent(), search: vi.fn(async () => []), show: vi.fn() },
     alarms: { create: vi.fn(async () => undefined), clear: vi.fn(async () => true), onAlarm: makeEvent() },
     commands: { getAll: vi.fn(async () => []), onCommand: makeEvent() },
     desktopCapture: { chooseDesktopMedia: vi.fn(), DesktopCaptureSourceType: { SCREEN: 'screen', WINDOW: 'window', TAB: 'tab', AUDIO: 'audio' } },

@@ -11,7 +11,7 @@ const setLocation = (location: string) => chrome.storage.local.set({ 'glint.sett
 describe('saving to a folder chosen on this computer', () => {
   beforeEach(() => {
     saveToFolder.mockReset();
-    (chrome as unknown as { downloads: object }).downloads = { download: vi.fn(async () => 7), onChanged: { addListener: vi.fn(), removeListener: vi.fn() } };
+    (chrome as unknown as { downloads: object }).downloads = { download: vi.fn(async () => 7), onChanged: { addListener: vi.fn(), removeListener: vi.fn() }, onErased: { addListener: vi.fn(), removeListener: vi.fn() }, search: vi.fn(async () => [{ id: 7, state: 'complete' }]) };
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:x');
     globalThis.URL.revokeObjectURL = vi.fn();
   });
