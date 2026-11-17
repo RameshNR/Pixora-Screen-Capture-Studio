@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppWindow, MousePointerClick, PanelTop, RotateCcw, Share2, X } from 'lucide-react';
-import { captureDesktopFrame } from '@/screenshot/services/desktop-capture';
+import { captureWindowViaShareDialog } from '@/screenshot/services/desktop-capture';
 import { headerRect, type Pixels } from '@/screenshot/services/browser-header';
 import { sendToBackground } from '@/shared/messaging/client';
 import { sameAsScreenshot } from '@/screenshot/services/header-capture';
@@ -36,11 +36,12 @@ type Shot = { tabId?: number; width?: number; height?: number };
 /**
  * `progress.html?mode=header&win=<id>`: after a visible / full-page screenshot, asks Chrome for a
  * picture of browser window `win` and sends back its header strip (tabs, address bar, bookmarks).
- * Opens at the browser window's size (Chrome's dialog is drawn inside it) and names the window to
- * pick; minimises itself before the picture, so it is never in it.
+ * Uses Chrome's web share dialog (getDisplayMedia, on its Window tab, without "Entire screen");
+ * Chrome may want a click first, so a "Choose window…" button is shown then. Opens at the browser
+ * window's size and names the window to pick; minimises itself before the picture.
  */
 export function HeaderGrab({ windowId, shot: screenshot = {} }: { windowId: number; shot?: Shot }) {
-  const [status, setStatus] = useState<'picking' | 'working' | 'problem'>('picking');
+  const [status, setStatus] = useState<'picking' | 'ready' | 'working' | 'problem'>('picking');
   const [problem, setProblem] = useState<Problem | null>(null);
   const [pageTitle, setPageTitle] = useState('');
   const [nowSize, setNowSize] = useState<{ width?: number; height?: number }>({});
@@ -75,8 +76,8 @@ export function HeaderGrab({ windowId, shot: screenshot = {} }: { windowId: numb
     };
     try {
       await check();
-      const shot = await captureDesktopFrame({
-        source: 'window',
+      // Chrome's web share dialog, on its Window tab (no "Entire screen", not this window).
+      const shot = await captureWindowViaShareDialog({
         beforeGrab: async () => {
           setStatus('working');
           // Out of the way: the browser window is pictured as it is, without this window over it.
@@ -87,6 +88,7 @@ export function HeaderGrab({ windowId, shot: screenshot = {} }: { windowId: numb
         },
       });
       if (shot.label.includes(HEADER_WINDOW_TITLE)) throw Object.assign(new Error('self'), { problem: { kind: 'self', picked: shot.label } satisfies Problem });
+      if (shot.surface !== 'window') throw Object.assign(new Error('other'), { problem: { kind: 'other', details: `a ${shot.surface === 'monitor' ? 'whole screen' : 'tab'} was shared, not a window` } satisfies Problem });
 
       // The page as the tab shows it now: found inside the window picture, the header is what's above it.
       const refBlob = await (await fetch(await chrome.tabs.captureVisibleTab(windowId, { format: 'png' }))).blob();
@@ -123,6 +125,12 @@ export function HeaderGrab({ windowId, shot: screenshot = {} }: { windowId: numb
       await finish(await toDataUrl(await c.convertToBlob({ type: 'image/png' })));
     } catch (err) {
       const code = (err as { code?: string }).code;
+      // Chrome opens this dialog only after a click on the page: show the button for it.
+      if (code === 'needs-click') {
+        if (me?.id !== undefined) await chrome.windows.update(me.id, { state: 'normal', focused: true }).catch(() => undefined);
+        setStatus('ready');
+        return;
+      }
       // Dialog cancelled: the screenshot is kept without the header.
       if (code === 'permission-denied-screen' || code === 'cancelled') {
         // First time: the user cancelled — keep the screenshot without the header. After “Try again”
@@ -174,7 +182,7 @@ export function HeaderGrab({ windowId, shot: screenshot = {} }: { windowId: numb
           <p className={styles.headerLead}>Adding the tabs, address bar and bookmarks…</p>
         ) : (
           <ol className={styles.steps}>
-            <li><AppWindow size={16} /> <span>In Chrome’s <b>Choose what to share</b> dialog, stay on <b>Window</b>.</span></li>
+            <li><AppWindow size={16} /> <span>{status === 'ready' ? <>Click <b>Choose window…</b> below. Chrome’s </> : <>In Chrome’s </>}<b>Choose what to share</b> dialog opens on <b>Window</b>.</span></li>
             <li>
               <MousePointerClick size={16} />
               <span>Choose the window named <span className={styles.windowName} title={windowName}>{windowName}</span> (not “{HEADER_WINDOW_TITLE}”).</span>
@@ -216,6 +224,9 @@ export function HeaderGrab({ windowId, shot: screenshot = {} }: { windowId: numb
         )}
 
         <div className={styles.headerActions}>
+          {status === 'ready' && (
+            <button type="button" className={`${styles.cancel} ${styles.primary}`} onClick={() => void run()} autoFocus><AppWindow size={14} /> Choose window…</button>
+          )}
           {status === 'problem' && (
             <button type="button" className={`${styles.cancel} ${styles.primary}`} onClick={() => void run()}><RotateCcw size={14} /> Try again</button>
           )}

@@ -10,6 +10,41 @@ import { workAreaCrop } from '@/recording/services/display-service';
 export async function captureDesktopFrame(opts: { excludeTaskbar?: boolean; source?: 'screen' | 'window'; beforeGrab?: () => Promise<void> } = {}): Promise<{ blob: Blob; width: number; height: number; label: string }> {
   const choice = await chooseDesktopMedia(false, opts.source);
   const stream = await getDesktopStream(choice, { box: SCREENSHOT_CEILING, fps: 5 }, false);
+  return frameFromStream(stream, opts);
+}
+
+/**
+ * One frame of an application window chosen in Chrome's web share dialog (getDisplayMedia; opened
+ * on its Window tab, without "Entire screen" or Pixora's own window). Rejects with code
+ * `cancelled` when the dialog is closed, `needs-click` when Chrome wants a click on the page first.
+ * `surface` is what was shared ('window' unless the user picked something else).
+ */
+export async function captureWindowViaShareDialog(opts: { beforeGrab?: () => Promise<void> } = {}): Promise<{ blob: Blob; width: number; height: number; label: string; surface: string }> {
+  const started = Date.now();
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: 'window', width: { max: SCREENSHOT_CEILING.width }, height: { max: SCREENSHOT_CEILING.height }, frameRate: { max: 5 } },
+      audio: false,
+      selfBrowserSurface: 'exclude',
+      surfaceSwitching: 'exclude',
+      monitorTypeSurfaces: 'exclude',
+      preferCurrentTab: false,
+    } as DisplayMediaStreamOptions);
+  } catch (err) {
+    const name = (err as DOMException)?.name;
+    // Refused at once (no dialog shown): Chrome wants a click on the page first.
+    if (name === 'InvalidStateError' || (name === 'NotAllowedError' && Date.now() - started < 400)) throw Object.assign(new Error('Chrome wants a click first'), { code: 'needs-click' });
+    if (name === 'NotAllowedError' || name === 'AbortError') throw new AppError('cancelled', 'Share dialog closed');
+    throw new AppError('source-unavailable', String(err));
+  }
+  const surface = String((stream.getVideoTracks()[0]?.getSettings() as { displaySurface?: string })?.displaySurface ?? 'window');
+  const frame = await frameFromStream(stream, opts);
+  return { ...frame, surface };
+}
+
+/** Plays `stream`, waits for a real frame (after `beforeGrab`), returns it as PNG and stops the stream. */
+async function frameFromStream(stream: MediaStream, opts: { excludeTaskbar?: boolean; beforeGrab?: () => Promise<void> }): Promise<{ blob: Blob; width: number; height: number; label: string }> {
   const track = stream.getVideoTracks()[0];
   const video = document.createElement('video');
   video.muted = true;
