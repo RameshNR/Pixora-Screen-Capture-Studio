@@ -89,6 +89,9 @@ export function VideoApp() {
   const [flowSteps, setFlowSteps] = useState(0);
   /** Bumped by the header's "Flow steps" button: the Frames panel scrolls to the step list. */
   const [focusSteps, setFocusSteps] = useState(0);
+  /** Frames picked by hand in the Frames panel, and the header's "Create flow" request for them. */
+  const [frameCount, setFrameCount] = useState(0);
+  const [createFlowRequest, setCreateFlowRequest] = useState(0);
   const metaLoaded = useRef(false);
   const [record, setRecord] = useState<CaptureRecord | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
@@ -397,19 +400,31 @@ export function VideoApp() {
             <span className={styles.btnText}>Advanced editor</span>
             <ToggleSwitch size="sm" label="Advanced Video Editor" checked={advanced} onChange={(v) => { void updateSettings({ recording: { advancedVideoEditor: v } }); if (!v && sideTab === 'overlays') setSideTab('details'); }} />
           </label>
-          <Button
-            variant="ghost"
-            icon={<Workflow size={16} />}
-            disabled={!flowSteps}
-            onClick={() => {
-              setSideTab('frames');
-              setFocusSteps((n) => n + 1);
-            }}
-            title={flowSteps ? 'Show the step images of this recording in the Frames panel' : 'No flow steps were recorded with this video. Turn on Flow Capture before recording to get them.'}
-            aria-label={`Flow steps${flowSteps ? ` (${flowSteps})` : ''}`}
-          >
-            <span className={styles.btnText}>Flow steps{flowSteps ? ` (${flowSteps})` : ''}</span>
-          </Button>
+          {record?.linkedFlowId ? (
+            <Button
+              variant="ghost"
+              icon={<Workflow size={16} />}
+              onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL(`flow.html?id=${encodeURIComponent(record.linkedFlowId!)}`) })}
+              title="Open this recording's flow (its step images) in the Flow Editor"
+              aria-label={`Open flow${flowSteps ? ` (${flowSteps})` : ''}`}
+            >
+              <span className={styles.btnText}>Open flow{flowSteps ? ` (${flowSteps})` : ''}</span>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              icon={<Workflow size={16} />}
+              onClick={() => {
+                setSideTab('frames');
+                if (frameCount > 0) setCreateFlowRequest((n) => n + 1);
+                else toast.info('Add the frames first', 'Pause on each step of the video and click “Add this frame”, then Create flow.');
+              }}
+              title={frameCount ? `Create a flow from the ${frameCount} frame${frameCount === 1 ? '' : 's'} you added` : 'Create a flow (step-by-step guide) from frames of this video'}
+              aria-label={`Create flow${frameCount ? ` (${frameCount})` : ''}`}
+            >
+              <span className={styles.btnText}>Create flow{frameCount ? ` (${frameCount})` : ''}</span>
+            </Button>
+          )}
           <Button icon={<Upload size={16} />} variant="ghost" aria-label="Open video…" title="Open video…" onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('video.html?import=1') })}>
             <span className={styles.btnText}>Open video…</span>
           </Button>
@@ -531,7 +546,13 @@ export function VideoApp() {
               onCopied={() => toast.success('Chapter list copied')}
             />
           )}
-          {sideTab === 'frames' && settings && <FramesPanel record={record} settings={settings} player={playerRef} regions={regions} time={time} focusSteps={focusSteps} onStepCount={setFlowSteps} />}
+          {/* Kept mounted: frames picked by hand survive switching side tabs. */}
+          {settings && (
+            <div hidden={sideTab !== 'frames'}>
+              <FramesPanel record={record} settings={settings} player={playerRef} regions={regions} time={time} focusSteps={focusSteps} onStepCount={setFlowSteps}
+                createRequest={createFlowRequest} onFrameCount={setFrameCount} onFlowCreated={(rec) => setRecord(rec)} />
+            </div>
+          )}
           {sideTab === 'overlays' && advanced && (
             <div className={styles.drawTab}>
               {playing ? (

@@ -149,7 +149,7 @@ test.describe('recording', () => {
     await expect(list.locator('li')).toHaveCount(2);
     await page.getByRole('button', { name: 'Remove step 2' }).click();
     await expect(list.locator('li')).toHaveCount(1);
-    await expect(page.getByRole('button', { name: /^Flow steps \(1\)/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Open flow \(1\)/ })).toBeVisible();
     // A new frame joins the list in video order (before the frame at 0.3 s).
     await seek(0.1);
     await page.getByRole('button', { name: /^Add this frame/ }).click();

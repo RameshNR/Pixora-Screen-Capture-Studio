@@ -1109,3 +1109,24 @@
 :global(:root[data-theme='light']) .savedBadge {
   --saved-text: #13774a;
 }
+
+/* "Flow name" with its field filling the rest of the row (only the field takes focus). */
+.flowNameRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.flowNameLabel {
+  flex: none;
+  color: var(--c-text-secondary);
+  font-size: 12.5px;
+}
+
+.flowNameInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  resize: none;
+}

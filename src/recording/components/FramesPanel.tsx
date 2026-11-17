@@ -4,7 +4,7 @@ import type { CaptureRecord, FlowDoc, Settings, VideoRedaction } from '@/shared/
 import { Button, IconButton } from '@/shared/components/Button';
 import { useToast } from '@/shared/components/Toast';
 import { broadcast, errorInfoOf, onBroadcast } from '@/shared/messaging/client';
-import { addCapture, getCapture } from '@/history/history-service';
+import { addCapture, getCapture, updateCapture } from '@/history/history-service';
 import { copyImageToClipboard, downloadBlob } from '@/shared/utils/download';
 import { stripExtension } from '@/shared/utils/filename';
 import { createFlowFromImages, findDuplicate, getFlow, imageDigest, insertVideoFrame, itemVideoMs, softDeleteFlowImages, updateFlow } from '@/flow/flow-store';
@@ -48,6 +48,12 @@ interface Props {
   focusSteps?: number;
   /** Number of images in the linked flow changed. */
   onStepCount?: (n: number) => void;
+  /** Bumped by the header's "Create flow" button: build the flow from the frames added here. */
+  createRequest?: number;
+  /** Number of frames picked by hand (not yet a flow) changed. */
+  onFrameCount?: (n: number) => void;
+  /** The flow was created and linked to this recording. */
+  onFlowCreated?: (record: CaptureRecord) => void;
 }
 
 /** "0:12.4" */
@@ -61,7 +67,7 @@ function stamp(t: number): string {
  * Video frames as images: copy, download or save the current frame (privacy regions applied),
  * and build a flow from frames picked by hand.
  */
-export function FramesPanel({ record, settings, player, regions, time, focusSteps = 0, onStepCount }: Props) {
+export function FramesPanel({ record, settings, player, regions, time, focusSteps = 0, onStepCount, createRequest = 0, onFrameCount, onFlowCreated }: Props) {
   const toast = useToast();
   const [frames, setFrames] = useState<Frame[]>([]);
   const [name, setName] = useState(() => `${stripExtension(record.name)} – steps`);
@@ -242,12 +248,25 @@ export function FramesPanel({ record, settings, player, regions, time, focusStep
       sourceTitle: record.name,
       images: frames.map((f, i) => ({ blob: f.blob, width: f.width, height: f.height, description: f.caption.trim() || `Step ${i + 1} (${stamp(f.timeSec)})`, videoMs: Math.round(f.timeSec * 1000) })),
     });
+    // Linked to the recording: its images show here as flow steps, and "Open flow" opens it.
+    const linked = await updateCapture(record.id, { linkedFlowId: id }).catch(() => null);
     broadcast({ target: 'broadcast', type: 'history/changed' });
     frames.forEach((f) => URL.revokeObjectURL(f.url));
     urls.current.clear();
     setFrames([]);
+    if (linked) onFlowCreated?.(linked);
+    toast.success('Flow created', `${frames.length} step${frames.length === 1 ? '' : 's'} — opening the Flow Editor`);
     await chrome.tabs.create({ url: chrome.runtime.getURL(`flow.html?id=${encodeURIComponent(id)}`) });
   });
+
+  useEffect(() => onFrameCount?.(frames.length), [frames.length]);
+  // "Create flow" in the header.
+  const lastRequest = useRef(createRequest);
+  useEffect(() => {
+    if (createRequest === lastRequest.current) return;
+    lastRequest.current = createRequest;
+    if (frames.length > 0 && busy === null) void createFlow();
+  }, [createRequest]);
 
   return (
     <div className={styles.panel}>
@@ -335,10 +354,10 @@ export function FramesPanel({ record, settings, player, regions, time, focusStep
               </li>
             ))}
           </ol>
-          <label className={styles.hint}>
-            Flow name
-            <input className={styles.desc} value={name} onChange={(e) => setName(e.target.value)} aria-label="Flow name" />
-          </label>
+          <div className={styles.flowNameRow}>
+            <span className={styles.flowNameLabel}>Flow name</span>
+            <input className={`${styles.desc} ${styles.flowNameInput}`} value={name} onChange={(e) => setName(e.target.value)} aria-label="Flow name" />
+          </div>
           <Button variant="primary" icon={<Workflow size={15} />} loading={busy === 'flow'} disabled={busy !== null} onClick={() => void createFlow()}>
             Create flow ({frames.length} frame{frames.length === 1 ? '' : 's'})
           </Button>

@@ -691,3 +691,12 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - Light: white toolbar and panels, a soft grey canvas with a dot grid, purple accents on the video page; the video player and timeline strip stay dark, like any video player. Dark looks as before.
 - How: the editor colours (`--c-editor-*`) get a light set in styles/theme.css for pages that set `<html data-chrome="themed">` (the image editor and video page only — the recording control bar, Flow bar, Flow editor, teleprompter and helper windows stay dark). Hard-coded dark colours (zoom field, keyboard keys, thumbnails, name fields, menus, saved badge, side tabs) now use these colours.
 - Test: tests/e2e/round51.spec.ts (headless; light and dark, background and text contrast).
+
+### Round 52 – "Create flow" on the video page
+- The header's "Flow steps" button (which only worked for recordings made with Flow Capture) is now **Create flow**:
+  - frames added by hand in Frames › Flow from frames → **Create flow (N)** builds the flow, links it to the recording and opens the Flow Editor;
+  - no frames yet → opens the Frames tab with a hint (pause on each step, "Add this frame");
+  - a recording that already has a flow (Flow Capture, or one created here) → **Open flow (N)** opens it in the Flow Editor.
+- Frames picked by hand are kept when switching side tabs (the Frames panel stays mounted).
+- Flow name: its own row — only the field takes focus (clicking the label/row no longer focuses it), the field fills the row, and its focus ring no longer overlaps the label.
+- Test: tests/e2e/round52.spec.ts (headless, with a real WebM made by Playwright's page recording).
