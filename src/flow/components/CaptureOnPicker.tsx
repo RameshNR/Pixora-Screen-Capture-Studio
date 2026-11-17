@@ -20,16 +20,18 @@ interface Props {
   value: Record<FlowShotKind, boolean> | undefined;
   onChange: (next: Record<FlowShotKind, boolean>) => void;
   tone?: 'light' | 'dark';
+  /** False when the surrounding row already shows the "Take screenshots on" title (Settings). */
+  showTitle?: boolean;
 }
 
 /** "Take screenshots on": which interactions add an automatic screenshot to the flow. */
-export function CaptureOnPicker({ value, onChange, tone = 'light' }: Props) {
+export function CaptureOnPicker({ value, onChange, tone = 'light', showTitle = true }: Props) {
   const current = { ...DEFAULT_SETTINGS.flow.captureOn, ...(value ?? {}) };
   const on = FLOW_SHOT_KINDS.filter((k) => current[k]).length;
   return (
     <div className={`${styles.wrap} ${tone === 'dark' ? styles.dark : ''}`}>
       <div className={styles.head}>
-        <span>Take screenshots on</span>
+        {showTitle && <span>Take screenshots on</span>}
         <span className={styles.links}>
           <button type="button" onClick={() => onChange(Object.fromEntries(FLOW_SHOT_KINDS.map((k) => [k, true])) as Record<FlowShotKind, boolean>)} disabled={on === FLOW_SHOT_KINDS.length}>All</button>
           <button type="button" onClick={() => onChange(Object.fromEntries(FLOW_SHOT_KINDS.map((k) => [k, false])) as Record<FlowShotKind, boolean>)} disabled={on === 0}>None</button>

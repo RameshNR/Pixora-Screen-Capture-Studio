@@ -1,6 +1,8 @@
 .wrap {
   display: grid;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .head {
@@ -13,6 +15,7 @@
 
 .links {
   display: inline-flex;
+  margin-left: auto;
   gap: 4px;
 }
 

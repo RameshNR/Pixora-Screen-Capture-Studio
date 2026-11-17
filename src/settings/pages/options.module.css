@@ -122,11 +122,11 @@
   width: 100%;
 }
 
-/* … settings pages a readable width (name and control close together), centred. */
+/* … settings pages a readable width (name and control close together), next to the sidebar. */
 .narrow {
   width: 100%;
   max-width: 1080px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 @media (max-width: 760px) {

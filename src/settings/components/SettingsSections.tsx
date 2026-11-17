@@ -313,8 +313,8 @@ export function FlowSection({ settings, update }: Props) {
       <SettingRow label="Auto steps" icon={<Sparkles size={18} />} hint="Adds a screenshot automatically at clicks, form steps and page changes (typing is grouped into one step per field; repeats and unchanged screens are skipped).">
         <ToggleSwitch label="Auto steps" checked={f.autoSteps} onChange={(autoSteps) => set({ autoSteps })} />
       </SettingRow>
-      <SettingRow label="Take screenshots on" icon={<Camera size={18} />} hint="Which interactions add an automatic screenshot (when Auto steps is on).">
-        <CaptureOnPicker value={f.captureOn} onChange={(captureOn) => set({ captureOn })} />
+      <SettingRow label="Take screenshots on" icon={<Camera size={18} />} hint="Which interactions add an automatic screenshot (when Auto steps is on)." stacked>
+        <CaptureOnPicker value={f.captureOn} onChange={(captureOn) => set({ captureOn })} showTitle={false} />
       </SettingRow>
       <SettingRow label="Auto screenshots" icon={<Images size={18} />} hint="Every step, or only when a new page opens.">
         <RadioGroup label="Auto screenshots" size="sm" value={f.screenshotWhen} onChange={(screenshotWhen) => set({ screenshotWhen })} options={[{ value: 'every-step', label: 'Every step' }, { value: 'page-change', label: 'New pages' }]} />

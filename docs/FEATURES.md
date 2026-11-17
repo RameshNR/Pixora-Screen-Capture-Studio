@@ -674,3 +674,8 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - **System sound button on the Record tab** (speaker, next to camera and microphone): switches *Record system / tab audio*; disabled for Camera Only. For Desktop recordings a tip says to keep *Share system audio* ticked in Chrome's dialog and to click **Hide** on Chrome's *sharing your screen* bar during the countdown (Chrome's own bar can't be removed by an extension; hidden, it isn't recorded).
 - **Settings pages are 1 080 px wide, centred** (Recent captures keeps the full width).
 - Tests: `tests/unit/round48.test.ts` (v8 pointer smoothing), `tests/unit/designs.test.ts` (default Off), `tests/e2e/round48.spec.ts` (System sound button on / off saved, disabled for Camera Only; Desktop tip shown only for Desktop).
+
+### Round 49 – Settings alignment
+- Settings pages (max 1080px wide) now start right next to the sidebar instead of being centred in a wide window; Recent captures still uses the full width.
+- Flow Capture › "Take screenshots on": the row's name and description sit on one line, with the interaction chips (and All / None) underneath at full width, so the label is no longer squeezed into a narrow column. The picker no longer repeats its title inside Settings.
+- Test: tests/e2e/round49.spec.ts (headless).
