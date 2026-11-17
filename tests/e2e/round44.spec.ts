@@ -49,7 +49,7 @@ async function capture(extPage: Page, baseUrl: string): Promise<void> {
 }
 
 /** Ways bottom-right dev toolbars (like XRebel) are built; each must appear once, at the very bottom. */
-const WIDGETS: Array<{ name: string; css: string; html: string; shadow?: boolean }> = [
+const WIDGETS: Array<{ name: string; css: string; html: string; shadow?: boolean; outsideBody?: boolean; closed?: boolean }> = [
   {
     name: 'full-height transparent strip, box at its bottom',
     css: `#strip { position: fixed; top: 0; right: 0; bottom: 0; width: 80px; z-index: 3; pointer-events: none; }
@@ -67,6 +67,18 @@ const WIDGETS: Array<{ name: string; css: string; html: string; shadow?: boolean
     css: '',
     html: '<xr-toolbar id="host"></xr-toolbar>',
     shadow: true,
+  },
+  {
+    name: 'attached to <html>, outside <body>',
+    css: '',
+    html: '',
+    outsideBody: true,
+  },
+  {
+    name: 'box inside a closed shadow root',
+    css: '',
+    html: '<xr-closed id="chost"></xr-closed>',
+    closed: true,
   },
 ];
 
@@ -87,9 +99,13 @@ for (const wdg of WIDGETS) {
         ${w.css}
       </style>`);
       document.body.innerHTML = `<div id="hdr"></div><div id="main"><div id="content"></div></div>${w.html}`;
-      if (w.shadow) {
-        const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
-        root.innerHTML = '<div style="position:fixed;right:0;bottom:0;width:80px;height:60px;background:rgb(255,0,0);z-index:3"></div>';
+      const box = '<div style="position:fixed;right:0;bottom:0;width:80px;height:60px;background:rgb(255,0,0);z-index:3"></div>';
+      if (w.shadow) document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = box;
+      if (w.closed) document.getElementById('chost')!.attachShadow({ mode: 'closed' }).innerHTML = box;
+      if (w.outsideBody) {
+        const el = document.createElement('div');
+        el.innerHTML = box;
+        document.documentElement.appendChild(el);
       }
     }, wdg);
     await page.bringToFront();

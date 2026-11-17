@@ -160,7 +160,9 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
     if (!state.hiddenSet) state.hiddenSet = new Set();
     if (!state.where) state.where = new WeakMap();
     if (!state.hideRule) {
-      state.style.textContent += '[data-glint-hide]{visibility:hidden!important;}';
+      // Opacity too: a widget may force `visibility: visible` on its own parts, but nothing inside an
+      // element can undo the element's opacity.
+      state.style.textContent += '[data-glint-hide]{visibility:hidden!important;opacity:0!important;}';
       state.hideRule = true;
     }
     const vh = window.innerHeight;
@@ -236,12 +238,22 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
     // 1. Fixed and sticky elements on screen — also inside open shadow DOM (widgets injected by
     //    dev tools / extensions). One inside a shadow tree is hidden through its outermost host, since
     //    the capture stylesheet can't reach into the shadow tree.
+    //    The whole document is scanned, not only <body>: tools often attach their toolbar to <html>.
     const stack: Array<[Element, HTMLElement | null]> = [];
-    const root = document.body ?? document.documentElement;
-    for (let i = root.children.length - 1; i >= 0; i--) stack.push([root.children[i]!, null]);
+    const root = document.documentElement;
+    for (let i = root.children.length - 1; i >= 0; i--) if (root.children[i]!.tagName !== 'HEAD') stack.push([root.children[i]!, null]);
+    /** Where nothing can be measured: a component whose contents are in a *closed* shadow root. */
+    const unknown = { top: vh, bottom: vh, height: 0 };
     for (let count = 0; stack.length && count < 60000; count++) {
       const [node, host] = stack.pop()!;
       if (node.hasAttribute('data-glint-overlay')) continue;
+      // A top-level custom element that draws nothing we can see (its contents are in a closed
+      // shadow root — injected toolbars do this): treat it as a bottom toolbar — hidden until the
+      // last screen, shown there once.
+      if (!host && node.tagName.includes('-') && (node.parentElement === document.body || node.parentElement === root) && !drawnRect(node)) {
+        apply(node as HTMLElement, place(node as HTMLElement, unknown, true), true);
+        continue;
+      }
       for (let i = node.children.length - 1; i >= 0; i--) stack.push([node.children[i]!, host]);
       const shadow = (node as HTMLElement).shadowRoot;
       if (shadow) for (let i = shadow.children.length - 1; i >= 0; i--) stack.push([shadow.children[i]!, host ?? (node as HTMLElement)]);
@@ -270,12 +282,13 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
         for (const sib of Array.from(parent.children) as HTMLElement[]) {
           if (sib === child || sib.hasAttribute('data-glint-overlay')) continue;
           if (/^(SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|HEAD)$/.test(sib.tagName)) continue;
-          // Zero-size wrappers count by what they draw (their visible contents).
-          const r = drawnRect(sib);
-          if (!r && !hiddenSet.has(sib)) continue;
-          apply(sib, place(sib, r ?? { top: 0, height: 0 }, true), true);
+          // Zero-size wrappers count by what they draw (their visible contents); one whose drawing
+          // can't be measured (closed shadow root) counts as a bottom toolbar. Hiding something
+          // that draws nothing changes nothing.
+          apply(sib, place(sib, drawnRect(sib) ?? unknown, true), true);
         }
-        if (parent === document.body) break;
+        // Up to <html>, whose other children (besides <body>) can be injected toolbars too.
+        if (parent === document.documentElement) break;
         child = parent;
         parent = parent.parentElement;
       }
