@@ -198,3 +198,32 @@ test('full page: a CSS sticky sidebar appears once (in its place)', async ({ con
   expect(Math.min(...shot.red)).toBeLessThanOrEqual(Math.ceil(40 * dpr) + 1);
   expect(Math.max(...shot.red)).toBeLessThan((40 + 320 + 4) * dpr);
 });
+
+for (const wrapper of ['overflow-x: clip', 'overflow: clip']) {
+  test(`full page: a sticky sidebar inside a page wrapper with ${wrapper} appears once`, async ({ context, extPage, baseUrl }) => {
+    test.setTimeout(120_000);
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 900, height: 500 });
+    await page.goto(`${baseUrl}/long`);
+    await page.evaluate((wrap) => {
+      document.head.insertAdjacentHTML('beforeend', `<style>
+        body { margin: 0; background: rgb(220, 240, 220); }
+        /* Sites clip sideways overflow on a page wrapper; it doesn't scroll, the sidebar still sticks to the page. */
+        #page { ${wrap}; }
+        #row { display: flex; gap: 50px; }
+        #main { width: 600px; height: 1400px; }
+        #col { width: 200px; padding-top: 40px; }
+        #side { position: sticky; top: 0; height: 320px; background: rgb(255, 0, 0); }
+        #footer { height: 1200px; background: rgb(0, 90, 170); }
+      </style>`);
+      document.body.innerHTML = '<div id="page"><div id="row"><div id="main"></div><div id="col"><div id="side"></div></div></div><div id="footer"></div></div>';
+    }, wrapper);
+    await page.bringToFront();
+    await capture(extPage, baseUrl);
+    const shot = await colourRows(extPage);
+    const dpr = await page.evaluate(() => devicePixelRatio);
+    expect(shot.red.length).toBeGreaterThan(0);
+    expect(Math.min(...shot.red)).toBeLessThanOrEqual(Math.ceil(40 * dpr) + 1);
+    expect(Math.max(...shot.red)).toBeLessThan((40 + 320 + 4) * dpr);
+  });
+}

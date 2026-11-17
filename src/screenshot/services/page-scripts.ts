@@ -135,7 +135,9 @@ export async function scrollPageTo(y: number, hideFixed: boolean, phase: Capture
     for (let p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
       if (p === pageScroller) return false;
       if (p.hasAttribute('data-glint-area')) return true;
-      if (/(auto|scroll|hidden|clip|overlay)/.test(getComputedStyle(p).overflowY)) return true;
+      // `overflow: clip` only cuts content off — it is not a scroll container, so a sticky element
+      // inside it still sticks to the page (sites clip page wrappers to stop sideways scrolling).
+      if (/(auto|scroll|hidden|overlay)/.test(getComputedStyle(p).overflowY)) return true;
     }
     return false;
   };
