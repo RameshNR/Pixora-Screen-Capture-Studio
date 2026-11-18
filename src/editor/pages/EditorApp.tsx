@@ -512,6 +512,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const [format, setFormat] = useState<ImageFormat>(settings.screenshot.format);
   const [quality, setQuality] = useState(settings.screenshot.quality);
   const [busy, setBusy] = useState(false);
+  /** Which export is running (its button shows the spinner, others are only disabled). */
+  const [action, setAction] = useState<'download' | 'saveas' | 'copy' | 'word' | 'pdf' | null>(null);
   /** What a long export is doing, shown in a "working…" toast while it runs. */
   const [working, setWorking] = useState<string | null>(null);
   useEffect(() => {
@@ -821,9 +823,10 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   );
 
   const download = useCallback(
-    async (saveAs: boolean) => {
+    async (saveAs: boolean): Promise<boolean> => {
       setTextEdit(null);
       setBusy(true);
+      setAction(saveAs ? 'saveas' : 'download');
       const ext = format === 'jpeg' ? 'jpg' : format;
       setWorking(`Preparing ${filename || 'screenshot'}.${ext}…`);
       try {
@@ -843,19 +846,23 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         });
         if (kept) toast.success(saveAs || settings.storage.askWhereToSave ? 'Saved' : 'Downloaded', `${filename}.${ext}`);
         else toast.info('Downloaded', `${filename}.${ext} is saved. Pixora’s storage could not be opened, so Recent captures was not updated — restart Chrome.`);
+        return true;
       } catch (err) {
         const info = errorInfoOf(err);
         if (info.code !== 'cancelled') toast.error(info);
+        return false;
       } finally {
         setWorking(null);
+        setAction(null);
         setBusy(false);
       }
     },
     [render, format, filename, settings, persistEdits, toast, doc, savedDoc, record],
   );
 
-  const copy = useCallback(async () => {
+  const copy = useCallback(async (): Promise<boolean> => {
     setBusy(true);
+    setAction('copy');
     setWorking('Copying the image…');
     try {
       const blob = await render('png');
@@ -865,10 +872,13 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         if (!isStorageUnavailable(err)) throw err;
       });
       toast.success('Copied to clipboard');
+      return true;
     } catch (err) {
       toast.error(errorInfoOf(err));
+      return false;
     } finally {
       setWorking(null);
+      setAction(null);
       setBusy(false);
     }
   }, [render, persistEdits, toast]);
@@ -886,8 +896,9 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   }, [doc, onCollage, record.name, toast]);
 
   /** Word document with the finished image (page orientation follows the image). */
-  const exportWord = useCallback(async () => {
+  const exportWord = useCallback(async (): Promise<boolean> => {
     setBusy(true);
+    setAction('word');
     setWorking('Preparing the Word document…');
     try {
       const png = await exportDocument(doc, 'png', 1);
@@ -903,11 +914,14 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       await downloadBlob(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: DOCX_MIME }), name, { saveAs: settings.storage.askWhereToSave, subfolder: settings.storage.subfolder });
       setWorking(null);
       toast.success('Word document saved', name);
+      return true;
     } catch (err) {
       const info = errorInfoOf(err);
       if (info.code !== 'cancelled') toast.error(info);
+      return false;
     } finally {
       setWorking(null);
+      setAction(null);
       setBusy(false);
     }
   }, [doc, filename, record.sourceTitle, record.sourceUrl, settings.storage, toast]);
@@ -1253,6 +1267,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         onShortcuts={() => setShortcutsOpen(true)}
         onFindSensitive={() => void findSensitive()}
         busy={busy}
+        downloading={action === 'download' || action === 'saveas'}
         hideBrand={embedded}
         videoMode={videoMode}
       />}
@@ -1367,7 +1382,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         }}
       />
       {!embedded && (
-        <Modal open={exportOpen} title="Export" tone="dark" width={420} onClose={() => setExportOpen(false)}>
+        <Modal open={exportOpen} title="Export" tone="dark" width={420} onClose={() => !busy && setExportOpen(false)}>
           <ExportPanel
             width={doc.width}
             height={doc.height}
@@ -1377,13 +1392,14 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
             onFormat={(f) => { setFormat(f); savePrefs({ format: f }); }}
             quality={quality}
             onQuality={(q) => { setQuality(q); savePrefs({ quality: q }); }}
-            onCopy={() => void copy()}
-            onDownload={() => { setExportOpen(false); void download(false); }}
-            onSaveAs={() => { setExportOpen(false); void download(true); }}
+            onCopy={() => void copy().then((ok) => ok && setExportOpen(false))}
+            onDownload={() => void download(false).then((ok) => ok && setExportOpen(false))}
+            onSaveAs={() => void download(true).then((ok) => ok && setExportOpen(false))}
             onPdf={() => { setExportOpen(false); setPdfOpen(true); }}
-            onWord={() => void exportWord()}
+            onWord={() => void exportWord().then((ok) => ok && setExportOpen(false))}
             onQr={() => { setExportOpen(false); setQrOpen(true); }}
             busy={busy}
+            action={action}
           />
         </Modal>
       )}
@@ -1395,6 +1411,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           setPdfOpen(false);
           void (async () => {
             setBusy(true);
+            setAction('pdf');
             setWorking('Preparing the PDF…');
             try {
               const pdf = await imageToPdf(await exportDocument(doc, 'png', 1), { ...opts, title: filename });
@@ -1406,6 +1423,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
               if (info.code !== 'cancelled') toast.error(info);
             } finally {
               setWorking(null);
+              setAction(null);
               setBusy(false);
             }
           })();

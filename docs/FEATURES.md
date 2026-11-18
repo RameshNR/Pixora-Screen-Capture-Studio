@@ -734,3 +734,8 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - **Calmer buttons (less glare)**: no coloured glow halos under primary buttons, selected tabs, the settings sidebar and icon tiles; flat accent colour instead of gradient sheen on buttons and selected tabs; dark-theme hover is a small step instead of a jump towards white.
 - **Collage zoom**: Ctrl / ⌘ + mouse wheel over the collage zooms the collage view (Chrome no longer zooms the whole page); the wheel over an image zooms that image in its cell without scrolling the page; dragging a zoomed image repositions it. (The wheel handler is now a native non-passive listener — React's is passive and could not stop the browser.)
 - Tests: tests/e2e/round57.spec.ts.
+
+### Round 58 – The clicked export button spins; export popups close when done
+- **Spinner on the button you clicked, only that one**: image editor Export popup (Download, Save as…, Copy, Word), collage Export popup (Download — the toolbar's "Edit collage" / "Add to flow" no longer spins for it), editor toolbar Download (only for downloads, not Copy / PDF / Word), video page Download, Recent captures (each card's download icon, and "Download selected" — not while deleting). Icon buttons gained a `loading` state.
+- **Export popups stay open while the file is prepared and close once it is saved** (image editor: Download, Save as…, Copy, Word; collage: Download). They stay open if it fails or the Save-as dialog is cancelled, and can't be closed mid-export.
+- Tests: tests/e2e/round58.spec.ts (records which buttons show the spinner and checks the popup closes after the download); capture-extras updated (Export popup closes after a Word download).

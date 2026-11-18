@@ -45,6 +45,8 @@ export function VideoApp() {
   // Follows Settings › General › Theme (light, dark or the computer's setting).
   useTheme(settings?.general.theme);
   const toast = useToast();
+  /** The header's Download is saving the video (its button spins). */
+  const [downloadingVideo, setDownloadingVideo] = useState(false);
   const params = useMemo(() => new URLSearchParams(location.search), []);
   const id = params.get('id') ?? '';
   /** Latest videos for the "Recent" menu. */
@@ -252,6 +254,7 @@ export function VideoApp() {
   const download = useCallback(
     async (saveAs: boolean, data?: Blob, name?: string) => {
       if (!record || !settings) return;
+      if (!data) setDownloadingVideo(true);
       try {
         const downloadId = await downloadBlob(data ?? blob!, name ?? record.name, {
           saveAs: saveAs || settings.storage.askWhereToSave,
@@ -262,6 +265,8 @@ export function VideoApp() {
       } catch (err) {
         const info = errorInfoOf(err);
         if (info.code !== 'cancelled') toast.error(info);
+      } finally {
+        if (!data) setDownloadingVideo(false);
       }
     },
     [record, blob, settings, toast],
@@ -449,7 +454,7 @@ export function VideoApp() {
           <Button icon={<FileOutput size={16} />} aria-label="Export / Convert" title="Export / Convert" onClick={() => setExportOpen(true)}>
             <span className={styles.btnText}>Export / Convert</span>
           </Button>
-          <Button variant="primary" icon={<Download size={16} />} onClick={() => void download(false)}>
+          <Button variant="primary" icon={<Download size={16} />} loading={downloadingVideo} onClick={() => void download(false)}>
             Download
           </Button>
         </div>

@@ -86,6 +86,8 @@ export function CollageWorkspace({ seeds, onCancel, onDone, doneLabel = 'Edit co
   const collageMenu = usePageContextMenu(noMenu, { global: false });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  /** Which action is running: its button shows the spinner (not every button). */
+  const [busyKind, setBusyKind] = useState<'download' | 'finish' | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const replaceInput = useRef<HTMLInputElement>(null);
@@ -348,27 +350,34 @@ export function CollageWorkspace({ seeds, onCancel, onDone, doneLabel = 'Edit co
   async function finish() {
     setSelected(null);
     setBusy(true);
+    setBusyKind('finish');
     try {
       onDone(await exportBlob());
     } catch (err) {
       toast.error(errorInfoOf(err));
       setBusy(false);
+      setBusyKind(null);
     }
   }
 
-  async function download() {
+  /** Downloads the collage; true once the file is saved. */
+  async function download(): Promise<boolean> {
     setSelected(null);
     setBusy(true);
+    setBusyKind('download');
     try {
       const blob = await exportBlob(true);
       const name = buildFilename('Pixora Collage {date} at {time}', { type: 'Screenshot', extension: format === 'jpeg' ? 'jpg' : format });
       await downloadBlob(blob, name, { saveAs: settings?.storage.askWhereToSave, subfolder: settings?.storage.subfolder });
       toast.success('Downloaded', name);
+      return true;
     } catch (err) {
       const info = errorInfoOf(err);
       if (info.code !== 'cancelled') toast.error(info);
+      return false;
     } finally {
       setBusy(false);
+      setBusyKind(null);
     }
   }
 
@@ -444,7 +453,7 @@ export function CollageWorkspace({ seeds, onCancel, onDone, doneLabel = 'Edit co
           <Button size="sm" className={styles.darkBtn} icon={<X size={15} />} onClick={onCancel}>
             Cancel
           </Button>
-          <Button size="sm" variant="primary" icon={<Check size={15} />} onClick={() => void finish()} disabled={!images.length} loading={busy}>
+          <Button size="sm" variant="primary" icon={<Check size={15} />} onClick={() => void finish()} disabled={!images.length || busy} loading={busyKind === 'finish'}>
             {doneLabel}
           </Button>
         </div>
@@ -684,11 +693,12 @@ export function CollageWorkspace({ seeds, onCancel, onDone, doneLabel = 'Edit co
         title="Export collage"
         tone="dark"
         width={420}
-        onClose={() => setExportOpen(false)}
+        onClose={() => busyKind !== 'download' && setExportOpen(false)}
         footer={
           <>
-            <Button className={styles.darkBtn} onClick={() => setExportOpen(false)}>Cancel</Button>
-            <Button variant="primary" icon={<Download size={15} />} loading={busy} disabled={!images.length} onClick={() => { setExportOpen(false); void download(); }}>
+            <Button className={styles.darkBtn} disabled={busyKind === 'download'} onClick={() => setExportOpen(false)}>Cancel</Button>
+            {/* Stays open with the spinner on Download while the file is prepared; closes once saved. */}
+            <Button variant="primary" icon={<Download size={15} />} loading={busyKind === 'download'} disabled={!images.length || busy} onClick={() => void download().then((ok) => ok && setExportOpen(false))}>
               Download
             </Button>
           </>

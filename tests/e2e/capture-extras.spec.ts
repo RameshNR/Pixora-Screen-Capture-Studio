@@ -62,7 +62,10 @@ test.describe('capture extras', () => {
     expect(word.suggestedFilename()).toMatch(/\.docx$/);
     const docx = readFileSync((await word.path())!);
     expect(docx.toString('utf8')).toContain('word/media/image1.png');
+    // The Export popup closes once the file is saved.
+    await expect(editor.getByRole('dialog', { name: 'Export' })).toHaveCount(0);
 
+    await editor.getByRole('button', { name: 'Export…' }).click();
     await editor.getByRole('button', { name: 'QR code…' }).click();
     await editor.getByRole('radio', { name: 'A link I paste' }).click();
     await editor.getByRole('textbox', { name: 'Link for the QR code' }).fill('https://example.com/shared/image');

@@ -50,11 +50,13 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
   tooltipSide?: 'top' | 'bottom' | 'left' | 'right';
   shortcut?: string;
   badge?: ReactNode;
+  /** Working (e.g. downloading): a spinner instead of the icon, and not clickable meanwhile. */
+  loading?: boolean;
 }
 
 /** Icon-only button. Always has an accessible label and a tooltip. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { label, icon, active, size = 'md', tone = 'default', tooltipSide = 'bottom', shortcut, badge, className, type = 'button', ...rest },
+  { label, icon, active, size = 'md', tone = 'default', tooltipSide = 'bottom', shortcut, badge, className, type = 'button', loading = false, disabled, ...rest },
   ref,
 ) {
   return (
@@ -65,9 +67,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
         aria-label={label}
         aria-pressed={active === undefined ? undefined : active}
         className={[styles.iconButton, styles[`icon-${size}`], styles[`tone-${tone}`], active ? styles.active : '', className ?? ''].join(' ')}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
         {...rest}
       >
-        {icon}
+        {loading ? <Spinner size={size === 'sm' ? 13 : 16} /> : icon}
         {badge !== undefined && <span className={styles.badge}>{badge}</span>}
       </button>
     </Tooltip>

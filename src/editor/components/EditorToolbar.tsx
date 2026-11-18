@@ -45,6 +45,8 @@ interface Props {
   onShortcuts: () => void;
   onFindSensitive: () => void;
   busy: boolean;
+  /** A download is running: the Download button shows the spinner. */
+  downloading?: boolean;
   /** Drawing on a video frame: no tools that change the picture's size (crop, resize, rotate, cut, frame). */
   videoMode?: boolean;
 }
@@ -204,7 +206,7 @@ export function EditorToolbar(p: Props) {
             <Button size="sm" className={styles.darkBtn} icon={<Copy size={15} />} onClick={p.onCopy} disabled={p.busy} title="Copy image (Ctrl+C)">
               Copy
             </Button>
-            <Button size="sm" variant="primary" className={styles.primaryBtn} icon={<Download size={15} />} onClick={p.onDownload} loading={p.busy} title="Download (Ctrl+S)">
+            <Button size="sm" variant="primary" className={styles.primaryBtn} icon={<Download size={15} />} onClick={p.onDownload} loading={p.downloading} disabled={p.busy} title="Download (Ctrl+S)">
               Download
             </Button>
             {p.onExport && (

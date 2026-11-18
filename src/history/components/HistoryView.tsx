@@ -36,6 +36,10 @@ export function HistoryView({ settings }: { settings: Settings }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkDelete, setBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  /** Which bulk action is running (its button shows the spinner). */
+  const [bulkAction, setBulkAction] = useState<'download' | 'delete' | null>(null);
+  /** Captures being downloaded right now (their download buttons spin). */
+  const [downloading, setDownloading] = useState<ReadonlySet<string>>(new Set());
 
   const refresh = useCallback(() => {
     void listCaptures(filter, sort)
@@ -77,6 +81,7 @@ export function HistoryView({ settings }: { settings: Settings }) {
 
   /** Downloads one capture. Bulk downloads never ask where to save each file. */
   async function download(c: CaptureRecord, bulk = false): Promise<boolean> {
+    setDownloading((s) => new Set(s).add(c.id));
     try {
       const { blob, name } = await fileFor(c);
       const id = await downloadBlob(blob, name, { saveAs: bulk ? false : settings.storage.askWhereToSave, subfolder: settings.storage.subfolder });
@@ -87,23 +92,33 @@ export function HistoryView({ settings }: { settings: Settings }) {
       const info = errorInfoOf(err);
       if (info.code !== 'cancelled') toast.error(info);
       return false;
+    } finally {
+      setDownloading((s) => {
+        const n = new Set(s);
+        n.delete(c.id);
+        return n;
+      });
     }
   }
 
   async function downloadSelected() {
     setBulkBusy(true);
+    setBulkAction('download');
     let done = 0;
     for (const c of selectedItems) if (await download(c, true)) done++;
     setBulkBusy(false);
+    setBulkAction(null);
     refresh();
     if (done) toast.success(`Downloaded ${done} item${done === 1 ? '' : 's'}`);
   }
 
   async function deleteSelected() {
     setBulkBusy(true);
+    setBulkAction('delete');
     const list = selectedItems;
     for (const c of list) await deleteCapture(c.id).catch((err: unknown) => toast.error(errorInfoOf(err)));
     setBulkBusy(false);
+    setBulkAction(null);
     setBulkDelete(false);
     setSelected(new Set());
     broadcast({ target: 'broadcast', type: 'history/changed' });
@@ -191,7 +206,7 @@ export function HistoryView({ settings }: { settings: Settings }) {
           {selected.size > 0 && (
             <>
               <span className={styles.flex} />
-              <Button size="sm" icon={<Download size={15} />} loading={bulkBusy} onClick={() => void downloadSelected()}>
+              <Button size="sm" icon={<Download size={15} />} loading={bulkAction === 'download'} disabled={bulkBusy} onClick={() => void downloadSelected()}>
                 Download
               </Button>
               <Button size="sm" variant="danger" icon={<Trash2 size={15} />} disabled={bulkBusy} onClick={() => setBulkDelete(true)}>
@@ -246,7 +261,7 @@ export function HistoryView({ settings }: { settings: Settings }) {
                   <span className={styles.name} title={c.name}>
                     {c.name}
                   </span>
-                  <IconButton size="sm" label={c.kind === 'flow' ? `Download ${c.name} as ZIP` : `Download ${c.name}`} icon={<Download size={15} />} onClick={() => void download(c)} />
+                  <IconButton size="sm" label={c.kind === 'flow' ? `Download ${c.name} as ZIP` : `Download ${c.name}`} icon={<Download size={15} />} loading={downloading.has(c.id)} onClick={() => void download(c)} />
                   <IconButton size="sm" label={`Delete ${c.name}`} icon={<Trash2 size={15} />} onClick={() => setDeleting(c)} />
                   <Dropdown
                     align="end"

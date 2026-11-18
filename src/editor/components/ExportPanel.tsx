@@ -1,3 +1,4 @@
+import { Spinner } from '@/shared/components/Progress';
 import { Copy, Download, FileText, QrCode, Save, FileType, Image as ImageIcon } from 'lucide-react';
 import type { ImageFormat } from '@/shared/types';
 import { Button } from '@/shared/components/Button';
@@ -18,6 +19,8 @@ interface Props {
   onWord: () => void;
   onQr: () => void;
   busy: boolean;
+  /** The running export: its button shows the spinner (the others are only disabled). */
+  action?: 'download' | 'saveas' | 'copy' | 'word' | 'pdf' | null;
   /** Image size, shown so the user knows what they export. */
   width?: number;
   height?: number;
@@ -30,7 +33,7 @@ const FORMATS: Array<{ value: ImageFormat; label: string; hint: string }> = [
 ];
 
 /** Body of the editor's Export popup (opened from the toolbar's Export… button). */
-export function ExportPanel({ filename, onFilename, format, onFormat, quality, onQuality, onCopy, onDownload, onSaveAs, onPdf, onWord, onQr, busy, width, height }: Props) {
+export function ExportPanel({ filename, onFilename, format, onFormat, quality, onQuality, onCopy, onDownload, onSaveAs, onPdf, onWord, onQr, busy, action = null, width, height }: Props) {
   const ext = format === 'jpeg' ? 'jpg' : format;
   return (
     <div className={styles.exportBody} aria-label="Export">
@@ -72,7 +75,7 @@ export function ExportPanel({ filename, onFilename, format, onFormat, quality, o
             <FileText size={18} /> <span>PDF</span>
           </button>
           <button type="button" className={styles.shareCard} onClick={onWord} disabled={busy} aria-label="Word">
-            <FileType size={18} /> <span>Word</span>
+            {action === 'word' ? <Spinner size={18} /> : <FileType size={18} />} <span>Word</span>
           </button>
           <button type="button" className={styles.shareCard} onClick={onQr} disabled={busy} aria-label="QR code…">
             <QrCode size={18} /> <span>QR code</span>
@@ -81,13 +84,13 @@ export function ExportPanel({ filename, onFilename, format, onFormat, quality, o
       </div>
 
       <div className={styles.exportFooter}>
-        <Button size="sm" className={styles.darkBtn} icon={<Copy size={14} />} onClick={onCopy} disabled={busy}>
+        <Button size="sm" className={styles.darkBtn} icon={<Copy size={14} />} onClick={onCopy} disabled={busy} loading={action === 'copy'}>
           Copy
         </Button>
-        <Button size="sm" className={styles.darkBtn} icon={<Save size={14} />} onClick={onSaveAs} disabled={busy}>
+        <Button size="sm" className={styles.darkBtn} icon={<Save size={14} />} onClick={onSaveAs} disabled={busy} loading={action === 'saveas'}>
           Save as…
         </Button>
-        <Button variant="primary" icon={<Download size={15} />} onClick={onDownload} loading={busy} className={styles.exportMain}>
+        <Button variant="primary" icon={<Download size={15} />} onClick={onDownload} disabled={busy} loading={action === 'download'} className={styles.exportMain}>
           Download
         </Button>
       </div>
