@@ -3,12 +3,13 @@
 ## 1.1.0 — themes, browser header and editor improvements (November 2026)
 
 ### New
-- **Themes for every window**: Settings › General › Theme has 7 dark themes (Midnight Purple —
-  the new default —, Ocean Blue, Graphite Dark, Sunset Gradient, Emerald Green, Royal Indigo,
-  Warm Dark), 8 light themes (Classic Blue, Emerald Fresh, Purple Lavender, Teal Ocean, Sunrise
-  Amber, Rose Coral, Sky Cyan, Slate Minimal) and *Match my computer*. The popup, settings, image
-  editor, Compare window, video page, Flow Editor and helper windows all follow it, live. Your
-  earlier Light / Dark choice becomes Classic Blue / Graphite Dark.
+- **Themes for every window**: Settings › General › Theme — choose Dark, System or Light, then one
+  of 9 dark themes (Graphite Dark — the default —, Slate Night, Midnight Purple, Royal Indigo, Ocean
+  Blue, Emerald Green, Sunset Gradient, Crimson Night, Warm Dark) or 9 light themes (Classic Blue,
+  Slate Minimal, Purple Lavender, Teal Ocean, Sky Cyan, Emerald Fresh, Rose Coral, Sunrise Amber,
+  Warm Sand). Colours are tuned to be easy on the eyes. The popup, settings, image editor, Compare
+  window, video page, Flow Editor and helper windows all follow it, live. Your earlier Light / Dark
+  choice becomes Classic Blue / Graphite Dark.
 - **Browser header in screenshots** (Settings › Screenshot › Browser header & frames): visible-part
   and full-page screenshots can include the real tabs, address bar and bookmarks bar. Small window
   size differences are adjusted automatically; large ones are explained so you can fix them.

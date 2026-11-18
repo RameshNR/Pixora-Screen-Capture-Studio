@@ -57,7 +57,7 @@ describe('settings service', () => {
   it('resets to defaults', async () => {
     await updateSettings({ general: { theme: 'ocean-blue' } });
     await resetSettings();
-    expect((await loadSettings()).general.theme).toBe('midnight-purple');
+    expect((await loadSettings()).general.theme).toBe('graphite-dark');
   });
 });
 

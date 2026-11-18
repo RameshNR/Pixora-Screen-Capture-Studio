@@ -48,8 +48,9 @@
   background: var(--c-bg);
   /* Smooth hover: only transform and opacity animate (no box-shadow repaint of the card and its
      thumbnail on every frame); the shadow is a separate layer that fades in. */
-  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms ease;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
   will-change: transform;
+  backface-visibility: hidden;
 }
 
 .card::after {
@@ -60,23 +61,39 @@
   border-radius: inherit;
   box-shadow: var(--shadow-lg);
   opacity: 0;
-  transition: opacity 260ms ease;
+  transition: opacity 220ms ease;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+/* Accent edge on hover: an outline layer that fades in (changing border-color would repaint). */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 3;
+  border: 1px solid color-mix(in srgb, var(--c-primary) 55%, transparent);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  will-change: opacity;
   pointer-events: none;
 }
 
 .card:hover {
-  border-color: color-mix(in srgb, var(--c-primary) 45%, var(--c-border-strong));
-  transform: translateY(-3px);
+  transform: translate3d(0, -3px, 0);
 }
 
-.card:hover::after {
+.card:hover::after,
+.card:hover::before {
   opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .card,
   .card::after,
-  .thumb img {
+  .card::before,
+  .check {
     transition: none;
   }
 }
@@ -98,11 +115,6 @@
   height: 100%;
   object-fit: cover;
   object-position: top center;
-  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.card:hover .thumb img {
-  transform: scale(1.035);
 }
 
 .noThumb {
@@ -241,6 +253,7 @@
   cursor: pointer;
   opacity: 0;
   transition: opacity var(--dur) var(--ease);
+  will-change: opacity;
 }
 
 .check input {

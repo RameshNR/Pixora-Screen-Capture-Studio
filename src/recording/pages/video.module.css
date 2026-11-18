@@ -294,7 +294,7 @@
 .studio {
   --studio-tabs: var(--c-bg-muted);
   --player-max-h: max(240px, calc(100vh - 480px));
-  background: radial-gradient(1200px 600px at 20% -10%, color-mix(in srgb, var(--c-primary) 16%, transparent) 0%, transparent 60%), var(--c-bg-subtle);
+  background: radial-gradient(1200px 600px at 20% -10%, color-mix(in srgb, var(--c-primary) 9%, transparent) 0%, transparent 60%), var(--c-bg-subtle);
 }
 
 .studio .layout {

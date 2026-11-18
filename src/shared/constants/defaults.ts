@@ -9,7 +9,7 @@ export const DEFAULT_FILENAME_PATTERN = 'Pixora {type} {date} at {time}';
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   general: {
-    theme: 'midnight-purple',
+    theme: 'graphite-dark',
     defaultTab: 'last',
     lastTab: 'screenshot',
     language: 'auto',

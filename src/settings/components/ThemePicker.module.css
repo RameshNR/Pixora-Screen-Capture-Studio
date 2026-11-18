@@ -4,62 +4,69 @@
   width: 100%;
 }
 
-.groupTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0 0;
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--c-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
 }
 
-/* "Match my computer" */
-.system {
+/* Dark / System / Light */
+.modes {
+  display: inline-flex;
+  justify-self: start;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-bg-muted);
+}
+
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 104px;
+  justify-content: center;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--c-text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mode:hover {
+  color: var(--c-text);
+}
+
+.modeOn {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.modeOn:hover {
+  color: var(--c-on-primary);
+}
+
+.systemNote {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin: 0;
   padding: 12px 14px;
-  border: 1px solid var(--c-border-strong);
+  border: 1px dashed var(--c-border-strong);
   border-radius: 12px;
-  background: var(--c-bg);
-  color: var(--c-text);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.system span {
-  display: grid;
-  gap: 2px;
-  flex: 1;
-}
-
-.system small {
   color: var(--c-text-secondary);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
-.system:hover {
-  border-color: var(--c-primary);
-}
-
-.systemOn {
-  border-color: var(--c-primary);
-  box-shadow: 0 0 0 2px var(--c-primary);
-}
-
-.systemCheck {
-  color: var(--c-primary);
+.systemNote strong {
+  color: var(--c-text);
 }
 
 /* A theme card, drawn in its own theme. */
@@ -89,8 +96,12 @@
   outline-offset: 2px;
 }
 
-.cardOn {
+/* Stays in its own colours when selected (the settings page fills selected radio buttons with
+   the accent; that is for segmented controls, not these cards). */
+.grid > .card.cardOn {
   border-color: var(--t-primary);
+  background: linear-gradient(160deg, var(--t-panel), var(--t-page));
+  color: var(--t-text);
   box-shadow: 0 0 0 2px var(--t-primary), var(--shadow-md);
 }
 

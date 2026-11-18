@@ -1,5 +1,5 @@
 /**
- * Pixora themes (Settings › General › Theme): 7 dark and 8 light.
+ * Pixora themes (Settings › General › Theme): 9 dark and 9 light.
  *
  * Dark themes are five colours (Primary = base, Accent, Secondary, Surface, Text); light themes are
  * Primary (= accent), Accent (= secondary), Surface (= tint), Canvas (= surface) and Background
@@ -12,21 +12,24 @@
 export type ThemeMode = 'light' | 'dark';
 
 export type ThemeId =
-  | 'midnight-purple'
-  | 'ocean-blue'
   | 'graphite-dark'
-  | 'sunset-gradient'
-  | 'emerald-green'
+  | 'slate-night'
+  | 'midnight-purple'
   | 'royal-indigo'
+  | 'ocean-blue'
+  | 'emerald-green'
+  | 'sunset-gradient'
+  | 'crimson-night'
   | 'warm-dark'
   | 'classic-blue'
-  | 'emerald-fresh'
+  | 'slate-minimal'
   | 'purple-lavender'
   | 'teal-ocean'
-  | 'sunrise-amber'
-  | 'rose-coral'
   | 'sky-cyan'
-  | 'slate-minimal';
+  | 'emerald-fresh'
+  | 'rose-coral'
+  | 'sunrise-amber'
+  | 'warm-sand';
 
 export interface ThemeSpec {
   id: ThemeId;
@@ -48,24 +51,34 @@ export interface ThemeSpec {
   badge?: 'Default' | 'Recommended';
 }
 
-export const DEFAULT_THEME: ThemeId = 'midnight-purple';
+export const DEFAULT_THEME: ThemeId = 'graphite-dark';
 
+/*
+ * Comfortable colours: dark themes use muted (not saturated) backgrounds and soft off-white text
+ * instead of pure white; accents are bright enough to find but not neon. Light themes keep the
+ * palette sheet's accents on white panels and a tinted page.
+ */
 export const THEMES: readonly ThemeSpec[] = [
-  { id: 'midnight-purple', name: 'Midnight Purple', description: 'Premium, modern and creative', mode: 'dark', base: '#24104F', accent: '#9333EA', secondary: '#06B6D4', surface: '#101B3C', text: '#F8FAFC', badge: 'Default' },
-  { id: 'ocean-blue', name: 'Ocean Blue', description: 'Calm, focused and easy on the eyes', mode: 'dark', base: '#0B2545', accent: '#0EA5E9', secondary: '#14B8A6', surface: '#102A43', text: '#E2E8F0' },
-  { id: 'graphite-dark', name: 'Graphite Dark', description: 'Modern, high-contrast and distraction-free', mode: 'dark', base: '#0F1115', accent: '#3B82F6', secondary: '#6366F1', surface: '#1F2937', text: '#F9FAFB' },
-  { id: 'sunset-gradient', name: 'Sunset Gradient', description: 'Vibrant, creative and energetic', mode: 'dark', base: '#3B0764', accent: '#EC4899', secondary: '#F97316', surface: '#1F1037', text: '#FFF7ED' },
-  { id: 'emerald-green', name: 'Emerald Green', description: 'Fresh, modern and productivity-focused', mode: 'dark', base: '#064E3B', accent: '#10B981', secondary: '#34D399', surface: '#0F2F26', text: '#ECFDF5' },
-  { id: 'royal-indigo', name: 'Royal Indigo', description: 'Elegant, balanced and professional', mode: 'dark', base: '#312E81', accent: '#6366F1', secondary: '#8B5CF6', surface: '#1E1B4B', text: '#F5F3FF' },
-  { id: 'warm-dark', name: 'Warm Dark', description: 'Comfortable and modern, with warm tones', mode: 'dark', base: '#3F1D0C', accent: '#F59E0B', secondary: '#F97316', surface: '#1F1309', text: '#FEF3C7' },
-  { id: 'classic-blue', name: 'Classic Blue', description: 'Clean, professional and highly readable', mode: 'light', accent: '#2563EB', secondary: '#3B82F6', tint: '#DBEAFE', surface: '#F1F5F9', base: '#FFFFFF', text: '#0F172A', badge: 'Recommended' },
-  { id: 'emerald-fresh', name: 'Emerald Fresh', description: 'Modern, calm and productivity-focused', mode: 'light', accent: '#10B981', secondary: '#34D399', tint: '#D1FAE5', surface: '#ECFDF5', base: '#FFFFFF', text: '#052E22' },
-  { id: 'purple-lavender', name: 'Purple Lavender', description: 'Creative, modern and elegant', mode: 'light', accent: '#8B5CF6', secondary: '#A78BFA', tint: '#EDE9FE', surface: '#F5F3FF', base: '#FFFFFF', text: '#1E1538' },
-  { id: 'teal-ocean', name: 'Teal Ocean', description: 'Fresh, modern and easy on the eyes', mode: 'light', accent: '#0EA5E9', secondary: '#06B6DA', tint: '#CFFAFE', surface: '#ECFEFF', base: '#FFFFFF', text: '#082F49' },
-  { id: 'sunrise-amber', name: 'Sunrise Amber', description: 'Warm, friendly and energizing', mode: 'light', accent: '#F59E0B', secondary: '#FBBF24', tint: '#FEF3C7', surface: '#FFFBEB', base: '#FFFFFF', text: '#2A1A04' },
-  { id: 'rose-coral', name: 'Rose Coral', description: 'Soft, modern and visually pleasing', mode: 'light', accent: '#F43F5E', secondary: '#FB7185', tint: '#FEE2E2', surface: '#FFF1F2', base: '#FFFFFF', text: '#2B0A12' },
-  { id: 'sky-cyan', name: 'Sky Cyan', description: 'Clean, airy and minimal', mode: 'light', accent: '#0D9488', secondary: '#14B8A6', tint: '#CCFBF1', surface: '#F0FDFA', base: '#FFFFFF', text: '#042F2C' },
-  { id: 'slate-minimal', name: 'Slate Minimal', description: 'Neutral, modern and distraction-free', mode: 'light', accent: '#475569', secondary: '#64748B', tint: '#E2E8F0', surface: '#F8FAFC', base: '#FFFFFF', text: '#0F172A' },
+  // Dark
+  { id: 'graphite-dark', name: 'Graphite Dark', description: 'Neutral, calm and distraction-free', mode: 'dark', base: '#17191E', accent: '#5B8DEF', secondary: '#8086E8', surface: '#20242B', text: '#E3E6EB', badge: 'Default' },
+  { id: 'slate-night', name: 'Slate Night', description: 'Cool blue-grey, soft on the eyes', mode: 'dark', base: '#18202B', accent: '#6FA3DB', secondary: '#8FB8D8', surface: '#212B38', text: '#DCE3EA' },
+  { id: 'midnight-purple', name: 'Midnight Purple', description: 'Premium, modern and creative', mode: 'dark', base: '#1C1828', accent: '#A07BEA', secondary: '#4FB6CC', surface: '#252033', text: '#E7E3F0' },
+  { id: 'royal-indigo', name: 'Royal Indigo', description: 'Elegant, balanced and professional', mode: 'dark', base: '#1A1B2E', accent: '#8087EC', secondary: '#A592E8', surface: '#23243B', text: '#E4E4F2' },
+  { id: 'ocean-blue', name: 'Ocean Blue', description: 'Calm, focused and easy on the eyes', mode: 'dark', base: '#14202E', accent: '#4AAAD8', secondary: '#45B3A5', surface: '#1B2A3B', text: '#DBE5EE' },
+  { id: 'emerald-green', name: 'Emerald Green', description: 'Fresh, natural and focused', mode: 'dark', base: '#152420', accent: '#3DB98C', secondary: '#6CC9A6', surface: '#1C2F29', text: '#DCEDE5' },
+  { id: 'sunset-gradient', name: 'Sunset Gradient', description: 'Warm, creative and energetic', mode: 'dark', base: '#251A26', accent: '#E06A9C', secondary: '#E8935E', surface: '#302232', text: '#F0E3E6' },
+  { id: 'crimson-night', name: 'Crimson Night', description: 'Deep, bold and dramatic', mode: 'dark', base: '#231A1C', accent: '#E06A64', secondary: '#E8A066', surface: '#2E2225', text: '#F0E2E1' },
+  { id: 'warm-dark', name: 'Warm Dark', description: 'Comfortable and cosy, with warm tones', mode: 'dark', base: '#221C17', accent: '#E3A34A', secondary: '#DC8A55', surface: '#2D251F', text: '#EFE6D8' },
+  // Light
+  { id: 'classic-blue', name: 'Classic Blue', description: 'Clean, professional and highly readable', mode: 'light', accent: '#2563EB', secondary: '#3B82F6', tint: '#DBEAFE', surface: '#F1F5F9', base: '#FFFFFF', text: '#1E293B', badge: 'Recommended' },
+  { id: 'slate-minimal', name: 'Slate Minimal', description: 'Neutral, modern and distraction-free', mode: 'light', accent: '#475569', secondary: '#64748B', tint: '#E2E8F0', surface: '#F8FAFC', base: '#FFFFFF', text: '#1E293B' },
+  { id: 'purple-lavender', name: 'Purple Lavender', description: 'Creative, modern and elegant', mode: 'light', accent: '#8B5CF6', secondary: '#A78BFA', tint: '#EDE9FE', surface: '#F5F3FF', base: '#FFFFFF', text: '#2A2140' },
+  { id: 'teal-ocean', name: 'Teal Ocean', description: 'Fresh, modern and easy on the eyes', mode: 'light', accent: '#0EA5E9', secondary: '#06B6DA', tint: '#CFFAFE', surface: '#ECFEFF', base: '#FFFFFF', text: '#12324A' },
+  { id: 'sky-cyan', name: 'Sky Cyan', description: 'Clean, airy and minimal', mode: 'light', accent: '#0D9488', secondary: '#14B8A6', tint: '#CCFBF1', surface: '#F0FDFA', base: '#FFFFFF', text: '#123634' },
+  { id: 'emerald-fresh', name: 'Emerald Fresh', description: 'Modern, calm and productivity-focused', mode: 'light', accent: '#10B981', secondary: '#34D399', tint: '#D1FAE5', surface: '#ECFDF5', base: '#FFFFFF', text: '#14352A' },
+  { id: 'rose-coral', name: 'Rose Coral', description: 'Soft, modern and visually pleasing', mode: 'light', accent: '#F43F5E', secondary: '#FB7185', tint: '#FEE2E2', surface: '#FFF1F2', base: '#FFFFFF', text: '#3A1A22' },
+  { id: 'sunrise-amber', name: 'Sunrise Amber', description: 'Warm, friendly and energizing', mode: 'light', accent: '#F59E0B', secondary: '#FBBF24', tint: '#FEF3C7', surface: '#FFFBEB', base: '#FFFFFF', text: '#33240B' },
+  { id: 'warm-sand', name: 'Warm Sand', description: 'Soft paper tones, gentle on the eyes', mode: 'light', accent: '#B4693A', secondary: '#C98B5B', tint: '#F1E4D6', surface: '#F8F3EC', base: '#FFFDFA', text: '#33291F' },
 ];
 
 /** Stored preference: a theme, or "system" (Classic Blue / Graphite Dark following the computer). */
@@ -172,7 +185,7 @@ export function themeTokens(t: ThemeSpec): Record<string, string> {
   // Editor chrome and canvas (image editor, video page, Flow Editor, collage).
   const chrome = dark ? mix(t.base, text, 0.07) : t.base;
   const chrome2 = dark ? mix(t.base, text, 0.11) : mix(page, t.base, 0.45);
-  const canvas = dark ? mix(t.base, BLACK, 0.38) : mix(page, text, 0.07);
+  const canvas = dark ? mix(t.base, BLACK, 0.22) : mix(page, text, 0.07);
   const editorText = text;
   const editorDim = ensureContrast(mix(text, chrome, 0.36), chrome, 4.6, text);
 
@@ -188,7 +201,7 @@ export function themeTokens(t: ThemeSpec): Record<string, string> {
     '--c-primary-soft-strong': softStrong,
     '--c-on-primary': onPrimary,
     '--c-secondary': secondary,
-    '--c-accent-gradient': `linear-gradient(135deg, ${primary}, ${mix(primary, secondary, 0.55)})`,
+    '--c-accent-gradient': `linear-gradient(135deg, ${primary}, ${mix(primary, secondary, 0.35)})`,
 
     '--c-bg': panel,
     '--c-bg-subtle': page,

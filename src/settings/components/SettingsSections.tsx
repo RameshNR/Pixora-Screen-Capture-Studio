@@ -75,7 +75,7 @@ export function GeneralSection({ settings, update }: Props) {
   return (
     <SettingsPage title="General" icon={<Settings2 size={26} />} actions={<ResetPage section="general" title="General" update={update} />} description="Appearance, the popup and file names for everything Pixora saves.">
       <SettingsSection title="Theme" icon={<Palette size={22} />} description="Colours for every Pixora window: the popup, editors, the video page, Flow Editor, settings and helper windows.">
-      <SettingRow label="Theme" icon={<SunMoon size={18} />} hint="7 dark and 8 light themes. Changes apply to open windows straight away." stacked>
+      <SettingRow label="Theme" icon={<SunMoon size={18} />} hint="9 dark and 9 light themes. Changes apply to open windows straight away." stacked>
         <ThemePicker value={g.theme} onChange={(theme) => void update({ general: { theme } })} />
       </SettingRow>
       </SettingsSection>

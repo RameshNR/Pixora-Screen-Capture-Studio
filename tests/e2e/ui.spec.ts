@@ -65,11 +65,14 @@ test.describe('popup and settings UI', () => {
     await expect(page.getByRole('heading', { name: 'No captures yet' })).toBeVisible();
 
     await page.goto(`chrome-extension://${extensionId}/options.html#general`);
-    await page.getByRole('radio', { name: 'Dark' }).click();
+    // Graphite Dark is the default; switching to Light is kept after a reload.
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    const modes = page.getByRole('radiogroup', { name: 'Theme mode' });
+    await modes.getByRole('radio', { name: 'Light', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await page.reload();
-    await expect(page.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(modes.getByRole('radio', { name: 'Light', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
 
   test('Settings › Advanced repairs Pixora storage', async ({ context, extensionId }) => {

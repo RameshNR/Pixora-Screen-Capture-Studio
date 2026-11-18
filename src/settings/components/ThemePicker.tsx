@@ -1,7 +1,31 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Check, Image as ImageIcon, Monitor, Moon, Sun } from 'lucide-react';
-import { THEMES, themeSwatches, themeTokens, type ThemePreference, type ThemeSpec } from '@/shared/theme/themes';
+import { THEMES, themeById, themeSwatches, themeTokens, type ThemeId, type ThemeMode, type ThemePreference, type ThemeSpec } from '@/shared/theme/themes';
 import styles from './ThemePicker.module.css';
+
+type View = ThemeMode | 'system';
+
+/** Last theme picked in each group, so switching Dark ↔ Light comes back to it. */
+const LAST_KEY = (mode: ThemeMode) => `pixora.theme.last.${mode}`;
+const FIRST: Record<ThemeMode, ThemeId> = { dark: 'graphite-dark', light: 'classic-blue' };
+
+function lastOf(mode: ThemeMode): ThemeId {
+  try {
+    const v = localStorage.getItem(LAST_KEY(mode));
+    if (v && THEMES.some((t) => t.id === v && t.mode === mode)) return v as ThemeId;
+  } catch {
+    /* storage blocked */
+  }
+  return FIRST[mode];
+}
+
+function remember(id: ThemeId) {
+  try {
+    localStorage.setItem(LAST_KEY(themeById(id).mode), id);
+  } catch {
+    /* storage blocked */
+  }
+}
 
 /** A card's own colours (each card is drawn in its theme, whatever theme the page uses). */
 function cardStyle(t: ThemeSpec): CSSProperties {
@@ -51,7 +75,7 @@ function Preview() {
 
 function ThemeCard({ t, selected, onPick }: { t: ThemeSpec; selected: boolean; onPick: () => void }) {
   return (
-    <button type="button" role="radio" aria-checked={selected} aria-label={t.name} className={`${styles.card} ${selected ? styles.cardOn : ''}`} style={cardStyle(t)} onClick={onPick}>
+    <button type="button" role="radio" data-card aria-checked={selected} aria-label={t.name} className={`${styles.card} ${selected ? styles.cardOn : ''}`} style={cardStyle(t)} onClick={onPick}>
       <span className={styles.cardHead}>
         <span>
           <span className={styles.cardName}>{t.name}</span>
@@ -77,27 +101,49 @@ function ThemeCard({ t, selected, onPick }: { t: ThemeSpec; selected: boolean; o
   );
 }
 
-/** Settings › General › Theme: every window (popup, editors, settings, helper windows) uses it. */
+const VIEWS: Array<{ id: View; label: string; icon: JSX.Element }> = [
+  { id: 'dark', label: 'Dark', icon: <Moon size={16} /> },
+  { id: 'system', label: 'System', icon: <Monitor size={16} /> },
+  { id: 'light', label: 'Light', icon: <Sun size={16} /> },
+];
+
+/**
+ * Settings › General › Theme: Dark / System / Light at the top; below, the themes of the chosen
+ * group (System follows the computer: Classic Blue in light mode, Graphite Dark in dark mode).
+ * Every window (popup, editors, settings, helper windows) uses it.
+ */
 export function ThemePicker({ value, onChange }: { value: ThemePreference; onChange: (v: ThemePreference) => void }) {
-  const group = (mode: 'dark' | 'light') => THEMES.filter((t) => t.mode === mode);
+  const current: View = value === 'system' ? 'system' : themeById(value).mode;
+  const [view, setView] = useState<View>(current);
+  const pick = (id: ThemeId) => {
+    remember(id);
+    onChange(id);
+  };
+  const choose = (v: View) => {
+    setView(v);
+    if (v === 'system') onChange('system');
+    // Switching group applies that group's last theme (keeps the current one if it is already in it).
+    else if (current !== v) onChange(lastOf(v));
+  };
+  const list = view === 'system' ? [] : THEMES.filter((t) => t.mode === view);
   return (
-    <div className={styles.picker} role="radiogroup" aria-label="Theme">
-      <button type="button" role="radio" aria-checked={value === 'system'} className={`${styles.system} ${value === 'system' ? styles.systemOn : ''}`} onClick={() => onChange('system')}>
-        <Monitor size={18} />
-        <span>
-          <strong>Match my computer</strong>
-          <small>Classic Blue when your computer is in light mode, Graphite Dark when it is in dark mode.</small>
-        </span>
-        {value === 'system' && <Check size={16} className={styles.systemCheck} />}
-      </button>
-      <h3 className={styles.groupTitle}><Moon size={15} /> Dark themes</h3>
-      <div className={styles.grid}>
-        {group('dark').map((t) => <ThemeCard key={t.id} t={t} selected={value === t.id} onPick={() => onChange(t.id)} />)}
+    <div className={styles.picker}>
+      <div className={styles.modes} role="radiogroup" aria-label="Theme mode">
+        {VIEWS.map((v) => (
+          <button key={v.id} type="button" role="radio" aria-checked={view === v.id} className={`${styles.mode} ${view === v.id ? styles.modeOn : ''}`} onClick={() => choose(v.id)}>
+            {v.icon} {v.label}
+          </button>
+        ))}
       </div>
-      <h3 className={styles.groupTitle}><Sun size={15} /> Light themes</h3>
-      <div className={styles.grid}>
-        {group('light').map((t) => <ThemeCard key={t.id} t={t} selected={value === t.id} onPick={() => onChange(t.id)} />)}
-      </div>
+      {view === 'system' ? (
+        <p className={styles.systemNote}>
+          <Monitor size={16} /> Follows your computer: <strong>Classic Blue</strong> when it is in light mode, <strong>Graphite Dark</strong> when it is in dark mode.
+        </p>
+      ) : (
+        <div className={styles.grid} role="radiogroup" aria-label={view === 'dark' ? 'Dark themes' : 'Light themes'}>
+          {list.map((t) => <ThemeCard key={t.id} t={t} selected={value === t.id} onPick={() => pick(t.id)} />)}
+        </div>
+      )}
     </div>
   );
 }
