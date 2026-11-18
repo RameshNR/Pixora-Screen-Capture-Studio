@@ -75,9 +75,9 @@
 
 .navActive,
 .navActive:hover {
-  background: var(--c-accent-gradient);
+  background: var(--c-primary);
   color: var(--c-on-primary);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--c-primary) 35%, transparent);
+  box-shadow: var(--shadow-xs);
 }
 
 .version {

@@ -35,9 +35,11 @@ export async function generateVideoThumbnail(blob: Blob, maxWidth = 360, timeout
 }
 
 /** Thumbnail from any image blob. Works in documents and workers (OffscreenCanvas). */
-export async function generateImageThumbnail(blob: Blob, maxWidth = 360): Promise<string | undefined> {
+export async function generateImageThumbnail(source: Blob | OffscreenCanvas | ImageBitmap, maxWidth = 360): Promise<string | undefined> {
   try {
-    const bitmap = await createImageBitmap(blob);
+    // A canvas or bitmap is drawn directly; only a Blob needs decoding first.
+    const owned = source instanceof Blob;
+    const bitmap = owned ? await createImageBitmap(source) : source;
     const scale = Math.min(1, maxWidth / bitmap.width);
     const w = Math.max(1, Math.round(bitmap.width * scale));
     const h = Math.max(1, Math.round(Math.min(bitmap.height * scale, maxWidth * 1.5)));
@@ -47,7 +49,7 @@ export async function generateImageThumbnail(blob: Blob, maxWidth = 360): Promis
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(bitmap, 0, 0, bitmap.width, h / scale, 0, 0, w, h);
-    bitmap.close();
+    if (owned) (bitmap as ImageBitmap).close();
     const out = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.75 });
     return blobToDataUrl(out);
   } catch {

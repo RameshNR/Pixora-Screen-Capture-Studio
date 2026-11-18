@@ -37,7 +37,9 @@ describe('screenshot pipeline (service worker side)', () => {
     const [record] = await listCaptures();
     expect(record).toMatchObject({ kind: 'screenshot', width: 1280, height: 720, mimeType: 'image/png', sourceUrl: 'https://example.com/' });
     expect(record!.name).toMatch(/^Pixora Screenshot .*\.png$/);
-    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining(`editor.html?id=${record!.id}`) }));
+    // The editor opens at once ("Preparing…") and becomes the editor with the image when it is stored.
+    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining('editor.html?preparing=1') }));
+    expect(chrome.tabs.update).toHaveBeenCalledWith(900, expect.objectContaining({ url: expect.stringContaining(`editor.html?id=${record!.id}`) }));
   });
 
   it('runs full-page capture with progress and keeps capture notes', async () => {
@@ -56,7 +58,7 @@ describe('screenshot pipeline (service worker side)', () => {
     await takeScreenshot('visible', 1, { ocr: true });
     const [record] = await listCaptures();
     expect((await getCapture(record!.id))?.ocrRequested).toBe(true);
-    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining('ocr=1') }));
+    expect(chrome.tabs.update).toHaveBeenCalledWith(900, expect.objectContaining({ url: expect.stringContaining('ocr=1') }));
   });
 
   it('auto-saves via the offscreen document when the editor is disabled', async () => {

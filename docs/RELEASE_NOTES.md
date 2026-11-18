@@ -27,6 +27,10 @@
   keep Chrome's "sharing your screen" bar out of the video.
 - Recent captures: smooth hover; long names no longer push the buttons out of the card.
 - "Ask where to save": *Saved* is shown only after you choose a place (nothing when you cancel).
+- Full-page screenshots open the editor straight away ("Preparing your screenshot…") and are saved
+  faster; exports show a progress message, and unedited screenshots download instantly.
+- Calmer buttons: no glowing halos or gradient sheen.
+- Collage: Ctrl + mouse wheel zooms the collage instead of the whole page.
 
 ### Fixed
 - Full-page screenshots no longer crop the right edge where a scrollbar was.

@@ -176,7 +176,8 @@ export function themeTokens(t: ThemeSpec): Record<string, string> {
   // (amber, emerald and other bright accents).
   const darkLabel = mix(dark ? t.base : t.text, BLACK, 0.5);
   const onPrimary = contrast(WHITE, primary) >= 3 || contrast(WHITE, primary) >= contrast(darkLabel, primary) ? WHITE : darkLabel;
-  const hover = dark ? mix(primary, WHITE, 0.14) : mix(primary, BLACK, 0.1);
+  // Hover: a small step (bigger jumps towards white read as glare on dark themes).
+  const hover = dark ? mix(primary, WHITE, 0.07) : mix(primary, BLACK, 0.08);
   const active = dark ? mix(primary, BLACK, 0.08) : mix(primary, BLACK, 0.18);
   const soft = dark ? mix(panel, primary, 0.2) : mix(panel, tint, 0.6);
   const softStrong = dark ? mix(panel, primary, 0.32) : mix(tint, primary, 0.12);

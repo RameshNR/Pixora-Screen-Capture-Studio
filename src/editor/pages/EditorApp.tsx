@@ -65,7 +65,8 @@ type LoadState = { status: 'loading' } | { status: 'import' } | { status: 'error
 export function EditorApp() {
   const { settings } = useSettings();
   const params = useMemo(() => new URLSearchParams(location.search), []);
-  const [load, setLoad] = useState<LoadState>(() => (params.get('id') ? { status: 'loading' } : { status: 'import' }));
+  const preparing = params.get('preparing') === '1';
+  const [load, setLoad] = useState<LoadState>(() => (params.get('id') || preparing ? { status: 'loading' } : { status: 'import' }));
   // Collage workspace (opened from the popup with ?collage=1, the import screen or the editor toolbar).
   const [collage, setCollage] = useState<Array<{ blob: Blob; name: string }> | null>(() => (params.get('collage') === '1' ? [] : null));
   const toast = useToast();
@@ -346,7 +347,7 @@ export function EditorApp() {
     content = (
       <div className={styles.loading}>
         <Spinner size={26} />
-        Opening image…
+        {preparing ? 'Preparing your screenshot… big pages take a few seconds.' : 'Opening image…'}
       </div>
     );
   } else if (load.status === 'error') {
@@ -511,6 +512,12 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const [format, setFormat] = useState<ImageFormat>(settings.screenshot.format);
   const [quality, setQuality] = useState(settings.screenshot.quality);
   const [busy, setBusy] = useState(false);
+  /** What a long export is doing, shown in a "working…" toast while it runs. */
+  const [working, setWorking] = useState<string | null>(null);
+  useEffect(() => {
+    if (!working) return;
+    return toast.progress(working, 'Large images can take a few seconds.');
+  }, [working, toast]);
   const [resizeOpen, setResizeOpen] = useState(false);
   const [cut, setCut] = useState<CutBand | null>(null);
   const [ocr, setOcr] = useState<{ open: boolean; text: string | null; progress: number; status: string; error: string | null }>({ open: false, text: null, progress: 0, status: '', error: null });
@@ -817,9 +824,14 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     async (saveAs: boolean) => {
       setTextEdit(null);
       setBusy(true);
+      const ext = format === 'jpeg' ? 'jpg' : format;
+      setWorking(`Preparing ${filename || 'screenshot'}.${ext}…`);
       try {
-        const blob = await render();
-        const ext = format === 'jpeg' ? 'jpg' : format;
+        // Nothing drawn, framed or changed: the stored PNG is the result (no re-encoding, instant).
+        const untouched = format === 'png' && doc === savedDoc && doc.annotations.length === 0 && !doc.frame && !doc.watermark
+          && doc.width === record.width && doc.height === record.height && record.mimeType === 'image/png';
+        const blob = (untouched ? await getCaptureBlob(record.id).catch(() => undefined) : undefined) ?? (await render());
+        setWorking(null);
         const id = await downloadBlob(blob, `${filename || 'screenshot'}.${ext}`, {
           saveAs: saveAs || settings.storage.askWhereToSave,
           subfolder: settings.storage.subfolder,
@@ -835,17 +847,20 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         const info = errorInfoOf(err);
         if (info.code !== 'cancelled') toast.error(info);
       } finally {
+        setWorking(null);
         setBusy(false);
       }
     },
-    [render, format, filename, settings, persistEdits, toast],
+    [render, format, filename, settings, persistEdits, toast, doc, savedDoc, record],
   );
 
   const copy = useCallback(async () => {
     setBusy(true);
+    setWorking('Copying the image…');
     try {
       const blob = await render('png');
       await copyImageToClipboard(blob);
+      setWorking(null);
       await persistEdits(blob).catch((err: unknown) => {
         if (!isStorageUnavailable(err)) throw err;
       });
@@ -853,6 +868,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     } catch (err) {
       toast.error(errorInfoOf(err));
     } finally {
+      setWorking(null);
       setBusy(false);
     }
   }, [render, persistEdits, toast]);
@@ -872,6 +888,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   /** Word document with the finished image (page orientation follows the image). */
   const exportWord = useCallback(async () => {
     setBusy(true);
+    setWorking('Preparing the Word document…');
     try {
       const png = await exportDocument(doc, 'png', 1);
       const bmp = await createImageBitmap(png);
@@ -884,11 +901,13 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       const bytes = buildDocx(blocks, { paper: 'a4', orientation, margin: 36, title: filename || 'Screenshot' });
       const name = `${filename || 'screenshot'}.docx`;
       await downloadBlob(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: DOCX_MIME }), name, { saveAs: settings.storage.askWhereToSave, subfolder: settings.storage.subfolder });
+      setWorking(null);
       toast.success('Word document saved', name);
     } catch (err) {
       const info = errorInfoOf(err);
       if (info.code !== 'cancelled') toast.error(info);
     } finally {
+      setWorking(null);
       setBusy(false);
     }
   }, [doc, filename, record.sourceTitle, record.sourceUrl, settings.storage, toast]);
@@ -1376,14 +1395,17 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           setPdfOpen(false);
           void (async () => {
             setBusy(true);
+            setWorking('Preparing the PDF…');
             try {
               const pdf = await imageToPdf(await exportDocument(doc, 'png', 1), { ...opts, title: filename });
+              setWorking(null);
               await downloadBlob(pdf, `${filename || 'screenshot'}.pdf`, { saveAs: settings.storage.askWhereToSave, subfolder: settings.storage.subfolder });
               toast.success('PDF saved', `${filename}.pdf`);
             } catch (err) {
               const info = errorInfoOf(err);
               if (info.code !== 'cancelled') toast.error(info);
             } finally {
+              setWorking(null);
               setBusy(false);
             }
           })();

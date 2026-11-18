@@ -470,7 +470,8 @@ export function CollageWorkspace({ seeds, onCancel, onDone, doneLabel = 'Edit co
             </div>
           ) : (
             <Preview model={model} selected={busy ? null : selected} plain={busy} onSelect={setSelected}
-              onMenu={(e, slot) => collageMenu.handle(e, slot !== null ? cellMenu(slot) : pageMenuItems())} onTree={setTree} onView={updateView} zoom={zoom} onFitScale={setFitScale} />
+              onMenu={(e, slot) => collageMenu.handle(e, slot !== null ? cellMenu(slot) : pageMenuItems())} onTree={setTree} onView={updateView} zoom={zoom} onFitScale={setFitScale}
+              onZoom={(f) => setZoom((z) => Math.max(0.05, Math.min(4, (z === 'fit' ? fitScale : z) * f)))} />
           )}
         </main>
 
@@ -745,8 +746,10 @@ export function CollageWorkspace({ seeds, onCancel, onDone, doneLabel = 'Edit co
 
 /** Interactive preview: select cells, drag to pan, scroll to zoom, drag gaps to resize. */
 function Preview({
-  model, selected, plain = false, onSelect, onTree, onView, zoom, onFitScale, onMenu,
+  model, selected, plain = false, onSelect, onTree, onView, zoom, onFitScale, onMenu, onZoom,
 }: {
+  /** Ctrl / ⌘ + wheel over the collage: zoom the whole view by this factor (not the browser page). */
+  onZoom?: (factor: number) => void;
   /** Right click on the preview: the image under the pointer (selected first), or null. */
   onMenu?: (e: React.MouseEvent, slot: number | null) => void;
   model: CollageModel;
@@ -828,6 +831,32 @@ function Preview({
   };
   const cellAt = (p: { x: number; y: number }) => cells.find((c) => p.x >= c.box.x && p.x <= c.box.x + c.box.w && p.y >= c.box.y && p.y <= c.box.y + c.box.h) ?? null;
 
+  // Wheel: a native, non-passive listener — React's wheel handler is passive, so it could not stop
+  // Chrome from zooming the whole page on Ctrl + wheel (or scrolling while an image zooms).
+  const wheel = useRef<(e: WheelEvent) => void>(() => undefined);
+  wheel.current = (e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      onZoom?.(Math.exp(-e.deltaY * 0.0015));
+      return;
+    }
+    if (!canvasRef.current || !canvasRef.current.contains(e.target as Node)) return;
+    const c = cellAt(toOut(e));
+    const img = c ? model.images[c.slot] : undefined;
+    if (!c || !img) return;
+    // Over an image: zoom that image inside its cell (the page doesn't scroll meanwhile).
+    e.preventDefault();
+    onSelect(c.slot);
+    onView(c.slot, { zoom: Math.max(1, Math.min(4, img.view.zoom * Math.exp(-e.deltaY * 0.0015))) });
+  };
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const on = (e: WheelEvent) => wheel.current(e);
+    el.addEventListener('wheel', on, { passive: false });
+    return () => el.removeEventListener('wheel', on);
+  }, []);
+
   return (
     <div ref={wrapRef} className={styles.previewWrap}>
       <canvas
@@ -879,13 +908,6 @@ function Preview({
         }}
         onPointerUp={() => {
           drag.current = null;
-        }}
-        onWheel={(e) => {
-          const c = cellAt(toOut(e));
-          const img = c ? model.images[c.slot] : undefined;
-          if (!c || !img) return;
-          onSelect(c.slot);
-          onView(c.slot, { zoom: Math.max(1, Math.min(4, img.view.zoom * Math.exp(-e.deltaY * 0.0015))) });
         }}
       />
     </div>

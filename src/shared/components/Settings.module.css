@@ -20,7 +20,7 @@
   border-radius: 16px;
   color: var(--c-on-primary);
   background: var(--c-accent-gradient);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--c-primary) 35%, transparent);
+  box-shadow: var(--shadow-sm);
 }
 
 .pageText {

@@ -329,9 +329,9 @@
 }
 
 .studio .sideTabOn {
-  background: var(--c-accent-gradient);
+  background: var(--c-primary);
   color: var(--c-on-primary);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--c-primary) 35%, transparent);
+  box-shadow: var(--shadow-xs);
 }
 
 .titleIcon {

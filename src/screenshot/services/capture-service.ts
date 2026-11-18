@@ -139,10 +139,22 @@ async function countdownOnBadge(seconds: number): Promise<void> {
 }
 
 async function finishScreenshot(raw: RawCapture, settings: Settings, sourceTab: chrome.tabs.Tab, ocr: boolean): Promise<void> {
+  const openEditor = settings.screenshot.autoOpenEditor || ocr;
+  // Open the editor straight away: a big image takes a moment to encode and store, and the user
+  // should see that Pixora is on it (the editor switches to the image when it is ready).
+  const placeholder = openEditor
+    ? await chrome.tabs
+        .create({ url: chrome.runtime.getURL('editor.html?preparing=1'), index: sourceTab.index + 1, openerTabId: sourceTab.id })
+        .catch(() => null)
+    : null;
+  const closePlaceholder = () => (placeholder?.id !== undefined ? chrome.tabs.remove(placeholder.id).catch(() => undefined) : undefined);
   let last: Blob;
+  let lastThumb: string | undefined;
   try {
-    last = await raw.canvas.convertToBlob({ type: 'image/png' });
+    // Encoding and the thumbnail (drawn from the canvas, no decode) side by side.
+    [last, lastThumb] = await Promise.all([raw.canvas.convertToBlob({ type: 'image/png' }), generateImageThumbnail(raw.canvas)]);
   } catch (err) {
+    await closePlaceholder();
     throw new AppError('image-processing', String(err));
   }
   // A long full page can come in several parts (top first): each is a capture of its own.
@@ -160,7 +172,7 @@ async function finishScreenshot(raw: RawCapture, settings: Settings, sourceTab: 
           mimeType: 'image/png',
           width: im.width,
           height: im.height,
-          thumbnail: await generateImageThumbnail(im.blob),
+          thumbnail: i === images.length - 1 ? lastThumb : await generateImageThumbnail(im.blob),
           sourceTitle: raw.title,
           sourceUrl: raw.url,
           notes: i === 0 ? raw.notes : [],
@@ -170,6 +182,7 @@ async function finishScreenshot(raw: RawCapture, settings: Settings, sourceTab: 
       );
       ids.push(rec.id);
     } catch (err) {
+      await closePlaceholder();
       if (!isStorageUnavailable(err)) throw err;
       // Pixora's storage cannot be opened: save the screenshot straight to Downloads instead of losing it.
       for (let j = i; j < images.length; j++) await saveImageToDownloads(images[j]!.blob, nameOf(j));
@@ -180,7 +193,6 @@ async function finishScreenshot(raw: RawCapture, settings: Settings, sourceTab: 
   const record = { id: ids[0]! };
   broadcast({ target: 'broadcast', type: 'history/changed' });
 
-  const openEditor = settings.screenshot.autoOpenEditor || ocr;
   if (openEditor) {
     const params = new URLSearchParams({ id: record.id, fresh: '1' });
     // All parts of a long page open together in the editor's image panel.
@@ -188,11 +200,10 @@ async function finishScreenshot(raw: RawCapture, settings: Settings, sourceTab: 
     if (ocr) params.set('ocr', '1');
     if (settings.screenshot.autoSave) params.set('autosave', '1');
     if (settings.screenshot.copyToClipboard) params.set('copy', '1');
-    await chrome.tabs.create({
-      url: chrome.runtime.getURL(`editor.html?${params.toString()}`),
-      index: sourceTab.index + 1,
-      openerTabId: sourceTab.id,
-    });
+    const url = chrome.runtime.getURL(`editor.html?${params.toString()}`);
+    // The "Preparing…" tab becomes the editor (a new tab if it was closed meanwhile).
+    const shown = placeholder?.id !== undefined ? await chrome.tabs.update(placeholder.id, { url }).catch(() => null) : null;
+    if (!shown) await chrome.tabs.create({ url, index: sourceTab.index + 1, openerTabId: sourceTab.id });
     return;
   }
   if (settings.screenshot.autoSave) {

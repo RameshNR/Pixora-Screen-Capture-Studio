@@ -156,7 +156,7 @@
   border-radius: 10px;
   background: linear-gradient(160deg, var(--c-primary-hover) 0%, var(--c-primary) 55%, var(--c-primary-active) 100%);
   color: var(--c-on-primary);
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--c-primary) 25%, transparent);
+  box-shadow: var(--shadow-xs);
 }
 
 /* Recording mode cards */
@@ -265,7 +265,7 @@
   border-radius: 10px;
   background: linear-gradient(160deg, var(--c-secondary) 0%, var(--c-primary) 100%);
   color: var(--c-on-primary);
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--c-primary) 28%, transparent);
+  box-shadow: var(--shadow-xs);
   flex: none;
 }
 

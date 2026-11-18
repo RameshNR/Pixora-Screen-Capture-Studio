@@ -105,3 +105,17 @@
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
+
+.progress .icon {
+  color: #8ab6ff;
+}
+
+.spin {
+  animation: toast-spin 0.9s linear infinite;
+}
+
+@keyframes toast-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

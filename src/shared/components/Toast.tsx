@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, Loader2, X, XCircle } from 'lucide-react';
 import type { AppErrorInfo } from '../types';
 import styles from './Toast.module.css';
 
-type ToastKind = 'success' | 'error' | 'info' | 'warning';
+type ToastKind = 'success' | 'error' | 'info' | 'warning' | 'progress';
 
 interface ToastItem {
   id: number;
@@ -14,10 +14,16 @@ interface ToastItem {
 }
 
 interface ToastApi {
-  show: (t: Omit<ToastItem, 'id'>, durationMs?: number) => void;
+  show: (t: Omit<ToastItem, 'id'>, durationMs?: number) => number;
   success: (title: string, message?: string) => void;
   info: (title: string, message?: string) => void;
   error: (err: AppErrorInfo | string, message?: string) => void;
+  /**
+   * A "working…" toast with a spinner for something that may take a few seconds (exporting a big
+   * image). It appears only if the work is still running after a moment (no flash for quick work)
+   * and stays until the returned function is called.
+   */
+  progress: (title: string, message?: string) => () => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -27,6 +33,7 @@ const ICONS = {
   error: <XCircle size={18} />,
   info: <Info size={18} />,
   warning: <AlertTriangle size={18} />,
+  progress: <Loader2 size={18} className={styles.spin} />,
 };
 
 export function ToastProvider({ children, position = 'bottom' }: { children: ReactNode; position?: 'bottom' | 'top' }) {
@@ -39,6 +46,7 @@ export function ToastProvider({ children, position = 'bottom' }: { children: Rea
       const id = nextId.current++;
       setItems((list) => [...list.slice(-3), { ...t, id }]);
       if (durationMs > 0) setTimeout(() => dismiss(id), durationMs);
+      return id;
     },
     [dismiss],
   );
@@ -52,6 +60,14 @@ export function ToastProvider({ children, position = 'bottom' }: { children: Rea
         typeof err === 'string'
           ? show({ kind: 'error', title: err, message }, 7000)
           : show({ kind: 'error', title: err.title, message: [err.message, err.recovery].filter(Boolean).join(' ') }, 8000),
+      progress: (title, message) => {
+        let id: number | null = null;
+        const timer = setTimeout(() => { id = show({ kind: 'progress', title, message }, 0); }, 250);
+        return () => {
+          clearTimeout(timer);
+          if (id !== null) dismiss(id);
+        };
+      },
     }),
     [show],
   );
@@ -72,9 +88,11 @@ export function ToastProvider({ children, position = 'bottom' }: { children: Rea
                 </button>
               )}
             </div>
-            <button type="button" className={styles.close} aria-label="Dismiss" onClick={() => dismiss(t.id)}>
-              <X size={14} />
-            </button>
+            {t.kind !== 'progress' && (
+              <button type="button" className={styles.close} aria-label="Dismiss" onClick={() => dismiss(t.id)}>
+                <X size={14} />
+              </button>
+            )}
           </div>
         ))}
       </div>

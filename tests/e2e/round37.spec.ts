@@ -90,6 +90,13 @@ test('add image from a web address (toolbar and panel), browser frame Home butto
 });
 
 test('full page: progress on the page with Stop opens what was captured so far', async ({ context, extPage, extensionId, baseUrl }) => {
+  // A light theme: the check below looks for a dark panel in the picture (Pixora's own pages are
+  // dark in the default Graphite Dark theme, and in this test the popup is an ordinary tab).
+  await extPage.evaluate(async () => {
+    const k = 'glint.settings';
+    const cur = ((await chrome.storage.local.get(k))[k] ?? {}) as Record<string, Record<string, unknown>>;
+    await chrome.storage.local.set({ [k]: { ...cur, general: { ...(cur.general ?? {}), theme: 'classic-blue' } } });
+  });
   const page = await context.newPage();
   await page.setViewportSize({ width: 900, height: 400 });
   await page.goto(`${baseUrl}/long`);
