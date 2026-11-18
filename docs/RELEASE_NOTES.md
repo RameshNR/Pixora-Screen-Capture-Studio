@@ -1,5 +1,38 @@
 # Pixora – Release notes
 
+## 1.1.0 — themes, browser header and editor improvements (November 2026)
+
+### New
+- **Themes for every window**: Settings › General › Theme has 7 dark themes (Midnight Purple —
+  the new default —, Ocean Blue, Graphite Dark, Sunset Gradient, Emerald Green, Royal Indigo,
+  Warm Dark), 8 light themes (Classic Blue, Emerald Fresh, Purple Lavender, Teal Ocean, Sunrise
+  Amber, Rose Coral, Sky Cyan, Slate Minimal) and *Match my computer*. The popup, settings, image
+  editor, Compare window, video page, Flow Editor and helper windows all follow it, live. Your
+  earlier Light / Dark choice becomes Classic Blue / Graphite Dark.
+- **Browser header in screenshots** (Settings › Screenshot › Browser header & frames): visible-part
+  and full-page screenshots can include the real tabs, address bar and bookmarks bar. Small window
+  size differences are adjusted automatically; large ones are explained so you can fix them.
+- **Create flow on the video page**: pick frames of a recording and turn them into a step-by-step
+  flow (linked to the video; *Open flow* afterwards). Picked frames are kept while you switch tabs.
+- **System sound button** on the Record tab, next to the camera and microphone.
+
+### Improved
+- Settings redesigned: icons, colour-coded groups one under another, a readable width next to the
+  sidebar, and *Reset to defaults* per page.
+- Light themes have clear contrast: the image on the editor canvas has an edge and shadow, arrow
+  style previews and highlighter colours are easy to see, panels stand out from the page.
+- Recording: the styled pointer follows the mouse exactly (no glide), hardware-friendly video
+  formats keep the computer responsive while recording the whole screen, and a tip explains how to
+  keep Chrome's "sharing your screen" bar out of the video.
+- Recent captures: smooth hover; long names no longer push the buttons out of the card.
+- "Ask where to save": *Saved* is shown only after you choose a place (nothing when you cancel).
+
+### Fixed
+- Full-page screenshots no longer crop the right edge where a scrollbar was.
+- Editor no longer flickers while the window is resized.
+- Browser header: "Try again" no longer closes the window.
+- Video frames: no more Canvas2D "willReadFrequently" warning in Chrome's error list.
+
 ## 1.0.0 — first public release (November 2026)
 
 Pixora – Screen Capture Studio: screenshots, screen recording and step-by-step guides, all on your

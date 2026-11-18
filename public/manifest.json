@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Pixora – Screen Capture Studio",
   "short_name": "Pixora",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Capture visible, full-page or selected-area screenshots, annotate them, and record your tab, desktop or camera in up to 4K.",
   "minimum_chrome_version": "116",
   "icons": {
