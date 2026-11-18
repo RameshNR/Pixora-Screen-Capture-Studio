@@ -46,14 +46,39 @@
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);
   background: var(--c-bg);
-  overflow: hidden;
-  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease), border-color var(--dur);
+  /* Smooth hover: only transform and opacity animate (no box-shadow repaint of the card and its
+     thumbnail on every frame); the shadow is a separate layer that fades in. */
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms ease;
+  will-change: transform;
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity 260ms ease;
+  pointer-events: none;
 }
 
 .card:hover {
-  border-color: var(--c-border-strong);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--c-primary) 45%, var(--c-border-strong));
+  transform: translateY(-3px);
+}
+
+.card:hover::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card::after,
+  .thumb img {
+    transition: none;
+  }
 }
 
 .thumb {
@@ -65,6 +90,7 @@
   border: 0;
   background: var(--c-bg-muted);
   overflow: hidden;
+  border-radius: calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0;
 }
 
 .thumb img {
@@ -72,6 +98,11 @@
   height: 100%;
   object-fit: cover;
   object-position: top center;
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.card:hover .thumb img {
+  transform: scale(1.035);
 }
 
 .noThumb {
@@ -128,12 +159,15 @@
 
 .info {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 3px;
   padding: 10px 8px 12px 14px;
 }
 
 .nameRow {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 4px;
 }

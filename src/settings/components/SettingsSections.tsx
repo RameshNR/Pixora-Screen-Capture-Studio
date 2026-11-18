@@ -10,6 +10,7 @@ import { Select } from '@/shared/components/Dropdown';
 import { RadioGroup, Slider, TextField, ToggleSwitch } from '@/shared/components/FormControls';
 import { Button } from '@/shared/components/Button';
 import { ConfirmationDialog } from '@/shared/components/Modal';
+import { ThemePicker } from './ThemePicker';
 import { useToast } from '@/shared/components/Toast';
 import { COUNTDOWN_OPTIONS, MAX_DURATION_OPTIONS, RESOLUTION_LABELS, SCREENSHOT_DELAY_OPTIONS } from '@/shared/constants/media';
 import { buildFilename } from '@/shared/utils/filename';
@@ -73,10 +74,12 @@ export function GeneralSection({ settings, update }: Props) {
   const g = settings.general;
   return (
     <SettingsPage title="General" icon={<Settings2 size={26} />} actions={<ResetPage section="general" title="General" update={update} />} description="Appearance, the popup and file names for everything Pixora saves.">
-      <SettingsSection title="Appearance & popup" icon={<Palette size={22} />}>
-      <SettingRow label="Theme" icon={<SunMoon size={18} />}>
-        <RadioGroup label="Theme" value={g.theme} onChange={(theme) => void update({ general: { theme } })} options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
+      <SettingsSection title="Theme" icon={<Palette size={22} />} description="Colours for every Pixora window: the popup, editors, the video page, Flow Editor, settings and helper windows.">
+      <SettingRow label="Theme" icon={<SunMoon size={18} />} hint="7 dark and 8 light themes. Changes apply to open windows straight away." stacked>
+        <ThemePicker value={g.theme} onChange={(theme) => void update({ general: { theme } })} />
       </SettingRow>
+      </SettingsSection>
+      <SettingsSection title="Popup & language" icon={<AppWindow size={22} />}>
       <SettingRow label="Popup opens on" icon={<AppWindow size={18} />} hint="Which tab is shown when you click the toolbar icon.">
         <Select label="Popup opens on" value={g.defaultTab} onChange={(defaultTab) => void update({ general: { defaultTab } })} options={[{ value: 'last', label: 'Last used tab' }, { value: 'screenshot', label: 'Screenshot' }, { value: 'record', label: 'Record' }]} />
       </SettingRow>

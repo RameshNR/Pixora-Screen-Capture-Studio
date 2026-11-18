@@ -154,9 +154,9 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: linear-gradient(160deg, #6aa1fa 0%, #4f8df7 55%, #3978e8 100%);
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(57, 120, 232, 0.25);
+  background: linear-gradient(160deg, var(--c-primary-hover) 0%, var(--c-primary) 55%, var(--c-primary-active) 100%);
+  color: var(--c-on-primary);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--c-primary) 25%, transparent);
 }
 
 /* Recording mode cards */
@@ -180,13 +180,13 @@
 .modeSelected,
 .modeSelected:hover:not(:disabled) {
   background: var(--c-primary-soft);
-  border-color: #a9c7fb;
+  border-color: color-mix(in srgb, var(--c-primary) 45%, var(--c-border));
   color: var(--c-primary);
   font-weight: var(--fw-semibold);
 }
 
 :root[data-theme='dark'] .modeSelected {
-  border-color: #3d5d93;
+  border-color: color-mix(in srgb, var(--c-primary) 45%, var(--c-border));
 }
 
 .modeSelected .modeIcon {
@@ -263,9 +263,9 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(160deg, #9b82fa 0%, #7c5cf6 60%, #6a48ea 100%);
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(124, 92, 246, 0.28);
+  background: linear-gradient(160deg, var(--c-secondary) 0%, var(--c-primary) 100%);
+  color: var(--c-on-primary);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--c-primary) 28%, transparent);
   flex: none;
 }
 
@@ -884,7 +884,7 @@
   border: 1.5px solid var(--c-border-strong, var(--c-border));
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--c-on-primary);
 }
 
 .areaCardOn .areaCheck {
@@ -939,7 +939,7 @@
   padding: 0 6px;
   border-radius: 6px;
   background: var(--c-primary);
-  color: #fff;
+  color: var(--c-on-primary);
   font-size: 12px;
   font-weight: 700;
   display: grid;
@@ -959,8 +959,8 @@
   padding: 8px 10px;
   margin-bottom: 10px;
   border-radius: 10px;
-  background: color-mix(in srgb, #7c5cf6 14%, var(--c-bg));
-  border: 1px solid color-mix(in srgb, #7c5cf6 40%, transparent);
+  background: color-mix(in srgb, var(--c-primary) 14%, var(--c-bg));
+  border: 1px solid color-mix(in srgb, var(--c-primary) 40%, transparent);
   font-size: 13px;
 }
 
@@ -1076,7 +1076,7 @@
 }
 
 .flowModeOn {
-  border-color: #a9c7fb;
+  border-color: color-mix(in srgb, var(--c-primary) 45%, var(--c-border));
   background: var(--c-primary-soft);
   color: var(--c-primary);
   font-weight: var(--fw-semibold);
@@ -1212,7 +1212,7 @@
 .areaShowOn {
   background: var(--c-primary);
   border-color: var(--c-primary);
-  color: #fff;
+  color: var(--c-on-primary);
 }
 
 .areaCardShown {

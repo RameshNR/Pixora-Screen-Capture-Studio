@@ -18,8 +18,8 @@
   height: 56px;
   flex: none;
   border-radius: 16px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--c-primary), #a855f7);
+  color: var(--c-on-primary);
+  background: var(--c-accent-gradient);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--c-primary) 35%, transparent);
 }
 
@@ -57,8 +57,8 @@
 }
 
 /* Each group its own colour (same order on every page): icon tile, tinted heading and edge. */
-.groups > .section:nth-child(6n + 1) { --accent: #4f8df7; }
-.groups > .section:nth-child(6n + 2) { --accent: #a855f7; }
+.groups > .section:nth-child(6n + 1) { --accent: var(--c-primary); }
+.groups > .section:nth-child(6n + 2) { --accent: var(--c-primary-hover); }
 .groups > .section:nth-child(6n + 3) { --accent: #14b8c4; }
 .groups > .section:nth-child(6n + 4) { --accent: #22b07d; }
 .groups > .section:nth-child(6n + 5) { --accent: #ef5d8f; }
@@ -142,7 +142,7 @@
 /* Options page: purple selected states (segments) like the toggles. */
 .groups [role='radiogroup'] > [role='radio'][aria-checked='true'] {
   background: var(--c-primary);
-  color: #fff;
+  color: var(--c-on-primary);
 }
 
 .section {

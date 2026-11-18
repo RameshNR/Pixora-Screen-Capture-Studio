@@ -7,6 +7,8 @@
   --c-primary-soft: #eef4ff;
   --c-primary-soft-strong: #dce8ff;
   --c-on-primary: #ffffff;
+  --c-secondary: #0ea5e9;
+  --c-accent-gradient: linear-gradient(135deg, var(--c-primary), var(--c-secondary));
 
   /* Surfaces */
   --c-bg: #ffffff;
@@ -35,8 +37,12 @@
   --c-recording: #ef5350;
   --c-ai: #7c5cf6;
 
-  /* Editor chrome: dark like a desktop app; the image and video editors switch to the light set
-     (theme.css) when Settings › General › Theme is light. */
+  /* Editor chrome. These defaults are replaced by the chosen theme (src/shared/theme/themes.ts). */
+  --c-editor-image-ring: rgba(255, 255, 255, 0.08);
+  --c-editor-card: #1f232a;
+  --c-editor-card-border: #333945;
+  --c-editor-tile: #181b21;
+  --c-editor-ink: #e6e9ef;
   --c-editor-scheme: dark;
   --c-editor-dot: rgba(255, 255, 255, 0.045);
   --c-editor-field: #262b34;

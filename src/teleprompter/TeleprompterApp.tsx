@@ -7,7 +7,6 @@ import { Select } from '@/shared/components/Dropdown';
 import { sendToBackground } from '@/shared/messaging/client';
 import { useRecordingState } from '@/shared/hooks/useRecordingState';
 import { isBusy } from '@/recording/services/recording-state';
-import { applyTheme } from '@/shared/hooks/useTheme';
 import styles from './teleprompter.module.css';
 
 const SCRIPTS_KEY = 'glint.teleprompter.scripts';
@@ -75,7 +74,6 @@ export function scrollAt(base: number, since: number, playing: boolean, speed: n
  * is separate, so it never shows in tab recordings; it can optionally be drawn into the video.
  */
 export function TeleprompterApp() {
-  useEffect(() => applyTheme('dark'), []);
   const [scripts, setScripts] = useState<Script[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [style, setStyle] = useState<PrompterStyle>(DEFAULT_PROMPTER_STYLE);

@@ -79,12 +79,20 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
   ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * originX, dpr * originY);
   ctx.imageSmoothingEnabled = zoom < 2;
   ctx.imageSmoothingQuality = 'high';
-  // Page shadow under the whole output.
+  // Page shadow under the whole output (theme colours: on a light canvas the shadow is softer but
+  // wider, and a thin ring marks the edge so a white page doesn't merge with the background).
+  const edge = canvasEdge();
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
-  ctx.shadowBlur = 24 / zoom;
+  ctx.shadowColor = edge.shadow;
+  ctx.shadowBlur = 28 / zoom;
+  ctx.shadowOffsetY = 4 / zoom;
   ctx.fillStyle = doc.frame ? '#00000001' : '#fff';
   ctx.fillRect(L.outer.x, L.outer.y, L.outer.w, L.outer.h);
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = edge.ring;
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeRect(L.outer.x - 0.5 / zoom, L.outer.y - 0.5 / zoom, L.outer.w + 1 / zoom, L.outer.h + 1 / zoom);
   ctx.restore();
   ctx.save();
   ctx.beginPath();
@@ -407,4 +415,15 @@ function drawCutOverlay(
     ctx.fillText(label, cx, cy + 0.5);
   }
   ctx.restore();
+}
+
+/** Ring and shadow around the image on the editor canvas, from the page's theme. */
+function canvasEdge(): { ring: string; shadow: string } {
+  if (typeof document === 'undefined') return { ring: 'rgba(255,255,255,0.08)', shadow: 'rgba(0,0,0,0.45)' };
+  const css = getComputedStyle(document.documentElement);
+  const light = document.documentElement.dataset.theme === 'light';
+  return {
+    ring: css.getPropertyValue('--c-editor-image-ring').trim() || 'rgba(255,255,255,0.08)',
+    shadow: light ? 'rgba(15,23,42,0.28)' : 'rgba(0,0,0,0.5)',
+  };
 }

@@ -3,8 +3,8 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: #1f232b;
-  color: #e7eaf0;
+  background: var(--c-bg);
+  color: var(--c-text);
   user-select: none;
   overflow: hidden;
 }
@@ -73,14 +73,14 @@
 .sep {
   width: 1px;
   height: 24px;
-  background: #3a404c;
+  background: var(--c-border-strong);
   margin: 0 2px;
   flex: none;
 }
 
 .info {
   font-size: 11.5px;
-  color: #9aa3b2;
+  color: var(--c-text-secondary);
   white-space: nowrap;
   padding: 0 4px;
 }
@@ -96,7 +96,7 @@
   width: 5px;
   height: 22px;
   border-radius: 3px;
-  background: #3a404c;
+  background: var(--c-border-strong);
   overflow: hidden;
 }
 
@@ -112,7 +112,7 @@
 .warnIcon {
   display: inline-grid;
   place-items: center;
-  color: #f5b740;
+  color: var(--c-warning);
   padding: 0 4px;
 }
 
@@ -122,10 +122,10 @@
   gap: 3px;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid #3a404c;
+  border: 1px solid var(--c-border-strong);
   border-radius: 7px;
   background: transparent;
-  color: #cfd5df;
+  color: var(--c-text);
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
@@ -133,13 +133,13 @@
 }
 
 .tab:hover {
-  border-color: #4f8df7;
+  border-color: var(--c-primary);
 }
 
 .tabOn {
-  background: #4f8df7;
-  border-color: #4f8df7;
-  color: #fff;
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
 }
 
 .panel {
@@ -147,7 +147,7 @@
   min-height: 0;
   overflow: auto;
   padding: 12px 14px;
-  border-bottom: 1px solid #343a46;
+  border-bottom: 1px solid var(--c-border);
   display: grid;
   gap: 10px;
   align-content: start;
@@ -174,21 +174,21 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #9aa3b2;
+  color: var(--c-text-secondary);
 }
 
 .hint {
   margin: 0;
   font-size: 12px;
   line-height: 1.45;
-  color: #9aa3b2;
+  color: var(--c-text-secondary);
 }
 
 .error {
   padding: 6px 10px;
   border-radius: 7px;
   background: rgba(224, 82, 82, 0.16);
-  color: #ffb4b4;
+  color: var(--c-error);
   font-size: 12px;
 }
 
@@ -198,10 +198,10 @@
   gap: 6px;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid #3a404c;
+  border: 1px solid var(--c-border-strong);
   border-radius: 7px;
-  background: #272c36;
-  color: #e7eaf0;
+  background: var(--c-bg-muted);
+  color: var(--c-text);
   font-size: 12px;
   cursor: pointer;
   justify-self: start;
@@ -211,7 +211,7 @@
 }
 
 .smallBtn:hover {
-  border-color: #4f8df7;
+  border-color: var(--c-primary);
 }
 
 .markerList {
@@ -232,23 +232,23 @@
 .markerTime {
   font-variant-numeric: tabular-nums;
   font-size: 12px;
-  color: #ffd84d;
+  color: var(--c-warning);
 }
 
 .input {
   height: 28px;
   min-width: 0;
   padding: 0 8px;
-  border: 1px solid #3a404c;
+  border: 1px solid var(--c-border-strong);
   border-radius: 6px;
-  background: #171a20;
-  color: #e7eaf0;
+  background: var(--c-editor-field);
+  color: var(--c-text);
   font-size: 12.5px;
 }
 
 .input:focus {
   outline: none;
-  border-color: #4f8df7;
+  border-color: var(--c-primary);
 }
 
 .grid9 {
@@ -260,15 +260,15 @@
 .cell,
 .cellOn {
   height: 20px;
-  border: 1px solid #3a404c;
+  border: 1px solid var(--c-border-strong);
   border-radius: 4px;
-  background: #272c36;
+  background: var(--c-bg-muted);
   cursor: pointer;
 }
 
 .cellOn {
-  background: #4f8df7;
-  border-color: #4f8df7;
+  background: var(--c-primary);
+  border-color: var(--c-primary);
 }
 
 .swatches {
@@ -281,7 +281,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid color-mix(in srgb, var(--c-text) 25%, transparent);
   cursor: pointer;
   outline-offset: 2px;
 }
@@ -310,7 +310,7 @@
 .meter {
   height: 8px;
   border-radius: 999px;
-  background: #3a404c;
+  background: var(--c-border-strong);
   overflow: hidden;
 }
 

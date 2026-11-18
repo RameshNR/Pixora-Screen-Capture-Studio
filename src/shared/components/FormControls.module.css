@@ -72,7 +72,7 @@
   border: 1.5px solid var(--c-border-strong);
   border-radius: 5px;
   background: var(--c-bg);
-  color: #fff;
+  color: var(--c-on-primary);
   transition: background var(--dur-fast), border-color var(--dur-fast);
 }
 
@@ -242,12 +242,12 @@
 
 .segDark .segActive {
   background: var(--c-primary);
-  color: #fff;
+  color: var(--c-on-primary);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 }
 
 .segDark .segActive:hover:not(:disabled) {
-  color: #fff;
+  color: var(--c-on-primary);
 }
 
 /* Text field */

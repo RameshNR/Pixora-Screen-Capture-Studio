@@ -1,6 +1,6 @@
 :global(body.page-progress) {
   margin: 0;
-  background: #121628;
+  background: var(--c-bg-subtle);
   overflow: hidden;
 }
 
@@ -10,8 +10,8 @@
   height: 100vh;
   box-sizing: border-box;
   padding: 14px 16px;
-  background: linear-gradient(180deg, #1a1e38, #121628);
-  color: #eef0ff;
+  background: linear-gradient(180deg, var(--c-bg), var(--c-bg-subtle));
+  color: var(--c-text);
   font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
   align-content: center;
 }
@@ -28,8 +28,8 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #7c5cff;
-  box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.25);
+  background: var(--c-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-primary) 25%, transparent);
   animation: pulse 1.2s infinite;
 }
 
@@ -40,18 +40,18 @@
 .bar {
   height: 7px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--c-text) 12%, transparent);
   overflow: hidden;
 }
 
 .fill {
   height: 100%;
-  background: linear-gradient(90deg, #7c5cff, #a855f7);
+  background: var(--c-accent-gradient);
   transition: width 0.2s;
 }
 
 .meta {
-  color: #a3a9cc;
+  color: var(--c-text-secondary);
   font-size: 12px;
 }
 
@@ -79,8 +79,8 @@
 }
 
 .cancel {
-  background: rgba(255, 255, 255, 0.08);
-  color: #eef0ff;
+  background: color-mix(in srgb, var(--c-text) 8%, transparent);
+  color: var(--c-text);
 }
 
 .count {
@@ -89,7 +89,7 @@
   line-height: 1;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(135deg, #a78bfa, #7c5cff);
+  background: var(--c-accent-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -102,8 +102,8 @@
   display: grid;
   place-items: center;
   padding: 24px 16px;
-  background: linear-gradient(180deg, #1a1e38, #121628);
-  color: #eef0ff;
+  background: linear-gradient(180deg, var(--c-bg), var(--c-bg-subtle));
+  color: var(--c-text);
   font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -114,9 +114,9 @@
   display: grid;
   gap: 16px;
   padding: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid color-mix(in srgb, var(--c-text) 10%, transparent);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--c-text) 4%, transparent);
 }
 
 .headerTitle {
@@ -129,7 +129,7 @@
 
 .headerLead {
   margin: 0;
-  color: #c4c9ea;
+  color: var(--c-text);
 }
 
 .steps {
@@ -156,15 +156,15 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #7c5cff;
-  color: #fff;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
   font-weight: 700;
   font-size: 12px;
 }
 
 .steps li > svg {
   margin-top: 4px;
-  color: #a78bfa;
+  color: var(--c-primary-hover);
 }
 
 .windowName {
@@ -172,8 +172,8 @@
   max-width: 100%;
   padding: 1px 8px;
   border-radius: 6px;
-  background: rgba(124, 92, 255, 0.22);
-  color: #fff;
+  background: color-mix(in srgb, var(--c-primary) 22%, transparent);
+  color: var(--c-text);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -183,12 +183,12 @@
   border-radius: 10px;
   background: rgba(245, 158, 11, 0.14);
   border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fde6b0;
+  color: var(--c-text);
 }
 
 .problemDetails {
   margin-top: 6px;
-  color: #c9b98a;
+  color: var(--c-text-secondary);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -204,6 +204,6 @@
 }
 
 .primary {
-  background: #7c5cff;
-  color: #fff;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
 }

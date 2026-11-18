@@ -1,4 +1,5 @@
-export type ThemePreference = 'system' | 'light' | 'dark';
+export type { ThemePreference } from '../theme/themes';
+import type { ThemePreference } from '../theme/themes';
 export type PopupTab = 'screenshot' | 'record';
 export type ImageFormat = 'png' | 'jpeg' | 'webp';
 export type ScreenshotMode = 'visible' | 'full' | 'area';

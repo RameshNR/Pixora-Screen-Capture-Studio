@@ -2,14 +2,14 @@ import type { Settings } from '../types';
 
 export const APP_NAME = 'Pixora';
 export const SETTINGS_STORAGE_KEY = 'glint.settings';
-export const SETTINGS_VERSION = 8;
+export const SETTINGS_VERSION = 9;
 
 export const DEFAULT_FILENAME_PATTERN = 'Pixora {type} {date} at {time}';
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   general: {
-    theme: 'system',
+    theme: 'midnight-purple',
     defaultTab: 'last',
     lastTab: 'screenshot',
     language: 'auto',

@@ -2,8 +2,8 @@
 .bar,
 .barWrap {
   height: 100vh;
-  background: #1f232b;
-  color: #e7eaf0;
+  background: var(--c-bg);
+  color: var(--c-text);
   user-select: none;
 }
 
@@ -37,14 +37,14 @@
 
 .barInfo {
   font-size: 12px;
-  color: #9aa3b2;
+  color: var(--c-text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .barStatus {
   font-size: 12px;
-  color: #b9c1ce;
+  color: var(--c-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -54,14 +54,14 @@
 }
 
 .barError {
-  color: #ffb4b4;
+  color: var(--c-error);
 }
 
 .dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #7c5cf6;
+  background: var(--c-primary);
   animation: pulse 1.4s ease-in-out infinite;
   flex: none;
 }
@@ -82,8 +82,8 @@
   height: 22px;
   padding: 0 7px;
   border-radius: 11px;
-  background: #7c5cf6;
-  color: #fff;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
   font-size: 12px;
   font-weight: 700;
   display: grid;
@@ -94,8 +94,8 @@
   display: inline-flex;
   padding: 2px;
   border-radius: 9px;
-  background: #171a20;
-  border: 1px solid #343a46;
+  background: var(--c-editor-field);
+  border: 1px solid var(--c-border);
 }
 
 .mode,
@@ -107,21 +107,21 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: #b9c1ce;
+  color: var(--c-text-secondary);
   cursor: pointer;
 }
 
 .mode:hover {
-  color: #fff;
+  color: var(--c-text);
 }
 
 .modeOn {
   background: var(--c-primary);
-  color: #fff;
+  color: var(--c-text);
 }
 
 .flash {
-  box-shadow: 0 0 0 4px rgba(124, 92, 246, 0.55);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-primary) 55%, transparent);
 }
 
 .flex {
@@ -132,7 +132,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #ffd1d1;
+  color: var(--c-error);
 }
 
 /* -------------------------------- flow editor -------------------------------- */
@@ -153,7 +153,7 @@
   display: grid;
   grid-template-rows: 52px minmax(0, 1fr);
   background: var(--c-editor-canvas, #14171c);
-  color: var(--c-editor-text, #e7eaf0);
+  color: var(--c-editor-text, var(--c-text));
   color-scheme: var(--c-editor-scheme);
 }
 
@@ -330,7 +330,7 @@
   padding: 0 6px;
   border-radius: 11px;
   background: var(--c-primary);
-  color: #fff;
+  color: var(--c-on-primary);
   font-size: 11.5px;
   font-weight: 700;
   display: grid;
@@ -349,13 +349,13 @@
 }
 
 .autoTag {
-  background: rgba(124, 92, 246, 0.25);
-  color: var(--flow-auto-text, #cdbcff);
+  background: color-mix(in srgb, var(--c-primary) 25%, transparent);
+  color: var(--c-primary);
 }
 
 .editedTag {
   background: rgba(36, 163, 106, 0.22);
-  color: var(--flow-edited-text, #9be2bf);
+  color: var(--c-success);
 }
 
 .grip {
@@ -430,7 +430,7 @@
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--flow-link, #8fb0ff);
+  color: var(--c-primary);
   font-size: 12px;
   cursor: pointer;
 }
@@ -521,8 +521,8 @@
   right: 4px;
   height: 4px;
   border-radius: 2px;
-  background: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+  background: var(--c-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primary) 25%, transparent);
   pointer-events: none;
 }
 
@@ -593,9 +593,3 @@
   filter: brightness(1.15);
 }
 
-/* Light theme (Flow Editor follows Settings › General › Theme). */
-:global(:root[data-theme='light'][data-chrome='themed']) {
-  --flow-auto-text: #5b3fd6;
-  --flow-edited-text: #13774a;
-  --flow-link: #2f6fe0;
-}

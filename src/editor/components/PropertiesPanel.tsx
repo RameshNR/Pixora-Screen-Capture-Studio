@@ -1,3 +1,4 @@
+import { useThemeInk } from '@/shared/hooks/useTheme';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, AppWindow, ArrowUpRight, Baseline, Bold, Brush, CaseUpper, Check, CopyCheck, Droplet, Eraser, EyeOff, Frame as FrameIcon, Grid3x3, Hash, Highlighter,
@@ -370,6 +371,8 @@ function PreviewCanvas({ width, height, draw, light = false }: { width: number; 
 function LinePresetPreview({ patch }: { patch: LinePatch & Partial<PremiumLine> }) {
   const W = 52;
   const H = 30;
+  // Plain styles are drawn in the theme's ink (dark on light themes); coloured presets keep theirs.
+  const ink = useThemeInk();
   return (
     <PreviewCanvas
       width={W}
@@ -377,7 +380,7 @@ function LinePresetPreview({ patch }: { patch: LinePatch & Partial<PremiumLine> 
       draw={(ctx) => {
         const base = { x1: 7, y1: H - 7, x2: W - 7, y2: 8 };
         const line: LineAnnotation = {
-          id: 'p', type: 'arrow', ...base, color: '#E6E9EF', width: 2.6, opacity: 1, ...patch,
+          id: 'p', type: 'arrow', ...base, color: ink, width: 2.6, opacity: 1, ...patch,
           ...(patch.width ? { width: Math.max(2, Math.min(9, patch.width * 0.35)) } : {}),
           bends: patch.route === 'elbow' ? [] : defaultBends(base, Math.min(patch.bends, 4), true),
         };
@@ -647,6 +650,17 @@ function StrokePreview({ preset, kind }: { preset: StrokePreset; kind: 'pen' | '
         const n = 26;
         const pts = Array.from({ length: n }, (_, i) => ({ x: 10 + (i / (n - 1)) * (W - 20), y: H / 2 + (kind === 'pen' ? Math.sin((i / (n - 1)) * Math.PI * 2) * 6 : 0) }));
         const w = kind === 'pen' ? Math.min(4.5, Math.max(1.6, (preset.width ?? 6) * 0.34)) : 10;
+        if (kind === 'highlighter') {
+          // Shown the way it is used: over a line of dark text on white paper, so pale highlighter
+          // colours are easy to tell apart.
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, W, H);
+          ctx.fillStyle = '#1F2937';
+          ctx.font = '600 11px Inter, "Segoe UI", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Highlight', W / 2, H / 2 + 0.5);
+        }
         renderStroke(ctx, { id: 'p', type: kind, points: pts, color: preset.color, width: w, opacity: 1, design: preset.design, accent: preset.accent });
       }}
     />

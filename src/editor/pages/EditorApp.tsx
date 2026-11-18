@@ -90,8 +90,6 @@ export function EditorApp() {
 
   // Follows Settings › General › Theme (light, dark or the computer's setting).
   useTheme(settings?.general.theme);
-  // The editor colours (--c-editor-*) switch to their light set too (styles/theme.css).
-  useEffect(() => { document.documentElement.dataset.chrome = 'themed'; }, []);
 
   const openCapture = useCallback(async (id: string) => {
     setLoad({ status: 'loading' });

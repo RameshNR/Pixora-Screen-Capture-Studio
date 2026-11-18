@@ -124,7 +124,7 @@
   top: 0;
   width: 2px;
   height: 14px;
-  background: #4f8df7;
+  background: var(--c-primary);
   pointer-events: none;
 }
 
@@ -382,8 +382,8 @@
   bottom: 4px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.92);
-  color: #fff;
+  background: color-mix(in srgb, var(--c-primary) 92%, transparent);
+  color: var(--c-on-primary);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.5;
@@ -666,12 +666,12 @@
 }
 
 .railToolOn {
-  background: linear-gradient(135deg, rgba(124, 92, 255, 0.55), rgba(124, 92, 255, 0.3));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--c-primary) 55%, transparent), color-mix(in srgb, var(--c-primary) 30%, transparent));
   box-shadow: 0 0 0 1px var(--c-primary) inset;
 }
 
 .railToolOn svg {
-  color: #fff;
+  color: var(--c-primary);
 }
 
 .railNum {
@@ -716,7 +716,7 @@
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--c-primary);
-  color: #fff;
+  color: var(--c-on-primary);
   font-size: 10px;
   font-style: normal;
   font-weight: 700;
@@ -789,7 +789,7 @@
 }
 
 .trackRowOn {
-  background: rgba(124, 92, 255, 0.14);
+  background: color-mix(in srgb, var(--c-primary) 14%, transparent);
 }
 
 .trackName {

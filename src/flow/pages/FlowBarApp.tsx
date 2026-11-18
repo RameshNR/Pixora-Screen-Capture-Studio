@@ -4,7 +4,6 @@ import type { FlowCaptureMode, FlowState } from '@/shared/types';
 import { errorInfoOf, onBroadcast, sendToBackground } from '@/shared/messaging/client';
 import { Button, IconButton } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Progress';
-import { applyTheme } from '@/shared/hooks/useTheme';
 import { formatDuration } from '@/shared/utils/format';
 import styles from './flow.module.css';
 
@@ -43,7 +42,6 @@ function useTick(on: boolean): number {
  * Capture adds an image in the chosen mode; the session continues across pages and sites.
  */
 export function FlowBarApp() {
-  useEffect(() => applyTheme('dark'), []);
   const state = useFlowState();
   const [mode, setMode] = useState<FlowCaptureMode | null>(null);
   const [error, setError] = useState<string | null>(null);

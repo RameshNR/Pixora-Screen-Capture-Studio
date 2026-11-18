@@ -44,7 +44,6 @@ export function FlowEditorApp() {
   const { settings } = useSettings();
   // Follows Settings › General › Theme, with the light editor colours (styles/theme.css).
   useTheme(settings?.general.theme);
-  useEffect(() => { document.documentElement.dataset.chrome = 'themed'; }, []);
   const toast = useToast();
   const flowId = new URLSearchParams(location.search).get('id') ?? '';
   const [flow, setFlow] = useState<FlowDoc | null>(null);

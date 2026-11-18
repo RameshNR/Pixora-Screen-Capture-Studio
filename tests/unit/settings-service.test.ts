@@ -42,22 +42,22 @@ describe('settings service', () => {
   it('migrates older stored settings forward', async () => {
     await chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: { general: { theme: 'dark' } } });
     const s = await loadSettings();
-    expect(s.general.theme).toBe('dark');
+    expect(s.general.theme).toBe('graphite-dark'); // v9: old Dark is Graphite Dark
     expect(s.storage).toEqual(DEFAULT_SETTINGS.storage);
   });
 
   it('notifies subscribers of changes', async () => {
     const listener = vi.fn();
     const off = subscribeSettings(listener);
-    await updateSettings({ general: { theme: 'light' } });
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ general: expect.objectContaining({ theme: 'light' }) }));
+    await updateSettings({ general: { theme: 'rose-coral' } });
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ general: expect.objectContaining({ theme: 'rose-coral' }) }));
     off();
   });
 
   it('resets to defaults', async () => {
-    await updateSettings({ general: { theme: 'dark' } });
+    await updateSettings({ general: { theme: 'ocean-blue' } });
     await resetSettings();
-    expect((await loadSettings()).general.theme).toBe('system');
+    expect((await loadSettings()).general.theme).toBe('midnight-purple');
   });
 });
 

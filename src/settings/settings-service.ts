@@ -1,3 +1,4 @@
+import { isThemeId, type ThemePreference } from '@/shared/theme/themes';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '@/shared/constants/defaults';
 import type { DeepPartial, Settings } from '@/shared/types';
 import { mergeDeep } from '@/shared/utils/misc';
@@ -40,6 +41,10 @@ export function normalizeSettings(raw: unknown): Settings {
   if (from < 7 && s.screenshot.fullPage.maxHeight === 30000) s.screenshot.fullPage.maxHeight = 100000;
   // v8: the styled recording pointer follows the mouse exactly (the 60% glide trailed behind it).
   if (from < 8 && s.recording.cursorEffects?.smoothing === 0.6) s.recording.cursorEffects.smoothing = 0;
+  // v9: named themes. The old Light / Dark become Clean Light / Graphite Dark; System stays.
+  if (from < 9 || !(s.general.theme === 'system' || isThemeId(s.general.theme))) {
+    s.general.theme = resolveStoredTheme(s.general.theme as string);
+  }
   s.version = DEFAULT_SETTINGS.version;
   s.screenshot.quality = Math.min(1, Math.max(0.1, s.screenshot.quality));
   s.screenshot.delaySeconds = Math.min(300, Math.max(0, Math.round(s.screenshot.delaySeconds)));
@@ -87,4 +92,12 @@ export function subscribeSettings(listener: (settings: Settings) => void): () =>
   };
   chrome.storage.onChanged.addListener(handler);
   return () => chrome.storage.onChanged.removeListener(handler);
+}
+
+/** A stored theme value as a current preference (old light / dark, or unknown values). */
+export function resolveStoredTheme(v: string | undefined): ThemePreference {
+  if (v === 'system' || isThemeId(v)) return v;
+  if (v === 'light') return 'classic-blue';
+  if (v === 'dark') return 'graphite-dark';
+  return DEFAULT_SETTINGS.general.theme;
 }

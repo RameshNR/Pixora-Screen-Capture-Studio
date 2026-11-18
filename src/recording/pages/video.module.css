@@ -290,35 +290,11 @@
 }
 
 /* ---------------------------- Visual Capture Studio ---------------------------- */
-/* The video page: purple accent; dark navy panels in the dark theme, soft white panels in the light
-   theme (the player and timeline strip stay dark, like any video player). */
+/* The video page in the theme's colours (the player and timeline strip stay dark, like any video player). */
 .studio {
-  --c-primary: #7c5cff;
-  --c-primary-hover: #6a48f5;
-  --c-primary-active: #5b3be8;
-  --c-primary-soft: #efeaff;
-  --c-primary-soft-strong: #e2d9ff;
-  --studio-tabs: #ebe7fb;
+  --studio-tabs: var(--c-bg-muted);
   --player-max-h: max(240px, calc(100vh - 480px));
-  background: radial-gradient(1200px 600px at 20% -10%, #e4ddff 0%, transparent 60%), var(--c-bg-subtle);
-}
-
-:global(:root[data-theme='dark']) .studio {
-  --c-primary-hover: #8f74ff;
-  --c-primary-active: #6a48f5;
-  --c-primary-soft: #2a2350;
-  --c-primary-soft-strong: #352a6a;
-  --studio-tabs: #11142a;
-  --c-bg: #161a2e;
-  --c-bg-subtle: #0e1121;
-  --c-bg-muted: #1f2440;
-  --c-bg-elevated: #171b31;
-  --c-border: #262c4a;
-  --c-border-strong: #343b62;
-  --c-text: #eef0ff;
-  --c-text-secondary: #a3a9cc;
-  --c-text-tertiary: #737aa3;
-  background: radial-gradient(1200px 600px at 20% -10%, #1b1f3d 0%, transparent 60%), var(--c-bg-subtle);
+  background: radial-gradient(1200px 600px at 20% -10%, color-mix(in srgb, var(--c-primary) 16%, transparent) 0%, transparent 60%), var(--c-bg-subtle);
 }
 
 .studio .layout {
@@ -353,9 +329,9 @@
 }
 
 .studio .sideTabOn {
-  background: linear-gradient(135deg, #7c5cff, #9b5cff);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(124, 92, 255, 0.35);
+  background: var(--c-accent-gradient);
+  color: var(--c-on-primary);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--c-primary) 35%, transparent);
 }
 
 .titleIcon {
