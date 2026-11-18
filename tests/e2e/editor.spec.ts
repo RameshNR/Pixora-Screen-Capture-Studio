@@ -192,7 +192,7 @@ test.describe('screenshot editor', () => {
     // Cursor quick look.
     await editor.keyboard.press('u');
     await editor.getByRole('listbox', { name: 'Cursor quick looks' }).getByRole('option', { name: 'Purple target' }).click();
-    await editor.mouse.click(box.x + box.width - 60, box.y + box.height - 60);
+    await editor.mouse.click(cx + 120, cy + 70);
     await expect.poll(layers).toMatch(/Cursor/);
     void extPage;
   });
@@ -273,8 +273,8 @@ test.describe('screenshot editor', () => {
     // Text: Basic / Design / Advanced, a preset, and apply to all.
     await editor.keyboard.press('Escape');
     await editor.keyboard.press('t');
-    // An empty spot on the left (clicking an object with the text tool selects it instead).
-    await editor.mouse.click(box.x + box.width * 0.12, box.y + box.height * 0.55);
+    // An empty spot on the left of the image (clicking an object with the text tool selects it instead).
+    await editor.mouse.click(cx - 145, cy - 5);
     await editor.getByRole('textbox', { name: 'Annotation text' }).fill('Hello');
     await editor.getByRole('textbox', { name: 'Annotation text' }).press('Control+Enter');
     await editor.getByRole('button', { name: 'See all' }).click();
@@ -579,7 +579,7 @@ test.describe('screenshot editor', () => {
     await editor.keyboard.press('s');
     await editor.getByRole('tab', { name: 'Status words' }).click();
     await editor.getByRole('option', { name: 'NEW' }).click();
-    await editor.mouse.click(cx + 70, cy + 40);
+    await editor.mouse.click(cx + 130, cy + 80);
 
     // Watermark + browser frame.
     await editor.keyboard.press('w');
@@ -716,10 +716,10 @@ test.describe('screenshot editor', () => {
     await editor.getByRole('tab', { name: /Properties/ }).click();
     await editor.keyboard.press('g');
     await editor.keyboard.down('Shift');
-    await editor.mouse.move(b.x + 20, b.y + 20);
+    await editor.mouse.move(b.x + b.width / 2 - 120, b.y + b.height / 2 - 80);
     await editor.mouse.down();
-    await editor.mouse.move(b.x + 120, b.y + 26, { steps: 8 });
-    await editor.mouse.move(b.x + 200, b.y + 31, { steps: 8 });
+    await editor.mouse.move(b.x + b.width / 2 - 20, b.y + b.height / 2 - 74, { steps: 8 });
+    await editor.mouse.move(b.x + b.width / 2 + 60, b.y + b.height / 2 - 69, { steps: 8 });
     await editor.mouse.up();
     await editor.keyboard.up('Shift');
     await editor.getByRole('tab', { name: /History/ }).click();
@@ -763,7 +763,7 @@ test.describe('screenshot editor', () => {
 
     // Text with a title, underline and its own padding per side.
     await editor.keyboard.press('t');
-    await editor.mouse.click(b.x + 60, b.y + 80);
+    await editor.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
     await editor.getByRole('textbox', { name: 'Annotation text' }).fill('Body text');
     await editor.getByRole('textbox', { name: 'Annotation text' }).press('Control+Enter');
     await expect(editor.getByText('Text · selected')).toBeVisible();
@@ -823,7 +823,7 @@ test.describe('screenshot editor', () => {
 
     // Text with a header that has its own background and padding.
     await editor.keyboard.press('t');
-    await editor.mouse.click(b.x + 40, b.y + 40);
+    await editor.mouse.click(b.x + b.width / 2 - 120, b.y + b.height / 2 - 70);
     await editor.getByRole('textbox', { name: 'Annotation text' }).fill('Body');
     await editor.getByRole('textbox', { name: 'Annotation text' }).press('Control+Enter');
     const textTabs = editor.getByRole('tablist', { name: 'Text settings' });

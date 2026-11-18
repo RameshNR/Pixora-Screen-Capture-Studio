@@ -33,9 +33,9 @@ test('editor Export popup: the clicked button spins (only it), and the popup clo
   // An edit, so the export really re-encodes (takes a moment).
   await editor.keyboard.press('r');
   const c = (await editor.getByRole('img', { name: 'Screenshot canvas' }).boundingBox())!;
-  await editor.mouse.move(c.x + 50, c.y + 50);
+  await editor.mouse.move(c.x + c.width / 2 - 15, c.y + c.height / 2 - 15);
   await editor.mouse.down();
-  await editor.mouse.move(c.x + 220, c.y + 160, { steps: 4 });
+  await editor.mouse.move(c.x + c.width / 2 + 15, c.y + c.height / 2 + 15, { steps: 4 });
   await editor.mouse.up();
 
   await editor.getByRole('button', { name: /^Export/ }).first().click();

@@ -1,8 +1,8 @@
 import type { CalloutAnnotation, CalloutDesign, LeaderEnd, Point, Rect, TextStyle } from '../types';
 import { DEFAULT_FONT } from '../types';
-import { dashPattern, distToSegment, inRect, type Ctx2D } from './common';
+import { distToSegment, inRect, viewScale, type Ctx2D } from './common';
 import { drawTextLines, sectionPad, wrapText } from './text';
-import { bodyOf, drawRecipe, recipeFitFactor, recipeLayout, recipeMinHeight, recipeOf } from './callout-recipes';
+import { bodyOf, drawRecipe, fillBodyWithTail, recipeFitFactor, recipeLayout, recipeMinHeight, recipeOf, seeThroughFill, setCalloutDash, strokeBodyWithTail } from './callout-recipes';
 import { isTransparent, shapeGeometry } from './shape-lib';
 
 /**
@@ -67,7 +67,9 @@ export function calloutLayout(a: CalloutAnnotation): CalloutLayout {
   };
   const ts = titleStyleOf(a);
   if (recipeOf(a)) {
-    const th0 = titleHeight(a, Math.max(10, a.w - pad * 2));
+    // The circle-with-arc design has a narrow title column: measure the title at that width.
+    const titleColumn = recipeOf(a)!.badge === 'arc' ? (Math.min(a.w, a.h) / 2) * 0.56 : a.w - pad * 2;
+    const th0 = titleHeight(a, Math.max(10, titleColumn));
     const R = recipeLayout(a, pad, th0);
     if (R.titleInBand) {
       return { pad, title: hasTitle(a) ? R.titleInBand : null, body: R.content, band: R.badge };
@@ -209,6 +211,31 @@ export function calloutLayout(a: CalloutAnnotation): CalloutLayout {
   }
 }
 
+const moved = (r: Rect, by: Point | undefined): Rect => (by ? { ...r, x: r.x + by.x, y: r.y + by.y } : r);
+
+/** Where the title and body text are drawn: their place in the design plus where they were dragged. */
+export function calloutTextRects(a: CalloutAnnotation): { title: Rect | null; body: Rect } {
+  const L = calloutLayout(a);
+  return { title: L.title ? moved(L.title, a.titleOffset) : null, body: moved(L.body, a.textOffset) };
+}
+
+/** Screen distance of a text block's move handle from the start of its first line. */
+const TEXT_GRIP_GAP = 15;
+
+/** Move handles of the title and body text, just before their first line (in the callout's own frame). */
+export function calloutTextGrips(a: CalloutAnnotation, zoom = 1): Array<{ handle: 'tt' | 'tb'; x: number; y: number }> {
+  const R = calloutTextRects(a);
+  const grip = (handle: 'tt' | 'tb', r: Rect, text: string, style: TextStyle) => {
+    const block = wrapText(text, style, Math.max(10, r.w));
+    const inset = style.align === 'center' ? (r.w - block.width) / 2 : style.align === 'right' ? r.w - block.width : 0;
+    return { handle, x: r.x + Math.max(0, inset) - TEXT_GRIP_GAP / zoom, y: r.y + style.fontSize * 0.65 };
+  };
+  const out: Array<{ handle: 'tt' | 'tb'; x: number; y: number }> = [];
+  if (R.title && hasTitle(a)) out.push(grip('tt', R.title, a.title!, titleStyleOf(a)));
+  if (a.text.trim()) out.push(grip('tb', R.body, a.text, a));
+  return out;
+}
+
 /** Circle size of the step design: fits its label (a number or a short word). */
 function stepDiameter(a: CalloutAnnotation): number {
   const pad = calloutPadding(a);
@@ -221,20 +248,76 @@ function stepDiameter(a: CalloutAnnotation): number {
  * smallest height, so switching to a more compact design does not leave empty space.
  */
 export function fitCallout<T extends CalloutAnnotation>(c: T, snug = false): T {
-  let out = snug ? { ...c, h: Math.max(24, c.fontSize * 1.5) } : c;
+  const square = Math.abs(c.w - c.h) < 0.5;
+  if (snug && !square) {
+    const { fitBase: _base, ...rest } = c;
+    return fitMinimums(growHeight({ ...rest, h: Math.max(24, c.fontSize * 1.5) } as T));
+  }
+  return fitMinimums(growInProportion(c));
+}
+
+const textFits = (c: CalloutAnnotation): boolean => {
+  const L = calloutLayout(c);
+  return wrapText(c.text || ' ', c, Math.max(10, L.body.w)).height - L.body.h <= 0.5;
+};
+
+/** Grows only the height (a new design at the width it already has). */
+function growHeight<T extends CalloutAnnotation>(c: T): T {
+  let out = c;
   for (let i = 0; i < 12; i++) {
     const L = calloutLayout(out);
-    const needBody = wrapText(out.text || ' ', out, Math.max(10, L.body.w)).height;
-    const overflow = needBody - L.body.h;
+    const overflow = wrapText(out.text || ' ', out, Math.max(10, L.body.w)).height - L.body.h;
     if (overflow <= 0.5) break;
     const design = designOf(out);
     const factor = design === 'oval' ? 0.7 : design === 'circle' ? 0.32 : design === 'banner' ? 0.76 : recipeFitFactor(out);
     out = { ...out, h: Math.ceil(out.h + overflow / factor + 1) };
   }
-  // Number badges and icons must fit inside the box.
+  return out;
+}
+
+/** Widest shape a box keeps while growing: a thin strip first gets a usable height. */
+const MAX_FIT_ASPECT = 4;
+
+/**
+ * The smallest box of the user's own proportions that holds the text, around the same centre: a
+ * circle stays a circle, and a smaller text size brings the box back to the size the user chose.
+ */
+function growInProportion<T extends CalloutAnnotation>(c: T): T {
+  const chosen = c.fitBase ?? { w: c.w, h: c.h };
+  const cx = c.x + c.w / 2;
+  const cy = c.y + c.h / 2;
+  const sized = (w: number, h: number): T => {
+    const k = w / c.w;
+    const scaled = (p: Point | undefined) => (p ? { x: p.x * k, y: p.y * k } : p);
+    return { ...c, x: cx - w / 2, y: cy - h / 2, w, h, titleOffset: scaled(c.titleOffset), textOffset: scaled(c.textOffset) };
+  };
+  const atChosen = sized(chosen.w, chosen.h);
+  if (textFits(atChosen)) {
+    if (!c.fitBase) return c;
+    const { fitBase: _base, ...rest } = atChosen;
+    return rest as T;
+  }
+  const base = { w: chosen.w, h: Math.max(chosen.h, chosen.w / MAX_FIT_ASPECT) };
+  const at = (k: number) => sized(Math.ceil(base.w * k), Math.ceil(base.h * k));
+  let low = 1;
+  let high = 1;
+  while (!textFits(at(high)) && high < 24) {
+    low = high;
+    high *= 1.15;
+  }
+  for (let i = 0; i < 7; i++) {
+    const mid = (low + high) / 2;
+    if (textFits(at(mid))) high = mid;
+    else low = mid;
+  }
+  return { ...at(high), fitBase: chosen };
+}
+
+/** Number badges, icons and the step circle must fit inside the box. */
+function fitMinimums<T extends CalloutAnnotation>(c: T): T {
+  let out = c;
   const minH = recipeMinHeight(out, calloutPadding(out));
   if (minH && out.h < minH) out = { ...out, h: minH };
-  // The step circle must fit inside the box.
   if (designOf(out) === 'step') {
     const need = Math.ceil(stepDiameter(out) + calloutPadding(out) * 1.6);
     if (out.h < need) out = { ...out, h: need };
@@ -329,6 +412,26 @@ function insideOutline(a: CalloutAnnotation, path: Path2D | null, p: Point): boo
   return inRect(p, a);
 }
 
+/** Where a straight line from `from` in direction (ux, uy) first reaches the outline. */
+function firstHit(a: CalloutAnnotation, path: Path2D | null, from: Point, ux: number, uy: number, reach: number): Point | null {
+  const at = (d: number) => ({ x: from.x + ux * d, y: from.y + uy * d });
+  const steps = 120;
+  let outside = 0;
+  let inside = -1;
+  for (let i = 0; i <= steps; i++) {
+    const d = (reach * i) / steps;
+    if (insideOutline(a, path, at(d))) { inside = d; break; }
+    outside = d;
+  }
+  if (inside < 0) return null;
+  for (let i = 0; i < 12; i++) {
+    const m = (inside + outside) / 2;
+    if (insideOutline(a, path, at(m))) inside = m;
+    else outside = m;
+  }
+  return at(inside);
+}
+
 /** Base points of a speech tail, on the design's outline where it faces the tail tip. */
 export function calloutTail(a: CalloutAnnotation): [Point, Point] | null {
   const tip = { x: a.tailX, y: a.tailY };
@@ -357,34 +460,46 @@ export function calloutTail(a: CalloutAnnotation): [Point, Point] | null {
   return [base(-1), base(1)];
 }
 
-/** Leader line: from the outline at the nearest anchor, along the box direction, then 45° to the tip. */
+/**
+ * Leader line: leaves the side of the callout that faces the tip at a right angle, then runs to the
+ * tip (at 45° when there is room). It never runs along an edge or back across the callout.
+ */
 export function leaderPath(a: CalloutAnnotation): Point[] | null {
   const tip = { x: a.tailX, y: a.tailY };
   if (tailOf(a) !== 'leader') return null;
   const path = calloutOutline(a);
   if (insideOutline(a, path, tip)) return null;
   const { x, y, w, h } = a;
-  const anchors = [
-    { x, y: y + h }, { x: x + w, y: y + h }, { x, y }, { x: x + w, y },
-    { x, y: y + h / 2 }, { x: x + w, y: y + h / 2 }, { x: x + w / 2, y: y + h }, { x: x + w / 2, y },
-  ].map((p) => outlineEdge(a, path, p));
-  let start = anchors[0]!;
-  let best = Infinity;
-  for (const p of anchors) {
-    const d = Math.hypot(p.x - tip.x, p.y - tip.y);
-    if (d < best) { best = d; start = p; }
-  }
-  const dx = tip.x - start.x;
-  const dy = tip.y - start.y;
-  let elbow: Point;
-  if (Math.abs(dx) >= Math.abs(dy)) elbow = { x: tip.x - Math.sign(dx) * Math.abs(dy), y: start.y };
-  else elbow = { x: start.x, y: tip.y - Math.sign(dy) * Math.abs(dx) };
-  // A leader that would run back across the shape starts straight towards the tip instead.
-  if (insideOutline(a, path, { x: (start.x + elbow.x) / 2, y: (start.y + elbow.y) / 2 }) && Math.hypot(start.x - elbow.x, start.y - elbow.y) > 2) {
+  const beyondX = tip.x < x ? x - tip.x : tip.x > x + w ? tip.x - (x + w) : 0;
+  const beyondY = tip.y < y ? y - tip.y : tip.y > y + h ? tip.y - (y + h) : 0;
+  // Inside the box but outside the shape (a rounded corner): straight out.
+  if (!beyondX && !beyondY) {
     const s = outlineEdge(a, path, tip);
     return [s, { x: (s.x + tip.x) / 2, y: (s.y + tip.y) / 2 }, tip];
   }
-  return [start, elbow, tip];
+  // Keep clear of the corners, where the outline curves away.
+  const along = (v: number, from: number, len: number) => {
+    const m = Math.min(len / 2, Math.max(0, a.radius) + Math.max(6, a.strokeWidth * 2));
+    return Math.max(from + m, Math.min(from + len - m, v));
+  };
+  const sideways = beyondX > beyondY;
+  const middle = (s: Point) => ({ x: (s.x + tip.x) / 2, y: (s.y + tip.y) / 2 });
+  // The tip is straight out from the callout: one perfectly straight line.
+  if (sideways ? !beyondY : !beyondX) {
+    const from = sideways ? { x: tip.x < x ? x : x + w, y: tip.y } : { x: tip.x, y: tip.y < y ? y : y + h };
+    const hit = sideways ? firstHit(a, path, from, tip.x < x ? 1 : -1, 0, w) : firstHit(a, path, from, 0, tip.y < y ? 1 : -1, h);
+    if (hit) return [hit, middle(hit), tip];
+  }
+  const start = outlineEdge(a, path, sideways
+    ? { x: tip.x < x ? x : x + w, y: along(tip.y, y, h) }
+    : { x: along(tip.x, x, w), y: tip.y < y ? y : y + h });
+  const out = sideways ? tip.x - start.x : tip.y - start.y;
+  const across = Math.abs(sideways ? tip.y - start.y : tip.x - start.x);
+  // Nearly straight: a tiny bend right at the tip would turn the arrow head sideways.
+  if (across < Math.max(16, Math.max(4, Math.max(1.5, a.strokeWidth) * 2.2) * 3)) return [start, middle(start), tip];
+  const run = across < Math.abs(out) ? Math.abs(out) - across : Math.min(Math.abs(out) / 2, Math.max(12, a.strokeWidth * 4));
+  const step = Math.sign(out) * run;
+  return [start, sideways ? { x: start.x + step, y: start.y } : { x: start.x, y: start.y + step }, tip];
 }
 
 /** Colour of the leader line: the outline colour, or (designs without a line) the accent / fill. */
@@ -393,6 +508,11 @@ export function leaderColor(a: CalloutAnnotation): string {
   if (a.accent && !isTransparent(a.accent)) return a.accent;
   if (!isTransparent(a.fill)) return a.fill;
   return a.color;
+}
+
+/** Colour of the leader's end point: its own colour when one was chosen, otherwise the line's. */
+export function leaderEndColorOf(a: CalloutAnnotation): string {
+  return a.leaderEndColor ?? leaderColor(a);
 }
 
 function drawLeaderEnd(ctx: Ctx2D, tip: Point, from: Point, end: LeaderEnd, lw: number): void {
@@ -618,7 +738,7 @@ function drawDecor(ctx: Ctx2D, a: CalloutAnnotation, L: CalloutLayout): void {
       ctx.save();
       ctx.strokeStyle = a.stroke;
       ctx.lineWidth = lw;
-      ctx.setLineDash(dashPattern(a.dash ?? 'solid', lw));
+      setCalloutDash(ctx, a, lw);
       ctx.beginPath();
       ctx.moveTo(x + qw * 1.1, y);
       ctx.lineTo(x + w - o, y);
@@ -660,7 +780,7 @@ function drawDecor(ctx: Ctx2D, a: CalloutAnnotation, L: CalloutLayout): void {
       ctx.save();
       ctx.strokeStyle = a.stroke;
       ctx.lineWidth = lw;
-      ctx.setLineDash(dashPattern(a.dash ?? 'solid', lw));
+      setCalloutDash(ctx, a, lw);
       ctx.beginPath();
       ctx.moveTo(x + arm, y);
       ctx.lineTo(x, y);
@@ -773,23 +893,58 @@ export function renderCallout(ctx: Ctx2D, a: CalloutAnnotation): void {
     ctx.closePath();
     return true;
   };
+  // Under the body, so the line joins the callout's edge cleanly.
+  if (leader) {
+    ctx.save();
+    const lw = Math.max(1.5, a.strokeWidth);
+    const lc = leaderColor(a);
+    ctx.strokeStyle = lc;
+    ctx.lineWidth = lw;
+    setCalloutDash(ctx, a, lw);
+    ctx.beginPath();
+    // The line stops at the end cap (ring, diamond, arrow head) instead of poking through it.
+    const end = a.leaderEnd ?? 'ring';
+    const capR = Math.max(4, lw * 2.2);
+    const gap = end === 'ring' ? capR * 1.4 : end === 'diamond' ? capR * Math.SQRT2 : end === 'arrow' ? capR * 2 : 0;
+    const [p0, p1, p2] = leader as [Point, Point, Point];
+    const last = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    const k = last > gap ? (last - gap) / last : 0;
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.lineTo(p1.x + (p2.x - p1.x) * k, p1.y + (p2.y - p1.y) * k);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const ec = leaderEndColorOf(a);
+    ctx.strokeStyle = ec;
+    ctx.fillStyle = ec;
+    drawLeaderEnd(ctx, leader[2]!, leader[1]!, a.leaderEnd ?? 'ring', lw);
+    ctx.restore();
+  }
+
   const recipe = recipeOf(a);
+  const tip = { x: a.tailX, y: a.tailY };
+  // A fill that doesn't hide the overlap: body and tail are drawn as one shape.
+  const merged = !recipe && tail && seeThroughFill(a.fill) ? calloutOutline(a) : null;
   if (recipe) {
     drawRecipe(ctx, a, tail, L);
   } else {
   if (SHADOWED.has(design)) {
     // Soft, layered-looking shadow scaled to the callout.
-    const k = Math.max(0.6, Math.min(2, a.fontSize / 18));
+    const k = Math.max(0.6, Math.min(2, a.fontSize / 18)) * viewScale(ctx);
     ctx.shadowColor = design === 'tooltip' ? 'rgba(10,14,22,0.35)' : 'rgba(15,23,42,0.18)';
     ctx.shadowBlur = 18 * k;
     ctx.shadowOffsetY = 6 * k;
   }
   // Stroke both shapes, then fill both: the fills hide the stroke where box and tail meet.
   if (outlined) {
-    ctx.setLineDash(dashPattern(a.dash ?? 'solid', a.strokeWidth));
-    if (outlinePath(ctx, a)) ctx.stroke();
-    ctx.shadowColor = 'transparent';
-    if (tailPath()) ctx.stroke();
+    setCalloutDash(ctx, a, a.strokeWidth);
+    if (merged) {
+      strokeBodyWithTail(ctx, merged, tail!, tip);
+    } else {
+      if (outlinePath(ctx, a)) ctx.stroke();
+      ctx.shadowColor = 'transparent';
+      if (tailPath()) ctx.stroke();
+    }
     ctx.setLineDash([]);
   } else if (tail && !fills) {
     ctx.fillStyle = a.stroke;
@@ -798,26 +953,14 @@ export function renderCallout(ctx: Ctx2D, a: CalloutAnnotation): void {
   }
   ctx.shadowColor = 'transparent';
   if (fills) {
-    if (outlinePath(ctx, a)) ctx.fill();
-    if (tailPath()) ctx.fill();
+    if (merged) {
+      fillBodyWithTail(ctx, merged, tail!, tip);
+    } else {
+      if (outlinePath(ctx, a)) ctx.fill();
+      if (tailPath()) ctx.fill();
+    }
   }
   drawDecor(ctx, a, L);
-  }
-
-  if (leader) {
-    ctx.save();
-    const lw = Math.max(1.5, a.strokeWidth);
-    const lc = leaderColor(a);
-    ctx.strokeStyle = lc;
-    ctx.fillStyle = lc;
-    ctx.lineWidth = lw;
-    ctx.setLineDash(dashPattern(a.dash ?? 'solid', lw));
-    ctx.beginPath();
-    leader.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-    ctx.stroke();
-    ctx.setLineDash([]);
-    drawLeaderEnd(ctx, leader[2]!, leader[1]!, a.leaderEnd ?? 'ring', lw);
-    ctx.restore();
   }
 
   const sectionBg = (style: TextStyle, x: number, y: number, w: number, h: number) => {
@@ -830,28 +973,38 @@ export function renderCallout(ctx: Ctx2D, a: CalloutAnnotation): void {
     ctx.fill();
     ctx.restore();
   };
-  if (L.title && hasTitle(a)) {
+  const placed = calloutTextRects(a);
+  if (placed.title && hasTitle(a)) {
     const ts = titleStyleOf(a);
-    const tl = wrapText(a.title!, ts, Math.max(10, L.title.w), ctx);
-    sectionBg(ts, L.title.x, L.title.y, L.title.w, tl.height);
-    drawTextLines(ctx, tl, ts, L.title.x, L.title.y, L.title.w);
+    const tl = wrapText(a.title!, ts, Math.max(10, placed.title.w), ctx);
+    sectionBg(ts, placed.title.x, placed.title.y, placed.title.w, tl.height);
+    drawTextLines(ctx, tl, ts, placed.title.x, placed.title.y, placed.title.w);
   }
-  const body = wrapText(a.text, a, Math.max(10, L.body.w), ctx);
-  if (a.text) sectionBg(a, L.body.x, L.body.y, L.body.w, body.height);
-  drawTextLines(ctx, body, a, L.body.x, L.body.y, L.body.w);
+  const body = wrapText(a.text, a, Math.max(10, placed.body.w), ctx);
+  if (a.text) sectionBg(a, placed.body.x, placed.body.y, placed.body.w, body.height);
+  drawTextLines(ctx, body, a, placed.body.x, placed.body.y, placed.body.w);
   ctx.restore();
 }
 
+/** Text dragged away from its place (it can leave the box). */
+function movedTextRects(a: CalloutAnnotation): Rect[] {
+  const R = calloutTextRects(a);
+  return [a.titleOffset && hasTitle(a) ? R.title : null, a.textOffset && a.text ? R.body : null].filter((r): r is Rect => !!r);
+}
+
 export function calloutBounds(a: CalloutAnnotation): Rect {
-  if (tailOf(a) === 'none') return { x: a.x, y: a.y, w: a.w, h: a.h };
-  const r = tailOf(a) === 'leader' ? Math.max(4, a.strokeWidth * 2.2) * 1.5 : 0;
-  const x = Math.min(a.x, a.tailX - r);
-  const y = Math.min(a.y, a.tailY - r);
-  return { x, y, w: Math.max(a.x + a.w, a.tailX + r) - x, h: Math.max(a.y + a.h, a.tailY + r) - y };
+  const parts: Rect[] = [{ x: a.x, y: a.y, w: a.w, h: a.h }, ...movedTextRects(a)];
+  if (tailOf(a) !== 'none') {
+    const r = tailOf(a) === 'leader' ? Math.max(4, a.strokeWidth * 2.2) * 1.5 : 0;
+    parts.push({ x: a.tailX - r, y: a.tailY - r, w: r * 2, h: r * 2 });
+  }
+  const x = Math.min(...parts.map((p) => p.x));
+  const y = Math.min(...parts.map((p) => p.y));
+  return { x, y, w: Math.max(...parts.map((p) => p.x + p.w)) - x, h: Math.max(...parts.map((p) => p.y + p.h)) - y };
 }
 
 export function hitCallout(a: CalloutAnnotation, p: Point, tolerance: number): boolean {
-  if (inRect(p, a, tolerance)) return true;
+  if (inRect(p, a, tolerance) || movedTextRects(a).some((r) => inRect(p, r, tolerance))) return true;
   const tail = calloutTail(a);
   if (tail) {
     const mid = { x: (tail[0].x + tail[1].x) / 2, y: (tail[0].y + tail[1].y) / 2 };

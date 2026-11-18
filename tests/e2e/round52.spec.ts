@@ -65,6 +65,8 @@ test('video page: "Create flow" builds a flow from frames added by hand; frames 
   await page.getByRole('button', { name: /^Add this frame/ }).click();
   const frames = page.getByRole('list', { name: 'Frames for the flow' });
   await expect(frames.getByRole('listitem')).toHaveCount(1, { timeout: 15_000 });
+  // The tab counts frames added by hand, like the steps of a recorded flow.
+  await expect(page.getByRole('tab', { name: 'Frames (1)' })).toBeVisible();
   await page.getByRole('tab', { name: 'Details' }).click();
   await page.getByRole('tab', { name: /^Frames/ }).click();
   await expect(frames.getByRole('listitem')).toHaveCount(1);

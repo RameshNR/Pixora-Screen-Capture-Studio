@@ -1,5 +1,25 @@
 # Pixora – Release notes
 
+## 1.1.1 — video editor and annotation improvements (November 2026)
+
+### New
+- **Video editor**: Undo, Redo, a History window and Reset to original in the header.
+- **Callouts**: move the title and text anywhere with their four-arrow handles, and choose the colour of the leader line's end point.
+- **Shift while resizing** keeps shapes and callouts square or round.
+- **Size control**: hold − or + to keep changing the size, or click the number to type one.
+- **Select several objects** with Ctrl + Shift + click, then move, copy, paste, duplicate or delete them together.
+- **Ctrl + click** clears the selection without adding an annotation.
+
+### Fixed
+- Exporting at a lower resolution (for example 4K to 1080p) keeps annotations at the right size.
+- Bring forward and Send backward now apply during playback and in the exported video.
+- The export progress bar follows the real encoding progress and shows the time left.
+- Choosing an annotation tool on the video no longer makes the page flicker.
+- Clicking outside the image no longer adds an annotation.
+- Callouts keep their shape when the text size changes, and return to their size when the text gets smaller.
+- The Frames tab counts frames added by hand.
+- Leader lines join the callout cleanly and arrow heads follow straight lines; dotted callout lines show; callouts without a background have a clean tail.
+
 ## 1.1.0 — themes, browser header and editor improvements (November 2026)
 
 ### New

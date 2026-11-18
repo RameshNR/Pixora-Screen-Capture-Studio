@@ -1,5 +1,5 @@
 import type { CalloutAnnotation, CalloutDesign, Point, Rect } from '../types';
-import { dashPattern, type Ctx2D } from './common';
+import { dashPattern, type Ctx2D, viewScale } from './common';
 import { alpha, seeded, shade, shapeGeometry, isTransparent, type ShapeKind } from './shape-lib';
 
 /**
@@ -460,8 +460,8 @@ function scallopBadge(ctx: Ctx2D, b: Rect, color: string, ring: boolean): void {
   const geo = shapeGeometry('scallop', { x: b.x - b.w * 0.06, y: b.y - b.h * 0.06, w: b.w * 1.12, h: b.h * 1.12 });
   ctx.save();
   ctx.shadowColor = 'rgba(15,23,42,0.28)';
-  ctx.shadowBlur = b.w * 0.12;
-  ctx.shadowOffsetY = b.w * 0.04;
+  ctx.shadowBlur = b.w * 0.12 * viewScale(ctx);
+  ctx.shadowOffsetY = b.w * 0.04 * viewScale(ctx);
   const g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
   g.addColorStop(0, shade(color, 0.28));
   g.addColorStop(1, shade(color, -0.12));
@@ -506,6 +506,70 @@ function badgeText(ctx: Ctx2D, text: string, b: Rect, color: string, font: strin
   ctx.restore();
 }
 
+/** The callout's line style. Dots are zero-length dashes, which only show with round line ends. */
+export function setCalloutDash(ctx: Ctx2D, a: Pick<CalloutAnnotation, 'dash'>, width: number): void {
+  if (a.dash === 'dotted') ctx.lineCap = 'round';
+  ctx.setLineDash(dashPattern(a.dash ?? 'solid', width));
+}
+
+/** True when what is behind the callout shows through its fill. */
+export function seeThroughFill(fill: string | undefined): boolean {
+  if (isTransparent(fill)) return true;
+  const c = (fill ?? '').trim();
+  if (/^#[0-9a-f]{8}$/i.test(c)) return !/ff$/i.test(c);
+  if (/^#[0-9a-f]{4}$/i.test(c)) return !/f$/i.test(c);
+  const rgba = c.match(/^rgba?\(.*[,/]\s*([\d.]+%?)\s*\)$/i);
+  return rgba ? parseFloat(rgba[1]!) < (rgba[1]!.endsWith('%') ? 100 : 1) : false;
+}
+
+/** Everything except `shape`: for clipping with the 'evenodd' rule. */
+function outsideOf(shape: Path2D): Path2D {
+  const far = 1e5;
+  const p = new Path2D();
+  p.rect(-far, -far, far * 2, far * 2);
+  p.addPath(shape);
+  return p;
+}
+
+function tailShape(tail: [Point, Point], tip: Point): Path2D {
+  const p = new Path2D();
+  p.moveTo(tail[0].x, tail[0].y);
+  p.lineTo(tip.x, tip.y);
+  p.lineTo(tail[1].x, tail[1].y);
+  p.closePath();
+  return p;
+}
+
+/**
+ * Strokes the body and its speech tail as one outline: the body's line opens where the tail starts
+ * and the tail's lines stop at the body, so nothing crosses when the fill doesn't hide the overlap.
+ */
+export function strokeBodyWithTail(ctx: Ctx2D, body: Path2D, tail: [Point, Point], tip: Point): void {
+  // A soft shadow would be cut off visibly across the opening.
+  ctx.shadowColor = 'transparent';
+  ctx.save();
+  ctx.clip(outsideOf(tailShape(tail, tip)), 'evenodd');
+  ctx.stroke(body);
+  ctx.restore();
+  ctx.save();
+  ctx.clip(outsideOf(body), 'evenodd');
+  ctx.beginPath();
+  ctx.moveTo(tail[0].x, tail[0].y);
+  ctx.lineTo(tip.x, tip.y);
+  ctx.lineTo(tail[1].x, tail[1].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Fills the body and tail once, so a see-through fill isn't darker where they overlap. */
+export function fillBodyWithTail(ctx: Ctx2D, body: Path2D, tail: [Point, Point], tip: Point): void {
+  ctx.fill(body);
+  ctx.save();
+  ctx.clip(outsideOf(body), 'evenodd');
+  ctx.fill(tailShape(tail, tip));
+  ctx.restore();
+}
+
 /**
  * Draws the design's body (offset layer, scribble, shadow, fill, line, tail) and its decorations.
  * Text is drawn afterwards by the caller.
@@ -531,6 +595,9 @@ export function drawRecipe(ctx: Ctx2D, a: CalloutAnnotation, tail: [Point, Point
     return p;
   };
   const tp = tailPath();
+  const tip = { x: a.tailX, y: a.tailY };
+  /** The fill doesn't hide where body and tail overlap: they are drawn as one shape. */
+  const open = !fills || seeThroughFill(a.fill);
 
   // Scribble hatch around the body.
   if (r.scribble) {
@@ -567,7 +634,7 @@ export function drawRecipe(ctx: Ctx2D, a: CalloutAnnotation, tail: [Point, Point
     } else {
       ctx.strokeStyle = r.line === 'none' && !isTransparent(a.stroke) ? a.stroke : accent;
       ctx.lineWidth = Math.max(1.5, lw || 2);
-      ctx.setLineDash(dashPattern(a.dash ?? 'solid', Math.max(1.5, lw || 2)));
+      setCalloutDash(ctx, a, Math.max(1.5, lw || 2));
       ctx.stroke(geo.outline);
       if (tp) ctx.stroke(tp);
     }
@@ -587,24 +654,32 @@ export function drawRecipe(ctx: Ctx2D, a: CalloutAnnotation, tail: [Point, Point
   ctx.save();
   if (r.shadow) {
     ctx.shadowColor = 'rgba(15,23,42,0.16)';
-    ctx.shadowBlur = 16 * k;
-    ctx.shadowOffsetY = 5 * k;
+    ctx.shadowBlur = 16 * k * viewScale(ctx);
+    ctx.shadowOffsetY = 5 * k * viewScale(ctx);
   }
   if (lined && (r.line === 'solid' || r.line === 'double')) {
     ctx.lineWidth = lw;
     ctx.lineJoin = 'round';
     ctx.strokeStyle = a.stroke;
-    ctx.setLineDash(dashPattern(a.dash ?? 'solid', lw));
-    ctx.stroke(geo.outline);
-    ctx.shadowColor = 'transparent';
-    if (tp) ctx.stroke(tp);
+    setCalloutDash(ctx, a, lw);
+    if (tail && open) {
+      strokeBodyWithTail(ctx, geo.outline, tail, tip);
+    } else {
+      ctx.stroke(geo.outline);
+      ctx.shadowColor = 'transparent';
+      if (tp) ctx.stroke(tp);
+    }
     ctx.setLineDash([]);
   }
   if (fills) {
     ctx.fillStyle = paint();
-    ctx.fill(geo.outline);
-    ctx.shadowColor = 'transparent';
-    if (tp) ctx.fill(tp);
+    if (tail && open) {
+      fillBodyWithTail(ctx, geo.outline, tail, tip);
+    } else {
+      ctx.fill(geo.outline);
+      ctx.shadowColor = 'transparent';
+      if (tp) ctx.fill(tp);
+    }
   } else if (tp && lined) {
     ctx.shadowColor = 'transparent';
   }
@@ -645,7 +720,7 @@ export function drawRecipe(ctx: Ctx2D, a: CalloutAnnotation, tail: [Point, Point
   if (lined && r.line === 'open') {
     // Outline with gaps where the quote marks sit.
     const q = quoteSize(a);
-    ctx.setLineDash(dashPattern(a.dash ?? 'solid', lw));
+    setCalloutDash(ctx, a, lw);
     ctx.beginPath();
     ctx.rect(a.x - a.w, a.y - a.h, a.w * 3, a.h * 3);
     ctx.rect(a.x - q * 0.5, a.y - q, q * 1.7, q * 1.8);
@@ -746,7 +821,7 @@ export function drawRecipe(ctx: Ctx2D, a: CalloutAnnotation, tail: [Point, Point
         g.addColorStop(1, shade(accent, -0.1));
         ctx.fillStyle = g;
         ctx.shadowColor = 'rgba(15,23,42,0.25)';
-        ctx.shadowBlur = b.w * 0.12;
+        ctx.shadowBlur = b.w * 0.12 * viewScale(ctx);
         ctx.beginPath();
         ctx.arc(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, 0, Math.PI * 2);
         ctx.fill();

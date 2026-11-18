@@ -92,9 +92,9 @@ test.describe('Flow Capture', () => {
     const canvas = editor.getByRole('img', { name: 'Screenshot canvas' });
     const b = (await canvas.boundingBox())!;
     await editor.keyboard.press('r');
-    await editor.mouse.move(b.x + 60, b.y + 60);
+    await editor.mouse.move(b.x + b.width / 2 - 60, b.y + b.height / 2 - 40);
     await editor.mouse.down();
-    await editor.mouse.move(b.x + 220, b.y + 160, { steps: 5 });
+    await editor.mouse.move(b.x + b.width / 2 + 60, b.y + b.height / 2 + 40, { steps: 5 });
     await editor.mouse.up();
     await editor.getByRole('button', { name: 'Open image 2' }).click();
     await expect(editor.getByText('Image 2', { exact: true })).toBeVisible();

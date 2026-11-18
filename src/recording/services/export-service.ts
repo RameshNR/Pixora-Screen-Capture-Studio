@@ -6,7 +6,8 @@ import { autoVideoBitrate } from './codec-service';
 import type { Marker, VideoContainer, VideoRedaction } from '@/shared/types';
 import { chaptersText } from './chapters';
 import { applyRedactions, activeRedactions } from './redaction';
-import { activeOverlays, drawOverlays, needsFrame, type VideoOverlay } from './video-overlays';
+import { activeOverlays, burnOverlays, type VideoOverlay } from './video-overlays';
+import { encodeProgress, ENCODE_SHARE, type ExportStage } from './export-progress';
 import type { Watermark } from '@/editor/types';
 import { AppError } from '@/shared/utils/errors';
 import { scaledSize } from './video-size';
@@ -18,7 +19,10 @@ export interface ExportOptions {
   /** Seconds. Omit for the full length. */
   trimStart?: number;
   trimEnd?: number;
+  /** 0–1 while the video is encoded (stays below 1 until the file is written). */
   onProgress?: (progress: number) => void;
+  /** Encoding finished: the file is now being written. */
+  onStage?: (stage: ExportStage) => void;
   signal?: AbortSignal;
   hardwareAcceleration?: 'no-preference' | 'prefer-hardware' | 'prefer-software';
   /** Drop every audio track (video is copied untouched when the format stays the same). */
@@ -74,6 +78,22 @@ export async function exportVideo(source: Blob, options: ExportOptions): Promise
     ? { start: options.trimStart, end: options.trimEnd }
     : undefined;
 
+  // The real length: a recording's stored duration can be shorter, which filled the bar far too early.
+  const fullSec = await input.computeDuration().catch(() => 0);
+  const totalSec = Math.max(0, Math.min(options.trimEnd ?? fullSec, fullSec) - (options.trimStart ?? 0));
+  let encodedSec = 0;
+  let stage: ExportStage = 'encoding';
+  const reportEncoded = (doneSec: number) => {
+    encodedSec = Math.max(encodedSec, doneSec);
+    options.onProgress?.(encodeProgress(encodedSec, totalSec));
+    if (stage === 'encoding' && totalSec > 0 && encodedSec / totalSec >= 0.995) {
+      stage = 'finishing';
+      options.onStage?.(stage);
+    }
+  };
+  /** Frames are being re-encoded, so progress is counted frame by frame. */
+  let countsFrames = false;
+
   let conversion: Conversion;
   try {
     conversion = await Conversion.init({
@@ -95,26 +115,25 @@ export async function exportVideo(source: Blob, options: ExportOptions): Promise
           : null;
         // Sample timestamps start at 0 after trimming; regions are timed on the original video.
         const offset = options.trimStart ?? 0;
+        const reencode = transcode || Boolean(options.quality);
+        countsFrames = reencode;
         return {
           hardwareAcceleration: options.hardwareAcceleration ?? 'no-preference',
           ...(size.scaled ? { width: size.width, height: size.height, fit: 'fill' as const } : {}),
           ...(options.quality ? { quality: QUALITY[options.quality] } : keep ? { quality: keep } : {}),
           ...(options.frameRate ? { frameRate: options.frameRate } : {}),
           ...(size.scaled || options.quality || options.frameRate || options.precise || redactions.length || drawing ? { forceTranscode: true } : {}),
-          ...(redactions.length || drawing
+          ...(reencode
             ? {
                 process: async (sample: import('mediabunny').VideoSample) => {
+                  reportEncoded(sample.timestamp + sample.duration);
                   const t = sample.timestamp + offset;
                   const active = activeRedactions(redactions, t);
                   const shown = activeOverlays(overlays, t);
                   if (!active.length && !shown.length && !watermark) return sample;
                   // Privacy regions first (always the frame itself), then the drawings on top.
                   const canvas = applyRedactions(sample, active);
-                  if (shown.length || watermark) {
-                    const base = needsFrame(overlays, t) ? await createImageBitmap(canvas) : null;
-                    drawOverlays(canvas.getContext('2d')!, base, overlays, t, canvas.width, canvas.height, watermark);
-                    base?.close();
-                  }
+                  if (shown.length || watermark) await burnOverlays(canvas, overlays, t, track.displayWidth, track.displayHeight, watermark);
                   return canvas;
                 },
               }
@@ -144,7 +163,8 @@ export async function exportVideo(source: Blob, options: ExportOptions): Promise
 
   const transformed = Boolean(options.resolution || options.quality || options.frameRate || options.precise || options.redactions?.length || options.overlays?.length || options.watermark);
   const reencoded = conversion.utilizedTracks.some((t) => t.type === 'video') && (transformed || !(await sameVideoCodecFamily(input, options.container)));
-  if (options.onProgress) conversion.onProgress = (p) => options.onProgress?.(p);
+  // Copied (not re-encoded) video has no frames to count: follow the packets instead.
+  if (options.onProgress && !countsFrames) conversion.onProgress = (p) => options.onProgress?.(p * ENCODE_SHARE);
   const abort = () => void conversion.cancel();
   options.signal?.addEventListener('abort', abort, { once: true });
   try {

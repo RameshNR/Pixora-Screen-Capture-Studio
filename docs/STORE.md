@@ -179,6 +179,13 @@ Package → **Upload new package** with the new `release/pixora-<version>.zip`, 
   GitHub Pages).
 - Submit for review. The listing keeps showing the old version until the new one is approved.
 
+### 1.1.1 (over 1.1.0)
+
+- Permissions: **unchanged** (only `version` changed in the manifest).
+- Justifications, data usage and privacy policy: unchanged.
+- Description and screenshots: can stay as they are.
+- Upload `release/pixora-1.1.1.zip`. If 1.1.0 is still in review, cancel that submission first.
+
 ### 1.1.0 (over 1.0.0)
 
 - Permissions: **unchanged** (only `version` changed in the manifest), so users are not asked to

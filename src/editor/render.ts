@@ -1,5 +1,6 @@
 import type { Annotation, EditorDoc, Rect } from './types';
 import { handlesFor, isRoundHandle, renderAnnotation, rotationOf, selectionPolygon } from './tools/annotations';
+import { leaderEndColorOf } from './tools/callouts';
 import type { Ctx2D } from './tools/common';
 import { clipImage, drawDeviceOver, drawFrameBackground, drawFrameOver, drawFrameUnder, drawWatermark, ensureFrameAssets, frameLayout } from './tools/decorations';
 import { ensureFonts } from './fonts';
@@ -15,6 +16,8 @@ export interface ViewTransform {
 
 export interface SceneOverlay {
   selectedId: string | null;
+  /** Several objects selected together: outlined, without handles. */
+  multi?: readonly Annotation[];
   /** Annotation currently being edited as text (drawn by the textarea instead). */
   hiddenId: string | null;
   draft: Annotation | null;
@@ -142,6 +145,22 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
 
   if (overlay.cut) drawCutOverlay(ctx, overlay.cut, doc, toScreen, zoom);
 
+  for (const a of overlay.multi ?? []) {
+    if (a.hidden) continue;
+    const outline = selectionPolygon(a).map((p) => toScreen(p.x, p.y));
+    ctx.save();
+    ctx.beginPath();
+    outline.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.strokeStyle = SELECT_COLOR;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   const selected = overlay.selectedId
     ? overlay.draft?.id === overlay.selectedId
       ? overlay.draft
@@ -199,19 +218,13 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
     for (const h of hs.filter((x) => isRoundHandle(x.handle))) {
       const s = toScreen(h.x, h.y);
       if (h.handle === 'rot') {
-        drawDot(ctx, s.x, s.y, 10, '#fff', 'rgba(15,23,42,0.18)');
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, 4.4, -Math.PI * 0.85, Math.PI * 0.55);
-        ctx.strokeStyle = '#1f2937';
-        ctx.lineWidth = 1.6;
-        ctx.stroke();
-        const ex = s.x + Math.cos(Math.PI * 0.55) * 4.4;
-        const ey = s.y + Math.sin(Math.PI * 0.55) * 4.4;
-        ctx.beginPath();
-        ctx.moveTo(ex - 3, ey - 0.5);
-        ctx.lineTo(ex, ey);
-        ctx.lineTo(ex + 0.6, ey - 3);
-        ctx.stroke();
+        drawDot(ctx, s.x, s.y, 12, '#fff', 'rgba(15,23,42,0.22)', 1);
+        drawRotateIcon(ctx, s.x, s.y);
+      } else if (h.handle === 'tt' || h.handle === 'tb') {
+        drawTextGrip(ctx, s.x, s.y);
+      } else if (h.handle === 't' && selected.type === 'callout' && selected.tail === 'leader') {
+        // The leader's end handle shows the end point's real colour.
+        drawDot(ctx, s.x, s.y, 6, leaderEndColorOf(selected), '#fff', 2);
       } else drawDot(ctx, s.x, s.y, 6, SELECT_COLOR, '#fff', 2);
     }
     ctx.restore();
@@ -253,6 +266,40 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
 
 /** Accent colour of selections (Pixora violet). */
 const SELECT_COLOR = '#7C3AED';
+
+/** The move handle of a callout's text: a small round button with four arrows. */
+function drawTextGrip(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  drawDot(ctx, x, y, 10, SELECT_COLOR, '#fff', 1.5);
+  if (typeof Path2D === 'undefined') return;
+  const size = 13;
+  ctx.save();
+  ctx.translate(x - size / 2, y - size / 2);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.setLineDash([]);
+  ctx.stroke(new Path2D('M12 2v20M2 12h20M15 19l-3 3-3-3M19 9l3 3-3 3M5 9l-3 3 3 3M9 5l3-3 3 3'));
+  ctx.restore();
+}
+
+/** A clear "rotate" arrow (circular arrow with its head at the top right), 15 px wide. */
+function drawRotateIcon(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  if (typeof Path2D === 'undefined') return;
+  const size = 15;
+  ctx.save();
+  ctx.translate(x - size / 2, y - size / 2);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = '#1f2937';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.setLineDash([]);
+  ctx.stroke(new Path2D('M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8'));
+  ctx.stroke(new Path2D('M21 3v5h-5'));
+  ctx.restore();
+}
 
 function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fill: string, stroke: string, lw = 1.5): void {
   ctx.save();

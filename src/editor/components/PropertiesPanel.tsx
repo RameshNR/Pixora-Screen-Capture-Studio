@@ -1477,7 +1477,7 @@ export function PropertiesPanel({
                     const nts = { ...ts, ...(d.patch.titleStyle ?? {}) };
                     const sampleTitle = d.sample?.title ?? (titled ? (d.id === 'number' ? '01' : d.id === 'step' ? '1' : 'Title') : '');
                     set({
-                      shape: undefined, icon: undefined, badge: undefined, dash: 'solid', bold: false, italic: false,
+                      shape: undefined, icon: undefined, badge: undefined, dash: 'solid', bold: false, italic: false, leaderEndColor: undefined, titleOffset: undefined, textOffset: undefined,
                       ...d.patch, design: d.id, titleStyle: nts,
                       // A new callout starts with the design's sample words; an existing one keeps its own.
                       title: selected ? curTitle || (d.sample?.title && !str('text') ? d.sample.title : curTitle) : sampleTitle,
@@ -1518,6 +1518,12 @@ export function PropertiesPanel({
                   <TextField tone="dark" value={str('title')} placeholder="No title" onChange={(e) => set({ title: e.target.value }, 'title')} aria-label="Callout title" />
                   {str('title') && <TextStyleFields name="Title" v={ts} maxSize={160} effects={false} set={(patch, key) => set({ titleStyle: { ...ts, ...patch } }, key)} />}
                 </Group>
+                {selected && (
+                  <Group title="Text position" icon={<Move size={15} />}>
+                    <div className={styles.hint}>Drag the round four-arrow handle next to the title or the text to place it anywhere.</div>
+                    <button type="button" className={styles.ocrBtn} disabled={!v.titleOffset && !v.textOffset} onClick={() => set({ titleOffset: undefined, textOffset: undefined }, 'textPosition')}>Reset text position</button>
+                  </Group>
+                )}
               </>
             ),
           },
@@ -1533,6 +1539,11 @@ export function PropertiesPanel({
                     <Field label="Line end">
                       <RadioGroup<LeaderEnd> label="Leader end" tone="dark" size="sm" value={(str('leaderEnd', 'ring') as LeaderEnd)} onChange={(t) => set({ leaderEnd: t }, 'leaderEnd')}
                         options={[{ value: 'ring', label: '◎' }, { value: 'dot', label: '●' }, { value: 'square', label: '■' }, { value: 'diamond', label: '◇' }, { value: 'arrow', label: '▶' }, { value: 'none', label: '—' }]} />
+                    </Field>
+                  )}
+                  {str('tail', 'speech') === 'leader' && str('leaderEnd', 'ring') !== 'none' && (
+                    <Field label="Line end colour">
+                      <ColorSwatches label="Line end colour" colors={PALETTE} value={str('leaderEndColor', str('stroke'))} onChange={(c) => set({ leaderEndColor: c }, 'leaderEndColor')} />
                     </Field>
                   )}
                 </Group>

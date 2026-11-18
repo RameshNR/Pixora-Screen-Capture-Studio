@@ -8,11 +8,20 @@ Screenshots, screen recording and step-by-step guides for Chrome — all on your
 **No account, no uploads, no tracking.**
 
 **[Add Pixora to Chrome — free on the Chrome Web Store](https://chromewebstore.google.com/detail/domfaochimmiimphibbkbhmkbcfeijff)**
-· Version 1.1.0 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
+· Version 1.1.1 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
 
 ![Pixora's popup over a web page: visible part, full page, selected area, Flow Capture and more](images/hero.png)
 
-## What's new in 1.1.0
+## What's new in 1.1.1
+
+- **Video editor** — Undo, Redo, a History window and Reset to original. Annotations keep their size
+  when you export at a lower resolution, and the export bar shows the real progress and time left.
+- **Callouts** — move the title and text anywhere, choose the colour of the leader line's end point,
+  and keep the shape when the text size changes.
+- **Faster editing** — select several objects with Ctrl + Shift + click, hold Shift to resize shapes
+  as squares or circles, and hold + or − to change the text size.
+
+## New in 1.1.0
 
 - **Themes for every window** — choose Dark, System or Light, then one of 9 dark or 9 light themes
   (Graphite Dark is the default). Colours are tuned to be easy on the eyes, and the popup, editors,

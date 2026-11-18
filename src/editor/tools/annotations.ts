@@ -5,7 +5,7 @@ import {
   hitBox, hitLine, hitMarker, lineBounds, markerBounds, markerLabel, renderBox, renderImage, renderLine, renderMarker, renderSticker, stickerBounds,
 } from './shapes';
 import { renderText, scaleText, textBounds } from './text';
-import { calloutBounds, hitCallout, renderCallout, tailOf } from './callouts';
+import { calloutBounds, calloutTextGrips, hitCallout, renderCallout, tailOf } from './callouts';
 import { renderRedact } from './blur';
 import { stickerIconLabel } from './sticker-lib';
 import { cursorBounds, hitCursor, renderCursor } from './cursor';
@@ -215,13 +215,21 @@ function shiftBox(a: Annotation, dx: number, dy: number): Annotation {
 
 /* ----------------------------------- handles ----------------------------------- */
 
-/** Box handles, line end points (p1/p2), bend points (b0–b5), callout tail (t) and rotation (rot). */
+/** Box handles, line end points (p1/p2), bend points (b0–b5), callout tail (t), callout text (tt: title, tb: body) and rotation (rot). */
 export type Handle =
-  | 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2' | 'b0' | 'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 't' | 'rot';
+  | 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2' | 'b0' | 'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 't' | 'tt' | 'tb' | 'rot';
 
 export function isRoundHandle(h: Handle): boolean {
-  return h === 't' || h === 'rot' || h.startsWith('b');
+  return h === 't' || h === 'rot' || h.startsWith('b') || isTextHandle(h);
 }
+
+/** The move handles of a callout's title and body text. */
+export function isTextHandle(h: Handle): h is 'tt' | 'tb' {
+  return h === 'tt' || h === 'tb';
+}
+
+/** Box shapes that Shift keeps square (or round) while resizing. */
+const SQUARE_TYPES = new Set<Annotation['type']>(['rect', 'ellipse', 'callout', 'blur', 'pixelate', 'mask']);
 
 /** Screen distance of the rotation handle above the box. */
 export const ROTATE_HANDLE_OFFSET = 26;
@@ -252,7 +260,10 @@ export function handlesFor(a: Annotation, zoom = 1): Array<{ handle: Handle; x: 
   const box = localBox(a);
   const rot = rotationOf(a);
   const c = pivotOf(a);
-  const out = list.map((handle) => ({ handle, ...rotatePoint(handlePos(box, handle), rot, c) }));
+  const out: Array<{ handle: Handle; x: number; y: number }> = [];
+  // First, so a text handle next to the box's edge can still be grabbed.
+  if (a.type === 'callout') for (const g of calloutTextGrips(a, zoom)) out.push({ handle: g.handle, ...rotatePoint(g, rot, c) });
+  out.push(...list.map((handle) => ({ handle, ...rotatePoint(handlePos(box, handle), rot, c) })));
   if (a.type === 'callout' && tailOf(a) !== 'none') out.push({ handle: 't', x: a.tailX, y: a.tailY });
   if (canRotate(a)) out.push({ handle: 'rot', ...rotatePoint({ x: box.x + box.w / 2, y: box.y - ROTATE_HANDLE_OFFSET / zoom }, rot, c) });
   return out;
@@ -270,7 +281,7 @@ function scaleStroke(a: StrokeAnnotation, from: Rect, to: Rect): StrokeAnnotatio
 }
 
 /** Resize in the object's own frame (no rotation involved). */
-function resizeLocal(o: Annotation, handle: Handle, dx: number, dy: number): Annotation {
+function resizeLocal(o: Annotation, handle: Handle, dx: number, dy: number, square = false): Annotation {
   if (o.type === 'text' || o.type === 'sticker' || o.type === 'marker' || o.type === 'cursor') {
     const box = localBox(o);
     const grow = (handle.includes('e') ? dx : -dx) + (handle.includes('s') ? dy : -dy) * (box.w / Math.max(1, box.h));
@@ -290,6 +301,16 @@ function resizeLocal(o: Annotation, handle: Handle, dx: number, dy: number): Ann
     if (handle.includes('n')) y += h - nh;
     h = nh;
   }
+  if (square && SQUARE_TYPES.has(o.type)) {
+    // Equal sides, with the opposite corner or side staying where it is.
+    const size = Math.max(2, handle.length === 2 ? Math.max(Math.abs(w), Math.abs(h)) : handle === 'e' || handle === 'w' ? Math.abs(w) : Math.abs(h));
+    const place = (from: number, len: number, low: boolean, high: boolean, raw: number) => {
+      if (low) return raw >= 0 ? from + len - size : from + len;
+      if (high) return raw >= 0 ? from : from - size;
+      return from + len / 2 - size / 2;
+    };
+    return { ...o, x: place(box.x, box.w, handle.includes('w'), handle.includes('e'), w), y: place(box.y, box.h, handle.includes('n'), handle.includes('s'), h), w: size, h: size } as Annotation;
+  }
   const r = normalizeRect({ x, y, w, h });
   const next = { ...r, w: Math.max(2, r.w), h: Math.max(2, r.h) };
   if (o.type === 'pen' || o.type === 'highlighter') return scaleStroke(o, box, next);
@@ -297,8 +318,8 @@ function resizeLocal(o: Annotation, handle: Handle, dx: number, dy: number): Ann
   return { ...o, ...next };
 }
 
-/** Resizes `original` by dragging `handle` by (dx, dy) page pixels. */
-export function resizeBy(original: Annotation, handle: Handle, dx: number, dy: number): Annotation {
+/** Resizes `original` by dragging `handle` by (dx, dy) page pixels; `square`: Shift is held. */
+export function resizeBy(original: Annotation, handle: Handle, dx: number, dy: number, square = false): Annotation {
   if (original.type === 'line' || original.type === 'arrow') {
     if (handle === 'p1') return { ...original, x1: original.x1 + dx, y1: original.y1 + dy };
     if (handle === 'p2') return { ...original, x2: original.x2 + dx, y2: original.y2 + dy };
@@ -309,10 +330,18 @@ export function resizeBy(original: Annotation, handle: Handle, dx: number, dy: n
     return original;
   }
   if (original.type === 'callout' && handle === 't') return { ...original, tailX: original.tailX + dx, tailY: original.tailY + dy };
+  if (original.type === 'callout' && isTextHandle(handle)) {
+    const by = rotateVec(dx, dy, -rotationOf(original));
+    const key = handle === 'tt' ? 'titleOffset' : 'textOffset';
+    const was = original[key] ?? { x: 0, y: 0 };
+    return { ...original, [key]: { x: was.x + by.x, y: was.y + by.y } };
+  }
   if (handle === 'rot' || !OPPOSITE[handle]) return original;
   const rot = rotationOf(original);
   const local = rotateVec(dx, dy, -rot);
-  let next = resizeLocal(original, handle, local.x, local.y);
+  let next = resizeLocal(original, handle, local.x, local.y, square);
+  // The size set by hand is the callout's new own size.
+  if (next.type === 'callout' && next.fitBase) next = { ...next, fitBase: undefined };
   const scaled = original.type === 'text' || original.type === 'sticker' || original.type === 'marker' || original.type === 'cursor';
   if (rot || scaled) {
     // Keep the opposite handle where it was.
@@ -395,8 +424,16 @@ export function transformAnnotation(a: Annotation, t: GeometryTransform): Annota
     }
     case 'callout': {
       const tail = t.point({ x: a.tailX, y: a.tailY });
+      // Dragged text keeps its place on the callout.
+      const origin = t.point({ x: a.x, y: a.y });
+      const offset = (by: Point | undefined) => {
+        if (!by) return by;
+        const p = t.point({ x: a.x + by.x, y: a.y + by.y });
+        return { x: p.x - origin.x, y: p.y - origin.y };
+      };
       return {
         ...a, ...normalizeRect(t.rect(a)), tailX: tail.x, tailY: tail.y, fontSize: Math.max(4, a.fontSize * s), strokeWidth: a.strokeWidth * s,
+        titleOffset: offset(a.titleOffset), textOffset: offset(a.textOffset), fitBase: undefined,
         titleStyle: a.titleStyle ? { ...a.titleStyle, fontSize: Math.max(4, a.titleStyle.fontSize * s) } : a.titleStyle, rotation: mapRotation(a, t),
       };
     }

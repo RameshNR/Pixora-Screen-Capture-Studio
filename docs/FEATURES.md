@@ -739,3 +739,43 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - **Spinner on the button you clicked, only that one**: image editor Export popup (Download, Save as…, Copy, Word), collage Export popup (Download — the toolbar's "Edit collage" / "Add to flow" no longer spins for it), editor toolbar Download (only for downloads, not Copy / PDF / Word), video page Download, Recent captures (each card's download icon, and "Download selected" — not while deleting). Icon buttons gained a `loading` state.
 - **Export popups stay open while the file is prepared and close once it is saved** (image editor: Download, Save as…, Copy, Word; collage: Download). They stay open if it fails or the Save-as dialog is cancelled, and can't be closed mid-export.
 - Tests: tests/e2e/round58.spec.ts (records which buttons show the spinner and checks the popup closes after the download); capture-extras updated (Export popup closes after a Word download).
+
+### Round 59 – Video editor: undo & history, export size and progress, leader lines, size control
+- **Undo, Redo and History in the video page's header** (also Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z). They cover drawings, the watermark, chapters, privacy regions and the trim range; a drag or a held button is one step. The History window lists every step by name, and clicking one goes back or forward to it.
+- **Export at a lower resolution keeps annotations in proportion**: drawings are stored in the source video's pixels and are now scaled with the frame (a 4K recording exported at 1080p looks the same as in the editor), including blur, pixelate, shadows, glow and the watermark.
+- **Layer order reaches playback and export**: Bring forward / Send backward now change the order drawings are played and burned in.
+- **Honest export progress**: the bar follows the frames actually encoded against the video's real length, shows the time left, and never reaches 100% early. The last steps show "Finishing the file…" and "Saving the video…".
+- **Callout leader lines join the callout cleanly**: the line leaves the side facing its end point at a right angle, starts under the callout's edge, never runs along an edge or across the box, and stops at the edge of ring and diamond end caps.
+- **Line end colour** (Callout › Advanced › Pointer): the leader's end point has its own colour, and its selection handle shows that colour.
+- **Floating size control**: hold − or + to keep changing the size (it speeds up), or click the number to type a size (Enter applies, Esc cancels). The rotate handle has a clearer icon.
+- Tests: tests/unit/round59.test.ts, tests/e2e/round59.spec.ts (measures an annotation in a real exported 240p video; undo, redo, keyboard and History window; hold and typed sizes).
+
+### Round 60 – Callout line styles, reset for videos
+- **Dotted callout lines show**: outlines, tails and leader lines (they were invisible).
+- **Callouts without a background**: the body and tail are drawn as one outline, with no lines crossing where they meet; see-through fills are no darker where they overlap.
+- **Reset to original on the video page** (header, next to Undo / Redo): after asking, removes the drawings, watermark, privacy regions and trim; chapters are kept, and it can be undone. The image editor's Reset has its own icon, so it no longer looks like History.
+- The Recent button's arrow is centred with its text.
+- Tests: tests/unit/round60.test.ts, tests/e2e/round60.spec.ts (checks the drawn pixels of dotted lines and open tails, the reset flow and the arrow's alignment).
+
+### Round 61 – Straight leader arrows, movable callout text, Shift for square resizing
+- **Straight leader lines are exactly straight**: when the end point is straight out from the callout there is no bend, so an arrow head points along the line; the line stops at the arrow head.
+- **Move a callout's text anywhere**: a selected callout shows a round four-arrow handle next to its title and its text. Drag it to place that text, also outside the box. Callout › Text › *Text position* resets it.
+- **The circle-with-arc design** measures its title at the real column width, so a long title no longer runs into the text below it.
+- **Shift while resizing keeps equal sides**: shapes, callouts, blur, pixelate and mask stay square (or round), with the opposite corner or side held in place. A square callout that grows to fit its text stays square.
+- Tests: tests/unit/round61.test.ts, tests/e2e/round61.spec.ts.
+
+### Round 62 – No flicker when choosing an annotation tool on the video (1.1.1)
+- The drawing tools load in the background when the video page opens, and the full-window loading cover is gone.
+- The video and its annotations stay on screen until the drawing layer has painted, and the layer no longer restarts for a frame it is already showing.
+- Tests: tests/e2e/round62.spec.ts (checks every animation frame after clicking a tool).
+
+### Round 63 – Frames tab count
+- The video page's **Frames** tab also counts the frames added by hand, not only the steps of a recorded flow.
+- Tests: tests/e2e/round52.spec.ts.
+
+### Round 64 – Clicks on the canvas, callouts keep their shape, multiple selection
+- **New annotations start on the image only**: clicking the area around the image just clears the selection.
+- **Ctrl + click** clears the selection without adding or selecting anything; while Ctrl is held the cursor no longer shows the "add" cross.
+- **Ctrl + Shift + click** selects several objects. Together they can be moved (drag or arrow keys), copied, pasted, duplicated and deleted; style, layer and alignment controls are hidden until one object is selected.
+- **Callouts keep their shape when the text grows**: the box grows in proportion around its centre, by the least needed, and returns to the size you chose when the text gets smaller. The pointer's end stays where you placed it.
+- Tests: tests/unit/round64.test.ts, tests/e2e/round64.spec.ts.

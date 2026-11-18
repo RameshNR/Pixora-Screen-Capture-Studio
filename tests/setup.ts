@@ -60,7 +60,7 @@ export function installChromeMock() {
       sendMessage: vi.fn(async () => ({ ok: true, data: null })),
       onMessage: makeEvent(),
       getURL: (p: string) => `chrome-extension://test-extension-id/${p}`,
-      getManifest: () => ({ version: '1.1.0' }),
+      getManifest: () => ({ version: '1.1.1' }),
       getContexts: vi.fn(async () => []),
       ContextType: { OFFSCREEN_DOCUMENT: 'OFFSCREEN_DOCUMENT' },
       lastError: undefined,

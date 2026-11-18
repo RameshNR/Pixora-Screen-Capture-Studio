@@ -15,8 +15,11 @@ export interface SelectionActions {
   paste: (() => void) | null;
   duplicate: () => void;
   remove: () => void;
-  layer: (to: LayerMove) => void;
-  align: (to: AlignTo) => void;
+  /** Not offered while several objects are selected. */
+  layer?: (to: LayerMove) => void;
+  align?: (to: AlignTo) => void;
+  /** Several objects selected: how many (shown on the bar). */
+  count?: number;
   /** Quick text controls for text and callouts. */
   text?: { size: number; bold: boolean; italic: boolean; setSize: (n: number) => void; toggleBold: () => void; toggleItalic: () => void };
 }
@@ -80,14 +83,13 @@ export function SelectionBar({ anchor, view, actions }: Props) {
       <div ref={barRef} className={styles.bar} role="toolbar" aria-label="Selected object">
         {actions.text && (
           <>
-            <Btn label="Smaller text" onClick={() => actions.text!.setSize(Math.max(6, actions.text!.size - 2))}><Minus size={14} /></Btn>
-            <span className={styles.size} aria-label="Font size">{Math.round(actions.text.size)}</span>
-            <Btn label="Bigger text" onClick={() => actions.text!.setSize(Math.min(400, actions.text!.size + 2))}><Plus size={14} /></Btn>
+            <SizeControl text={actions.text} />
             <Btn label="Bold" pressed={actions.text.bold} onClick={actions.text.toggleBold}><Bold size={15} /></Btn>
             <Btn label="Italic" pressed={actions.text.italic} onClick={actions.text.toggleItalic}><Italic size={15} /></Btn>
             <span className={styles.sep} />
           </>
         )}
+        {actions.count !== undefined && <span className={styles.count}>{actions.count} selected</span>}
         <Btn label="Duplicate (Ctrl+D)" onClick={actions.duplicate}><CopyPlus size={16} /></Btn>
         <Btn label="Delete (Del)" onClick={actions.remove}><Trash2 size={16} /></Btn>
         <Btn label="More options" pressed={menu} onClick={() => { setMenu((m) => !m); setSub(null); }} haspopup><MoreHorizontal size={17} /></Btn>
@@ -98,30 +100,106 @@ export function SelectionBar({ anchor, view, actions }: Props) {
           <Item icon={<ClipboardPaste size={16} />} label="Paste" kbd="Ctrl+V" disabled={!actions.paste} onClick={act(() => actions.paste?.())} />
           <Item icon={<CopyPlus size={16} />} label="Duplicate" kbd="Ctrl+D" onClick={act(actions.duplicate)} />
           <Item icon={<Trash2 size={16} />} label="Delete" kbd="Delete" onClick={act(actions.remove)} />
-          <div className={styles.divider} role="separator" />
-          <Item icon={<Layers size={16} />} label="Layer" submenu open={sub === 'layer'} onClick={() => setSub(sub === 'layer' ? null : 'layer')} />
-          {sub === 'layer' && (
+          {actions.layer && <div className={styles.divider} role="separator" />}
+          {actions.layer && <Item icon={<Layers size={16} />} label="Layer" submenu open={sub === 'layer'} onClick={() => setSub(sub === 'layer' ? null : 'layer')} />}
+          {actions.layer && sub === 'layer' && (
             <div className={styles.subList} role="group" aria-label="Layer">
-              <Item icon={<ArrowUp size={15} />} label="Bring forward" kbd="Ctrl+]" onClick={act(() => actions.layer('forward'))} />
-              <Item icon={<ArrowUpToLine size={15} />} label="Bring to front" onClick={act(() => actions.layer('front'))} />
-              <Item icon={<ArrowDown size={15} />} label="Send backward" kbd="Ctrl+[" onClick={act(() => actions.layer('backward'))} />
-              <Item icon={<ArrowDownToLine size={15} />} label="Send to back" onClick={act(() => actions.layer('back'))} />
+              <Item icon={<ArrowUp size={15} />} label="Bring forward" kbd="Ctrl+]" onClick={act(() => actions.layer?.('forward'))} />
+              <Item icon={<ArrowUpToLine size={15} />} label="Bring to front" onClick={act(() => actions.layer?.('front'))} />
+              <Item icon={<ArrowDown size={15} />} label="Send backward" kbd="Ctrl+[" onClick={act(() => actions.layer?.('backward'))} />
+              <Item icon={<ArrowDownToLine size={15} />} label="Send to back" onClick={act(() => actions.layer?.('back'))} />
             </div>
           )}
-          <Item icon={<AlignStartVertical size={16} />} label="Align to image" submenu open={sub === 'align'} onClick={() => setSub(sub === 'align' ? null : 'align')} />
-          {sub === 'align' && (
+          {actions.align && <Item icon={<AlignStartVertical size={16} />} label="Align to image" submenu open={sub === 'align'} onClick={() => setSub(sub === 'align' ? null : 'align')} />}
+          {actions.align && sub === 'align' && (
             <div className={styles.subList} role="group" aria-label="Align to image">
-              <Item icon={<AlignStartVertical size={15} />} label="Left" onClick={act(() => actions.align('left'))} />
-              <Item icon={<AlignCenterVertical size={15} />} label="Centre" onClick={act(() => actions.align('center'))} />
-              <Item icon={<AlignEndVertical size={15} />} label="Right" onClick={act(() => actions.align('right'))} />
-              <Item icon={<AlignStartHorizontal size={15} />} label="Top" onClick={act(() => actions.align('top'))} />
-              <Item icon={<AlignCenterHorizontal size={15} />} label="Middle" onClick={act(() => actions.align('middle'))} />
-              <Item icon={<AlignEndHorizontal size={15} />} label="Bottom" onClick={act(() => actions.align('bottom'))} />
+              <Item icon={<AlignStartVertical size={15} />} label="Left" onClick={act(() => actions.align?.('left'))} />
+              <Item icon={<AlignCenterVertical size={15} />} label="Centre" onClick={act(() => actions.align?.('center'))} />
+              <Item icon={<AlignEndVertical size={15} />} label="Right" onClick={act(() => actions.align?.('right'))} />
+              <Item icon={<AlignStartHorizontal size={15} />} label="Top" onClick={act(() => actions.align?.('top'))} />
+              <Item icon={<AlignCenterHorizontal size={15} />} label="Middle" onClick={act(() => actions.align?.('middle'))} />
+              <Item icon={<AlignEndHorizontal size={15} />} label="Bottom" onClick={act(() => actions.align?.('bottom'))} />
             </div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+const MIN_SIZE = 6;
+const MAX_SIZE = 400;
+const clampSize = (n: number) => Math.max(MIN_SIZE, Math.min(MAX_SIZE, Math.round(n)));
+
+/** − size +: hold a button to keep changing the size, click the number to type one. */
+function SizeControl({ text }: { text: NonNullable<SelectionActions['text']> }) {
+  const latest = useRef(text);
+  latest.current = text;
+  const [draft, setDraft] = useState<string | null>(null);
+  const step = (by: number) => latest.current.setSize(clampSize(latest.current.size + by));
+  const commit = () => {
+    const n = Number(draft);
+    if (draft && Number.isFinite(n) && n > 0) latest.current.setSize(clampSize(n));
+    setDraft(null);
+  };
+  return (
+    <>
+      <HoldBtn label="Smaller text" onStep={() => step(-2)}><Minus size={14} /></HoldBtn>
+      {draft === null ? (
+        <button type="button" className={styles.size} aria-label={`Font size ${Math.round(text.size)}, click to type a size`} title="Click to type a size" onClick={() => setDraft(String(Math.round(text.size)))}>
+          {Math.round(text.size)}
+        </button>
+      ) : (
+        <input
+          className={styles.sizeInput}
+          aria-label="Font size"
+          inputMode="numeric"
+          autoFocus
+          value={draft}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') setDraft(null);
+          }}
+        />
+      )}
+      <HoldBtn label="Bigger text" onStep={() => step(2)}><Plus size={14} /></HoldBtn>
+    </>
+  );
+}
+
+/** A button that repeats while it is held down, speeding up the longer it is held. */
+function HoldBtn({ label, onStep, children }: { label: string; onStep: () => void; children: ReactNode }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepRef = useRef(onStep);
+  stepRef.current = onStep;
+  const stop = () => {
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stop, []);
+  const start = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    // The bar can move as the object grows: keep the press on this button.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    stop();
+    stepRef.current();
+    let delay = 380;
+    const tick = () => {
+      stepRef.current();
+      delay = Math.max(45, delay * 0.8);
+      timer.current = setTimeout(tick, delay);
+    };
+    timer.current = setTimeout(tick, delay);
+  };
+  return (
+    <button type="button" className={styles.btn} aria-label={label} title={`${label} (hold to repeat)`} onPointerDown={start} onPointerUp={stop} onPointerCancel={stop} onLostPointerCapture={stop} onBlur={stop}
+      onClick={(e) => { if (e.detail === 0) stepRef.current(); }}>
+      {children}
+    </button>
   );
 }
 

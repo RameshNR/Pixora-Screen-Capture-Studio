@@ -10,7 +10,7 @@ task you click through into a guide with a picture of every step.
 
 ![Pixora popup and screenshot editor](docs/images/hero.png)
 
-**Version 1.1.0** · Chrome 116 or newer · [Release notes](docs/RELEASE_NOTES.md) · [Privacy policy](docs/PRIVACY.md)
+**Version 1.1.1** · Chrome 116 or newer · [Release notes](docs/RELEASE_NOTES.md) · [Privacy policy](docs/PRIVACY.md)
 
 ---
 

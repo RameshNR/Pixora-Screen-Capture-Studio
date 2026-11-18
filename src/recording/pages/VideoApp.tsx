@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Clapperboard, Copy, Download, EyeOff, FastForward, FileOutput, FileVideo, FolderOpen, History, Images, ListOrdered, Pencil, Play, Rewind, Save, Trash2, Upload, VolumeX, Workflow, X } from 'lucide-react';
+import { Check, ChevronDown, Clapperboard, Clock, Copy, Download, EyeOff, FastForward, FileOutput, FileVideo, FolderOpen, History, Images, ListOrdered, Pencil, Play, Rewind, Save, Trash2, Upload, VolumeX, Workflow, X } from 'lucide-react';
 import type { AppErrorInfo, CaptureRecord, HardwareAcceleration, Marker, VideoContainer, VideoRedaction } from '@/shared/types';
 import { ChaptersPanel, PrivacyPanel, RedactionPreview, TrimEditor } from '../components/VideoTools';
 import { FramesPanel } from '../components/FramesPanel';
-import { AnnotateRail, ApplyToVideo, InlineDraw, OverlayPreview, OverlayTracks } from '../components/VideoOverlays';
+import { VideoHistoryControls } from '../components/VideoHistory';
+import {
+  canResetSnapshot, commitVideoHistory, createVideoHistory, HISTORY_SETTLE_MS, jumpVideoHistory, redoVideoHistory, resetSnapshot, sameSnapshot, undoVideoHistory, type VideoHistory, type VideoSnapshot,
+} from '../services/video-history';
+import { timeLeftLabel, type ExportStage } from '../services/export-progress';
+import { AnnotateRail, ApplyToVideo, InlineDraw, OverlayPreview, OverlayTracks, preloadInlineEditor } from '../components/VideoOverlays';
 import type { Tool } from '@/editor/types';
 import { fromStored, toStored, type VideoOverlay } from '../services/video-overlays';
 import { annotationId } from '@/editor/tools/common';
@@ -76,6 +81,10 @@ export function VideoApp() {
   const [videoWatermark, setVideoWatermark] = useState<Watermark | null>(null);
   /** Drawing on the paused video: the frame under the playhead, the tool asked for by the rail, the selection. */
   const [editFrame, setEditFrame] = useState<{ frame: ImageBitmap; time: number } | null>(null);
+  const editFrameRef = useRef(editFrame);
+  editFrameRef.current = editFrame;
+  /** Which drawing layer has painted (the video and its preview stay visible until it has). */
+  const [paintedLayer, setPaintedLayer] = useState<string | null>(null);
   const [toolRequest, setToolRequest] = useState<{ tool: Tool; n: number } | null>(null);
   const [currentTool, setCurrentTool] = useState<Tool | null>(null);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
@@ -103,6 +112,7 @@ export function VideoApp() {
   const [nameDraft, setNameDraft] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmMute, setConfirmMute] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [muting, setMuting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const playerRef = useRef<VideoPlayerHandle>(null);
@@ -157,6 +167,12 @@ export function VideoApp() {
 
   // Draw tab open and the video paused: the image editor covers the video picture (that frame).
   const editing = advanced && sideTab === 'overlays' && !playing && Boolean(settings && record);
+  // Ready before the first click on a tool.
+  useEffect(() => {
+    if (!advanced) return;
+    const t = setTimeout(preloadInlineEditor, 300);
+    return () => clearTimeout(t);
+  }, [advanced]);
   useEffect(() => {
     if (!editing) {
       setEditFrame((f) => { f?.frame.close(); return null; });
@@ -174,6 +190,9 @@ export function VideoApp() {
         v.addEventListener('seeked', grab, { once: true });
         return;
       }
+      // Already showing this frame: grabbing it again would restart the drawing layer.
+      const shown = editFrameRef.current;
+      if (shown && Math.abs(shown.time - v.currentTime) < 0.001) return;
       void createImageBitmap(v).then((frame) => {
         if (!alive) { frame.close(); return; }
         setEditFrame((f) => { f?.frame.close(); return { frame, time: v.currentTime }; });
@@ -245,6 +264,60 @@ export function VideoApp() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  /* ------------------------------ undo / redo / history ------------------------------ */
+  const snapshot = useMemo<VideoSnapshot>(() => ({ overlays, watermark: videoWatermark, markers, regions, trim }), [overlays, videoWatermark, markers, regions, trim]);
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
+  const [history, setHistory] = useState<VideoHistory | null>(null);
+  const historyRef = useRef<VideoHistory | null>(null);
+  const saveHistory = useCallback((h: VideoHistory) => {
+    historyRef.current = h;
+    setHistory(h);
+  }, []);
+  // Every change becomes a step once it settles (a drag or a held button is one step).
+  useEffect(() => {
+    if (!metaLoaded.current || !blob) return;
+    const h = historyRef.current;
+    if (!h) { saveHistory(createVideoHistory(snapshot)); return; }
+    if (sameSnapshot(h.present.snapshot, snapshot)) return;
+    const t = setTimeout(() => saveHistory(commitVideoHistory(historyRef.current!, snapshotRef.current)), HISTORY_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [snapshot, blob, saveHistory]);
+  /** Moves through the history and puts that step's drawings, chapters, regions and trim back. */
+  const moveHistory = useCallback((move: (h: VideoHistory) => VideoHistory) => {
+    const now = historyRef.current;
+    if (!now) return;
+    const settled = commitVideoHistory(now, snapshotRef.current);
+    const next = move(settled);
+    saveHistory(next);
+    if (next === settled) return;
+    const s = next.present.snapshot;
+    setOverlays(s.overlays);
+    setVideoWatermark(s.watermark);
+    setMarkers(s.markers);
+    setRegions(s.regions);
+    setTrim(s.trim);
+    setSelectedAnnotation((id) => (id && s.overlays.some((o) => o.annotation.id === id) ? id : null));
+    setDrawRev((r) => r + 1);
+  }, [saveHistory]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const undo = k === 'z' && !e.shiftKey;
+      const redo = k === 'y' || (k === 'z' && e.shiftKey);
+      if (!undo && !redo) return;
+      const t = e.target as HTMLElement;
+      const typing = t.closest('textarea, select, [contenteditable="true"]') || (t instanceof HTMLInputElement && !['range', 'checkbox', 'radio', 'button', 'color'].includes(t.type));
+      if (typing || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      e.preventDefault();
+      moveHistory(undo ? undoVideoHistory : redoVideoHistory);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [moveHistory]);
+  const historyPending = Boolean(history && !sameSnapshot(history.present.snapshot, snapshot));
 
   const onTime = useCallback((t: number, p: boolean) => {
     setTime(t);
@@ -399,6 +472,16 @@ export function VideoApp() {
           )}
         </div>
         <div className={styles.topActions}>
+          <VideoHistoryControls
+            history={history}
+            canUndo={Boolean(history?.past.length) || historyPending}
+            canRedo={Boolean(history?.future.length) && !historyPending}
+            canReset={canResetSnapshot(snapshot)}
+            onUndo={() => moveHistory(undoVideoHistory)}
+            onRedo={() => moveHistory(redoVideoHistory)}
+            onReset={() => setConfirmReset(true)}
+            onJump={(index) => moveHistory((h) => jumpVideoHistory(h, index))}
+          />
           <label className={styles.advancedSwitch} title="Draw on the video with the image editor's tools, with timed overlays, animations and effects">
             <span className={styles.btnText}>Advanced editor</span>
             <ToggleSwitch size="sm" label="Advanced Video Editor" checked={advanced} onChange={(v) => { void updateSettings({ recording: { advancedVideoEditor: v } }); if (!v && sideTab === 'overlays') setSideTab('details'); }} />
@@ -446,8 +529,8 @@ export function VideoApp() {
               { id: 'all', label: 'All recent captures', icon: <History size={14} />, separatorBefore: recentVideos.length > 0, onSelect: () => void chrome.tabs.create({ url: chrome.runtime.getURL('options.html#history') }) },
             ]}
             trigger={({ toggle, open }) => (
-              <Button icon={<History size={16} />} variant="ghost" aria-haspopup="menu" aria-expanded={open} aria-label="Recent" title="Recent videos" onClick={toggle}>
-                <span className={styles.btnText}>Recent</span> <ChevronDown size={14} />
+              <Button icon={<Clock size={16} />} variant="ghost" aria-haspopup="menu" aria-expanded={open} aria-label="Recent" title="Recent videos" onClick={toggle}>
+                <span className={styles.menuLabel}><span className={styles.btnText}>Recent</span><ChevronDown size={14} /></span>
               </Button>
             )}
           />
@@ -476,10 +559,11 @@ export function VideoApp() {
             overlay={(box) => (
               <>
                 <RedactionPreview regions={regions} time={time} />
-                {!editFrame && <OverlayPreview overlays={overlays} watermark={videoWatermark} player={playerRef} box={box} />}
+                <OverlayPreview overlays={overlays} watermark={videoWatermark} player={playerRef} box={box} hidden={Boolean(editFrame) && paintedLayer === `${editFrame?.time}:${drawRev}`} />
                 {editing && editFrame && settings && record && (
                   <InlineDraw
                     key={`${editFrame.time}:${drawRev}`}
+                    onReady={() => setPaintedLayer(`${editFrame.time}:${drawRev}`)}
                     frame={editFrame.frame}
                     time={editFrame.time}
                     duration={duration}
@@ -526,7 +610,8 @@ export function VideoApp() {
               ...(advanced ? [['overlays', 'Annotations', overlays.length] as const] : []),
               ['chapters', 'Chapters', markers.length],
               ...(!advanced ? [['privacy', 'Privacy', regions.length] as const] : []),
-              ['frames', 'Frames', flowSteps],
+              // Steps of the recording's flow plus the frames added by hand.
+              ['frames', 'Frames', flowSteps + frameCount],
             ] as const).map(([id, label, count]) => (
               <button key={id} type="button" role="tab" aria-selected={sideTab === id} aria-label={count ? `${label} (${count})` : label} className={`${styles.sideTab} ${sideTab === id ? styles.sideTabOn : ''}`} onClick={() => setSideTab(id)}>
                 {label}
@@ -658,6 +743,18 @@ export function VideoApp() {
         onSaved={() => broadcast({ target: 'broadcast', type: 'history/changed' })}
       />
       <ConfirmationDialog
+        open={confirmReset}
+        title="Reset to the original video?"
+        message="All drawings, the watermark, privacy regions and the trim are removed. Chapters are kept. You can undo this until you close this page."
+        confirmLabel="Reset"
+        danger
+        onCancel={() => setConfirmReset(false)}
+        onConfirm={() => {
+          setConfirmReset(false);
+          moveHistory((h) => commitVideoHistory(h, resetSnapshot(h.present.snapshot), 'Reset to original'));
+        }}
+      />
+      <ConfirmationDialog
         open={confirmMute}
         title="Remove the audio?"
         message="All sound (microphone and system audio) is removed from this recording. The video stays exactly the same. To keep a copy with sound, download it first or use Export with audio."
@@ -728,6 +825,9 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
   const transforms = Boolean(out.scaled || quality !== 'original' || frameRate || (precise && useTrim) || privacyOn || drawingsOn);
   const [progress, setProgress] = useState<number | null>(null);
   const [working, setWorking] = useState(false);
+  /** What the export is doing now: encoding has a percentage, the last steps only a moving bar. */
+  const [phase, setPhase] = useState<ExportStage | 'saving'>('encoding');
+  const startedAt = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -737,6 +837,8 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
   async function run(keepInHistory: boolean) {
     setWorking(true);
     setProgress(0);
+    setPhase('encoding');
+    startedAt.current = performance.now();
     abortRef.current = new AbortController();
     try {
       // Text drawings need their fonts before frames are drawn.
@@ -748,6 +850,7 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
         container,
         ...(range ? { trimStart: range.start, trimEnd: range.end } : {}),
         onProgress: setProgress,
+        onStage: setPhase,
         signal: abortRef.current.signal,
         hardwareAcceleration: hardwareAcceleration === 'auto' ? 'no-preference' : hardwareAcceleration,
         removeAudio: !keepAudio || !hasAudio,
@@ -760,6 +863,7 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
         watermark: drawingsOn ? watermark : null,
         chapters: keepChapters ? markers : [],
       });
+      setPhase('saving');
       const sizeTag = out.scaled ? ` (${Math.min(out.width, out.height)}p)` : '';
       const suffix = `${range ? ' (trimmed)' : ''}${sizeTag}${keepAudio && hasAudio ? '' : ' (no audio)'}`;
       // Append the extension directly: names often contain dots (times like 22.00.46).
@@ -796,6 +900,8 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
       setProgress(null);
     }
   }
+
+  const timeLeft = progress !== null ? timeLeftLabel(progress, performance.now() - startedAt.current) : null;
 
   return (
     <Modal
@@ -924,7 +1030,12 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
             ? 'Same format: video is copied without re-encoding (fast, no quality loss). Cuts snap to the nearest key frame.'
             : 'The video is re-encoded on this device using your GPU/CPU. Lower resolution or quality makes a smaller file. Long or 4K recordings can take a while. Your original stays untouched.'}
         </InlineNotice>
-        {progress !== null && <ProgressIndicator value={progress} label="Processing…" />}
+        {progress !== null && (
+          <ProgressIndicator
+            value={phase === 'encoding' ? progress : null}
+            label={phase === 'saving' ? 'Saving the video…' : phase === 'finishing' ? 'Finishing the file…' : `Encoding video…${timeLeft ? ` ${timeLeft} left` : ''}`}
+          />
+        )}
       </div>
     </Modal>
   );

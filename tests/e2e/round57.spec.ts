@@ -35,9 +35,9 @@ test('full page: the editor opens at once ("Preparing…"), then shows the image
   await editor.keyboard.press('r');
   const canvas = editor.getByRole('img', { name: 'Screenshot canvas' });
   const box = (await canvas.boundingBox())!;
-  await editor.mouse.move(box.x + 60, box.y + 60);
+  await editor.mouse.move(box.x + box.width / 2 - 15, box.y + box.height / 2 - 15);
   await editor.mouse.down();
-  await editor.mouse.move(box.x + 200, box.y + 160, { steps: 5 });
+  await editor.mouse.move(box.x + box.width / 2 + 15, box.y + box.height / 2 + 15, { steps: 5 });
   await editor.mouse.up();
   t = Date.now();
   const second = editor.waitForEvent('download', { timeout: 60_000 });

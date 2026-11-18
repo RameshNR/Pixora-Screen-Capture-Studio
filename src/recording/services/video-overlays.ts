@@ -1,7 +1,7 @@
 import type { Annotation, EditorDoc, Watermark } from '@/editor/types';
 import { getBounds, renderAnnotation, translate } from '@/editor/tools/annotations';
 import { drawWatermark } from '@/editor/tools/decorations';
-import type { Ctx2D } from '@/editor/tools/common';
+import { viewScale, type Ctx2D } from '@/editor/tools/common';
 
 /**
  * Advanced Video Editor: the image editor's annotations (pen, shapes, arrows, text, callouts,
@@ -201,6 +201,8 @@ function partial(a: Annotation, reveal: number): Annotation {
  */
 export function drawOverlays(ctx: Ctx2D, base: ImageBitmap | null, overlays: readonly VideoOverlay[], t: number, w: number, h: number, watermark: Watermark | null = null): void {
   const size = Math.min(w, h);
+  // Canvas blur and glow are measured in real pixels, the drawings in video pixels.
+  const px = viewScale(ctx);
   for (const o of activeOverlays(overlays, t)) {
     const st = overlayState(o, t, size);
     const { l, r, t: ct, b: cb } = st.clip;
@@ -226,15 +228,34 @@ export function drawOverlays(ctx: Ctx2D, base: ImageBitmap | null, overlays: rea
     if (st.rotate) ctx.rotate((st.rotate * Math.PI) / 180);
     if (st.scale !== 1) ctx.scale(st.scale, st.scale);
     ctx.translate(-cx, -cy);
-    if (st.blur > 0) ctx.filter = `blur(${Math.max(0.5, st.blur * size).toFixed(1)}px)`;
+    if (st.blur > 0) ctx.filter = `blur(${Math.max(0.5, st.blur * size * px).toFixed(1)}px)`;
     if (st.glow > 0) {
       ctx.shadowColor = 'rgba(255, 220, 90, 0.95)';
-      ctx.shadowBlur = size * 0.02 * st.glow;
+      ctx.shadowBlur = size * 0.02 * st.glow * px;
     }
     if (base || (a.type !== 'blur' && a.type !== 'pixelate')) renderAnnotation(ctx, base ?? (null as unknown as ImageBitmap), a);
     ctx.restore();
   }
   if (watermark) drawWatermark(ctx, { width: w, height: h } as EditorDoc, watermark);
+}
+
+/**
+ * Burns the overlays into an export frame. Drawings are stored in the source video's pixels, and the
+ * frame may already be resized (4K recording exported at 1080p), so they are scaled with the frame.
+ */
+export async function burnOverlays(canvas: OffscreenCanvas, overlays: readonly VideoOverlay[], t: number, sourceWidth: number, sourceHeight: number, watermark: Watermark | null): Promise<void> {
+  const sx = canvas.width / sourceWidth;
+  const sy = canvas.height / sourceHeight;
+  // Blur and pixelate read the frame at the drawing's own coordinates.
+  const base = needsFrame(overlays, t)
+    ? await createImageBitmap(canvas, sx === 1 && sy === 1 ? {} : { resizeWidth: sourceWidth, resizeHeight: sourceHeight, resizeQuality: 'high' })
+    : null;
+  const ctx = canvas.getContext('2d')!;
+  ctx.save();
+  ctx.setTransform(sx, 0, 0, sy, 0, 0);
+  drawOverlays(ctx, base, overlays, t, sourceWidth, sourceHeight, watermark);
+  ctx.restore();
+  base?.close();
 }
 
 /** True when some overlay at time `t` reads the frame (blur / pixelate). */
@@ -324,6 +345,12 @@ export function syncOverlays(
       ...(defaults.ins ? { ins: [...defaults.ins] } : {}), ...(defaults.outs ? { outs: [...defaults.outs] } : {}), ...(defaults.effects ? { effects: [...defaults.effects] } : {}),
     });
   }
+  // Layer order: the drawings on this frame take the order they have in the editor (bring forward,
+  // send back…), staying within the places they already use; drawings not on this frame keep theirs.
+  const order = new Map(annotations.map((a, i) => [a.id, i]));
+  const slots = out.flatMap((o, i) => (order.has(o.annotation.id) ? [i] : []));
+  const layered = slots.map((i) => out[i]!).sort((a, b) => order.get(a.annotation.id)! - order.get(b.annotation.id)!);
+  slots.forEach((slot, i) => { out[slot] = layered[i]!; });
   return { overlays: out, known: nextKnown };
 }
 

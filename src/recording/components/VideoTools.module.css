@@ -589,14 +589,6 @@
   z-index: 900;
 }
 
-.drawLoading {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: var(--c-editor-canvas, #111);
-}
-
 .drawBar {
   position: fixed;
   left: 50%;

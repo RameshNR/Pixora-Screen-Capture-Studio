@@ -503,6 +503,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const [tool, setToolState] = useState<Tool>('select');
   const [toolStyles, setToolStyles] = useState<ToolStyles>(DEFAULT_TOOL_STYLES);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Several objects selected together (Ctrl+Shift+click): move, copy, paste, duplicate, delete. */
+  const [multiIds, setMultiIds] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
   const [crop, setCrop] = useState<{ rect: Rect; aspect: AspectRatio } | null>(null);
   const [textEdit, setTextEdit] = useState<TextEditState | null>(null);
@@ -532,6 +534,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const [prefs, setPrefs] = useState<EditorPrefs>({});
   const stylesLoaded = useRef(false);
   const clipboard = useRef<Annotation | null>(null);
+  /** Several copied objects (used when no single object was copied after them). */
+  const manyClipboard = useRef<Annotation[]>([]);
   const workspace = useRef<WorkspaceHandle>(null);
   const initialActions = useRef(false);
 
@@ -572,6 +576,17 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   useEffect(() => {
     if (selectedId && !doc.annotations.some((a) => a.id === selectedId)) setSelectedId(null);
   }, [doc, selectedId]);
+  useEffect(() => {
+    setMultiIds((ids) => {
+      const left = ids.filter((id) => doc.annotations.some((a) => a.id === id));
+      if (left.length === ids.length) return ids;
+      return left.length > 1 ? left : [];
+    });
+  }, [doc]);
+  // Selecting one object (canvas, Layers panel…) ends a multiple selection.
+  useEffect(() => {
+    if (selectedId) setMultiIds([]);
+  }, [selectedId]);
 
   const commit = useCallback((next: EditorDoc, label: string, coalesceKey?: string) => dispatch({ type: 'commit', doc: next, label, coalesceKey }), []);
 
@@ -1055,6 +1070,47 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     };
   }, [selected, hasClipboard, duplicate, removeAnnotation, moveLayerTo, alignTo, onStyleChange, toast]);
 
+  /* ------------------------------ several objects ----------------------------- */
+  const multiSelected = useMemo(() => doc.annotations.filter((a) => multiIds.includes(a.id)), [doc.annotations, multiIds]);
+  const addCopies = useCallback((list: readonly Annotation[], offset: number, label: string) => {
+    let lastMarker = doc.annotations.reduce((m, x) => (x.type === 'marker' ? Math.max(m, x.n) : m), 0);
+    const copies = list.map((a) => {
+      const copy = { ...translate(a, offset, offset), id: annotationId() } as Annotation;
+      if (copy.type === 'marker') copy.n = ++lastMarker;
+      return copy;
+    });
+    commit({ ...doc, annotations: [...doc.annotations, ...copies] }, `${label} ${copies.length} objects`);
+    setSelectedId(null);
+    setMultiIds(copies.map((a) => a.id));
+  }, [doc, commit]);
+  const pasteMany = useCallback(() => {
+    addCopies(manyClipboard.current, 24, 'Paste');
+    manyClipboard.current = manyClipboard.current.map((a) => translate(a, 24, 24));
+  }, [addCopies]);
+  const many = {
+    copy: () => {
+      manyClipboard.current = multiSelected;
+      clipboard.current = null;
+      setHasClipboard(true);
+      toast.info(`${multiSelected.length} objects copied`, 'Press Ctrl+V or use Paste to add copies.');
+    },
+    duplicate: () => addCopies(multiSelected, 16, 'Duplicate'),
+    remove: () => {
+      commit({ ...doc, annotations: doc.annotations.filter((a) => !multiIds.includes(a.id)) }, `Delete ${multiSelected.length} objects`);
+      setMultiIds([]);
+    },
+    nudge: (dx: number, dy: number) => commit({ ...doc, annotations: doc.annotations.map((a) => (multiIds.includes(a.id) ? translate(a, dx, dy) : a)) }, `Move ${multiSelected.length} objects`, 'many:nudge'),
+  };
+  const manyRef = useRef(many);
+  manyRef.current = many;
+  const multiActions: SelectionActions | null = multiIds.length > 1 ? {
+    count: multiIds.length,
+    copy: many.copy,
+    paste: clipboard.current ? () => { if (clipboard.current) duplicate(clipboard.current, 24); } : manyClipboard.current.length ? pasteMany : null,
+    duplicate: many.duplicate,
+    remove: many.remove,
+  } : null;
+
   /* --------------------------- right-click menus --------------------------- */
   /** Menu for an object on the canvas (it is selected first). */
   const objectMenu = (a: Annotation): MenuItem[] => {
@@ -1075,8 +1131,10 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   /** Menu for the image / the rest of the editor. */
   const canvasMenu = (): MenuItem[] => [
     { id: 'paste', label: 'Paste object', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current, onSelect: () => { if (clipboard.current) { duplicate(clipboard.current, 24); clipboard.current = translate(clipboard.current, 24, 24); } } },
-    { id: 'undo', label: 'Undo', description: 'Ctrl+Z', icon: <Undo2 size={14} />, disabled: !canUndo(hist), separatorBefore: true, onSelect: () => dispatch({ type: 'undo' }) },
-    { id: 'redo', label: 'Redo', description: 'Ctrl+Y', icon: <Redo2 size={14} />, disabled: !canRedo(hist), onSelect: () => dispatch({ type: 'redo' }) },
+    ...(videoMode ? [] : [
+      { id: 'undo', label: 'Undo', description: 'Ctrl+Z', icon: <Undo2 size={14} />, disabled: !canUndo(hist), separatorBefore: true, onSelect: () => dispatch({ type: 'undo' }) },
+      { id: 'redo', label: 'Redo', description: 'Ctrl+Y', icon: <Redo2 size={14} />, disabled: !canRedo(hist), onSelect: () => dispatch({ type: 'redo' }) },
+    ]),
     { id: 'copyimg', label: 'Copy image', icon: <Copy size={14} />, separatorBefore: true, onSelect: () => void copy() },
     { id: 'download', label: 'Download', description: 'Ctrl+S', icon: <Download size={14} />, onSelect: () => void download(false) },
     { id: 'fit', label: 'Fit to screen', description: 'Ctrl+0', icon: <Maximize size={14} />, separatorBefore: true, onSelect: () => workspace.current?.fit() },
@@ -1131,6 +1189,9 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         e.preventDefault();
         duplicate(clipboard.current, 24);
         clipboard.current = translate(clipboard.current, 24, 24);
+      } else if (manyClipboard.current.length) {
+        e.preventDefault();
+        pasteMany();
       }
     };
     window.addEventListener('paste', onPaste);
@@ -1138,6 +1199,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   });
 
   /* ---------------------------- keyboard shortcuts --------------------------- */
+  const multiActive = useRef(false);
+  multiActive.current = multiIds.length > 1;
   useEffect(() => {
     const keys: Record<string, Tool> = {
       v: 'select', p: 'pen', g: 'highlighter', r: 'rect', o: 'ellipse', a: 'arrow', l: 'arrow', t: 'text', k: 'callout', b: 'blur', m: 'mask',
@@ -1152,8 +1215,24 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       if (target instanceof HTMLInputElement && target.type === 'range' && e.key.startsWith('Arrow')) return;
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
+      // On the video page, undo covers the whole video (the page handles these keys).
+      if (videoMode && mod && (k === 'z' || k === 'y')) return;
       if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'undo' }); return; }
       if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); dispatch({ type: 'redo' }); return; }
+      if (multiActive.current) {
+        const act = manyRef.current;
+        const step = e.shiftKey ? 10 : 1;
+        if (mod && k === 'c' && !e.shiftKey) { e.preventDefault(); act.copy(); return; }
+        if (mod && k === 'x') { e.preventDefault(); act.copy(); act.remove(); return; }
+        if (mod && k === 'd') { e.preventDefault(); act.duplicate(); return; }
+        if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); act.remove(); return; }
+        if (e.key === 'Escape') { setMultiIds([]); return; }
+        if (!mod && e.key.startsWith('Arrow')) {
+          e.preventDefault();
+          act.nudge(e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0, e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0);
+          return;
+        }
+      }
       if (mod && k === 'c') {
         e.preventDefault();
         if (selected && !e.shiftKey) {
@@ -1293,6 +1372,9 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           onTextCommit={onTextCommit}
           panning={panning}
           selectionActions={selectionActions}
+          multiIds={multiIds}
+          onMultiChange={setMultiIds}
+          multiActions={multiActions}
           onCanvasMenu={(e, hit) => pageMenu.handle(e, hit ? objectMenu(hit) : canvasMenu())}
           {...(inline ? { padding: 0 } : {})}
         />
@@ -1307,7 +1389,13 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
             ))}
           </div>
           <div className={styles.panelScroll}>
-            {panelTab === 'props' && (
+            {panelTab === 'props' && multiIds.length > 1 && (
+              <section className={styles.section} aria-label="Several objects selected">
+                <div className={styles.sectionTitle}>{multiIds.length} objects selected</div>
+                <div className={styles.hint}>Move, copy, paste, duplicate or delete them together. Select one object to change its style.</div>
+              </section>
+            )}
+            {panelTab === 'props' && multiIds.length <= 1 && (
               <PropertiesPanel
                 tool={tool}
                 docSize={{ w: doc.width, h: doc.height }}

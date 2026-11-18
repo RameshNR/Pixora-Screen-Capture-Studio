@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight, ChevronDown, Share2, Columns2, Copy, Crop, Download, Droplet, Eraser, FlipHorizontal2, FlipVertical2, Frame, Grid3x3, Hand, Highlighter,
-  EyeOff, History, Keyboard, LayoutGrid, ScanSearch, MessageSquareText, Minus, MousePointer2, MousePointerClick, Pen, Plus, Redo2, RotateCcw, RotateCw, ScanText, Scaling, Scissors,
+  EyeOff, Keyboard, LayoutGrid, ScanSearch, MessageSquareText, Minus, MousePointer2, MousePointerClick, Pen, Plus, Redo2, RefreshCcwDot, RotateCcw, RotateCw, ScanText, Scaling, Scissors,
   Shapes, Stamp, Sticker, Type, Undo2,
 } from 'lucide-react';
 import type { Tool } from '../types';
@@ -137,7 +137,7 @@ export function EditorToolbar(p: Props) {
         {!p.hideBrand && <img className={styles.brand} src="/icons/icon-48.png" alt="Pixora" />}
         <IconButton tone="dark" label="Undo" shortcut="Ctrl+Z" icon={<Undo2 size={18} />} disabled={!p.canUndo} onClick={p.onUndo} />
         <IconButton tone="dark" label="Redo" shortcut="Ctrl+Y" icon={<Redo2 size={18} />} disabled={!p.canRedo} onClick={p.onRedo} />
-        <IconButton tone="dark" label="Reset to original (undoable)" icon={<History size={18} />} disabled={!p.canReset} onClick={p.onReset} />
+        <IconButton tone="dark" label="Reset to original (undoable)" icon={<RefreshCcwDot size={18} />} disabled={!p.canReset} onClick={p.onReset} />
       </div>
 
       <div className={`${styles.group} ${styles.center}`}>

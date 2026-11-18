@@ -126,7 +126,10 @@ export const SHORTCUT_GROUPS: Array<{ title: string; items: Array<[string, strin
   },
   {
     title: 'Drawing',
-    items: [['Shift + drag', 'Straight lines (45°), squares and circles'], ['Ctrl+Enter', 'Finish typing']],
+    items: [
+      ['Shift + drag', 'Straight lines (45°), squares and circles'], ['Ctrl+Enter', 'Finish typing'],
+      ['Ctrl + click', 'Clear the selection without adding anything'], ['Ctrl + Shift + click', 'Select several objects'],
+    ],
   },
   {
     title: 'Document',

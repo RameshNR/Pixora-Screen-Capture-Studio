@@ -44,12 +44,45 @@
   color: var(--c-primary);
 }
 
-.size {
-  min-width: 26px;
-  text-align: center;
+.size,
+.sizeInput {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.size {
+  border: 0;
+  background: transparent;
+  cursor: text;
+}
+
+.size:hover {
+  background: var(--c-bg-muted);
+}
+
+.size:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
+}
+
+.sizeInput {
+  border: 1px solid var(--c-primary);
+  background: var(--c-bg);
+  outline: none;
+}
+
+.count {
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .sep {

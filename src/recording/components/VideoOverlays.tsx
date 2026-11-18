@@ -10,7 +10,6 @@ import { ensureFonts } from '@/editor/fonts';
 import { usedFonts } from '@/editor/render';
 import { Button, IconButton } from '@/shared/components/Button';
 import { Checkbox } from '@/shared/components/FormControls';
-import { Spinner } from '@/shared/components/Progress';
 import { createId } from '@/shared/utils/misc';
 import {
   ANIM_IN_LABELS, ANIM_OUT_LABELS, BUILTIN_OVERLAY_DEFAULTS, EFFECT_LABELS, drawOverlays, effectsOf, insOf, needsFrame, outsOf, overlayName, shownAt, syncOverlays,
@@ -21,7 +20,30 @@ import { formatPrecise, parseTime } from './VideoTools';
 import type { VideoPlayerHandle } from './VideoPlayer';
 import styles from './VideoTools.module.css';
 
-const Editor = lazy(() => import('@/editor/pages/EditorApp').then((m) => ({ default: m.Editor })));
+const loadEditor = () => import('@/editor/pages/EditorApp');
+const Editor = lazy(() => loadEditor().then((m) => ({ default: m.Editor })));
+/** Loads the drawing tools ahead of time, so the first click on a tool has nothing to wait for. */
+export const preloadInlineEditor = () => void loadEditor().catch(() => undefined);
+
+/** Reports once the drawing layer above it has painted its first picture. */
+function PaintedSignal({ onPainted }: { onPainted: () => void }) {
+  const report = useRef(onPainted);
+  report.current = onPainted;
+  useEffect(() => {
+    let raf = 0;
+    let left = 3;
+    const step = () => {
+      left -= 1;
+      if (left <= 0) report.current();
+      else raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    // Animation frames pause in a background tab.
+    const fallback = setTimeout(() => report.current(), 400);
+    return () => { cancelAnimationFrame(raf); clearTimeout(fallback); };
+  }, []);
+  return null;
+}
 
 /* ---------------------------------- defaults ---------------------------------- */
 const DEFAULTS_KEY = 'pixora.video.overlayDefaults';
@@ -38,8 +60,10 @@ function saveOverlayDefaults(d: OverlayDefaults): void {
 
 /* ------------------------------ live preview ------------------------------ */
 /** Draws the overlays on the player (follows playback frame by frame, animations included). */
-export function OverlayPreview({ overlays, watermark, player, box }: {
+export function OverlayPreview({ overlays, watermark, player, box, hidden = false }: {
   overlays: VideoOverlay[]; watermark: Watermark | null; player: { current: VideoPlayerHandle | null }; box: { width: number; height: number };
+  /** The drawing layer shows the drawings now (the preview stays ready underneath). */
+  hidden?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -76,7 +100,7 @@ export function OverlayPreview({ overlays, watermark, player, box }: {
     return () => cancelAnimationFrame(raf);
   }, [overlays, watermark, player, box.width, box.height]);
   if (!overlays.length && !watermark) return null;
-  return <canvas ref={canvas} className={styles.overlayCanvas} style={{ width: box.width, height: box.height }} aria-hidden />;
+  return <canvas ref={canvas} className={styles.overlayCanvas} style={{ width: box.width, height: box.height, visibility: hidden ? 'hidden' : 'visible' }} aria-hidden />;
 }
 
 /* --------------------------------- Annotate rail -------------------------------- */
@@ -140,13 +164,16 @@ interface InlineProps {
   onToolChange: (t: Tool) => void;
   onSelectionChange: (annotationId: string | null) => void;
   onChange: (overlays: VideoOverlay[], watermark: Watermark | null) => void;
+  /** The layer has painted: until then the video and its preview stay on screen. */
+  onReady: () => void;
 }
 
 /**
  * The image editor's canvas over the paused video frame: the drawings shown now can be edited, new
  * ones become overlays from this moment. Every change is applied to the video at once.
  */
-export function InlineDraw({ frame, time, duration, overlays, watermark, settings, record, panelSlot, requestedTool, requestedSelect, onToolChange, onSelectionChange, onChange }: InlineProps) {
+export function InlineDraw({ frame, time, duration, overlays, watermark, settings, record, panelSlot, requestedTool, requestedSelect, onToolChange, onSelectionChange, onChange, onReady }: InlineProps) {
+  const [painted, setPainted] = useState(false);
   const visible = useMemo(() => overlays.filter((o) => time >= o.start && time <= o.end), [time]); // eslint-disable-line react-hooks/exhaustive-deps
   const [initialDoc] = useState<EditorDoc>(() => ({ base: frame, width: frame.width, height: frame.height, annotations: visible.map((o) => shownAt(o, time)), watermark, frame: null }));
   const known = useRef<Set<string>>(new Set(visible.map((o) => o.annotation.id)));
@@ -165,8 +192,8 @@ export function InlineDraw({ frame, time, duration, overlays, watermark, setting
   };
 
   return (
-    <div className={styles.inlineDraw} role="region" aria-label="Draw on the video">
-      <Suspense fallback={<div className={styles.drawLoading}><Spinner size={22} /></div>}>
+    <div className={styles.inlineDraw} role="region" aria-label="Draw on the video" style={{ visibility: painted ? 'visible' : 'hidden' }}>
+      <Suspense fallback={null}>
         <Editor
           record={{ ...record, id: `video-frame-${record.id}`, kind: 'screenshot', name: `${record.name} frame.png`, mimeType: 'image/png', width: frame.width, height: frame.height }}
           initialDoc={initialDoc}
@@ -177,6 +204,7 @@ export function InlineDraw({ frame, time, duration, overlays, watermark, setting
           onHistory={onHistory}
           inline={{ panelSlot, requestedTool, requestedSelect, onToolChange, onSelectionChange }}
         />
+        <PaintedSignal onPainted={() => { setPainted(true); onReady(); }} />
       </Suspense>
     </div>
   );

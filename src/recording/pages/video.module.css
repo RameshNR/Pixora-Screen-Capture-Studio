@@ -62,6 +62,14 @@
   gap: var(--sp-2);
 }
 
+/* Text and its menu arrow, centred on one line. */
+.menuLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+
 .layout {
   flex: 1;
   display: grid;

@@ -187,6 +187,13 @@ export interface CalloutAnnotation extends Base, Rect, TextStyle {
   /** Pointer style (default 'speech'). */
   tail?: CalloutTail;
   leaderEnd?: LeaderEnd;
+  /** Colour of the leader line's end point (default: the line's colour). */
+  leaderEndColor?: string;
+  /** How far the title and the body text were dragged from their place in the design. */
+  titleOffset?: Point;
+  textOffset?: Point;
+  /** The size chosen by the user while the box is enlarged to fit its text. */
+  fitBase?: { w: number; h: number };
   /** Secondary colour: title bars, quote marks, stripes. */
   accent?: string;
   dash?: DashStyle;
@@ -468,6 +475,7 @@ export type CalloutToolStyle = TextStyle & {
   design: CalloutDesign;
   tail: CalloutTail;
   leaderEnd: LeaderEnd;
+  leaderEndColor?: string;
   accent: string;
   dash: DashStyle;
   title: string;

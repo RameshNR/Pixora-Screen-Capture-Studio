@@ -6,12 +6,12 @@ import { appendPoint } from '../tools/pen';
 import { defaultBends, snap45 } from '../tools/shapes';
 import { SelectionBar, type SelectionActions } from './SelectionBar';
 import {
-  angleFrom, describeAnnotation, findAt, getBounds, handlesFor, isRoundHandle, pivotOf, resizeBy, rotateBy, rotationOf, translate, type Handle, selectionPolygon,
+  angleFrom, describeAnnotation, findAt, getBounds, handlesFor, isRoundHandle, isTextHandle, pivotOf, resizeBy, rotateBy, rotationOf, translate, type Handle, selectionPolygon,
 } from '../tools/annotations';
 import { constrainAspect } from '../tools/crop';
 import { frameLayout, onFrameImageLoaded } from '../tools/decorations';
 import { fontString, LINE_HEIGHT, textBlock } from '../tools/text';
-import { calloutLayout, fitCallout } from '../tools/callouts';
+import { calloutTextRects, fitCallout } from '../tools/callouts';
 import { ensureFonts } from '../fonts';
 import styles from './editor.module.css';
 
@@ -70,6 +70,10 @@ interface Props {
   panning: boolean;
   /** Quick actions for the floating bar over the selected object. */
   selectionActions?: SelectionActions | null;
+  /** Several objects selected together (Ctrl+Shift+click), and what can be done with them. */
+  multiIds?: readonly string[];
+  onMultiChange?: (ids: string[]) => void;
+  multiActions?: SelectionActions | null;
   /** Space around the picture (0: the picture fills the view exactly, e.g. over a video). */
   padding?: number;
   /** Right click on the canvas: the object under the pointer (selected first), or null. */
@@ -79,6 +83,7 @@ interface Props {
 type Drag =
   | { kind: 'pan'; startX: number; startY: number; scrollX: number; scrollY: number }
   | { kind: 'move'; start: Point; original: Annotation; editOnClick: boolean }
+  | { kind: 'move-many'; start: Point; originals: Annotation[] }
   | { kind: 'resize'; start: Point; original: Annotation; handle: Handle }
   | { kind: 'rotate'; startAngle: number; original: Annotation }
   | { kind: 'draw'; start: Point; clickHit: Annotation | null }
@@ -91,19 +96,38 @@ type Drag =
   | { kind: 'cut-move'; start: number; from: number; to: number };
 
 const SELECT_LIKE = new Set<Tool>(['select', 'watermark', 'frame']);
+const NO_IDS: readonly string[] = [];
 
 export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function CanvasWorkspace(props, ref) {
   const {
     doc, tool, toolStyles, zoom, onZoom, selectedId, onSelect, onCommit, crop, cropAspect, onCropChange, cut = null, onCutChange,
-    textEdit, onTextEdit, onTextCommit, panning, selectionActions, onCanvasMenu, padding = PAD,
+    textEdit, onTextEdit, onTextCommit, panning, selectionActions, multiIds = NO_IDS, onMultiChange, multiActions, onCanvasMenu, padding = PAD,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [view, setView] = useState({ width: 800, height: 600, scrollX: 0, scrollY: 0 });
   const [draft, setDraft] = useState<Annotation | null>(null);
+  /** Several selected objects while they are being dragged. */
+  const [manyDraft, setManyDraft] = useState<Annotation[] | null>(null);
   const [eraserTrail, setEraserTrail] = useState<Point[] | null>(null);
   const [eraserAt, setEraserAt] = useState<Point | null>(null);
   const [cursor, setCursor] = useState('default');
+  /** Ctrl (⌘) is held, with or without Shift: a click won't add anything, so the cursor says so. */
+  const [held, setHeld] = useState<'none' | 'ctrl' | 'ctrl-shift'>('none');
+  const noteKeys = useCallback((e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
+    setHeld(e.ctrlKey || e.metaKey ? (e.shiftKey ? 'ctrl-shift' : 'ctrl') : 'none');
+  }, []);
+  useEffect(() => {
+    const clear = () => setHeld('none');
+    window.addEventListener('keydown', noteKeys, true);
+    window.addEventListener('keyup', noteKeys, true);
+    window.addEventListener('blur', clear);
+    return () => {
+      window.removeEventListener('keydown', noteKeys, true);
+      window.removeEventListener('keyup', noteKeys, true);
+      window.removeEventListener('blur', clear);
+    };
+  }, [noteKeys]);
   const [fontsTick, setFontsTick] = useState(0);
   const drag = useRef<Drag | null>(null);
   const erased = useRef<Set<string>>(new Set());
@@ -226,19 +250,21 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     const raf = requestAnimationFrame(() => {
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
+      const moving = manyDraft ? new Map(manyDraft.map((a) => [a.id, a])) : null;
+      const shown = moving ? { ...doc, annotations: doc.annotations.map((a) => moving.get(a.id) ?? a) } : doc;
       renderScene(
         ctx,
-        doc,
+        shown,
         { zoom, originX, originY, dpr },
         {
-          selectedId, hiddenId: textEdit?.annotation.id ?? null, draft, crop, cut, eraserTrail,
+          selectedId, multi: shown.annotations.filter((a) => multiIds.includes(a.id)), hiddenId: textEdit?.annotation.id ?? null, draft, crop, cut, eraserTrail,
           eraserCursor: tool === 'eraser' && eraserAt ? { ...eraserAt, r: toolStyles.eraser.size / 2 } : null,
         },
         { width: view.width, height: view.height },
       );
     });
     return () => cancelAnimationFrame(raf);
-  }, [doc, zoom, originX, originY, dpr, selectedId, draft, crop, cut, eraserTrail, eraserAt, tool, toolStyles.eraser.size, view.width, view.height, textEdit, fontsTick]);
+  }, [doc, zoom, originX, originY, dpr, selectedId, multiIds, manyDraft, draft, crop, cut, eraserTrail, eraserAt, tool, toolStyles.eraser.size, view.width, view.height, textEdit, fontsTick]);
 
   /* --------------------------------- wheel ---------------------------------- */
   useEffect(() => {
@@ -261,6 +287,8 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const tolerance = 6 / zoom;
   const eraseReach = Math.max(tolerance, toolStyles.eraser.size / 2);
   const selected = selectedId ? doc.annotations.find((a) => a.id === selectedId) ?? null : null;
+
+  const onImage = (p: Point) => p.x >= 0 && p.y >= 0 && p.x <= doc.width && p.y <= doc.height;
 
   const handleAt = (p: Point, a: Annotation | null): Handle | null => {
     if (!a) return null;
@@ -368,6 +396,34 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       return;
     }
 
+    if ((e.ctrlKey || e.metaKey) && tool !== 'crop' && tool !== 'cut') {
+      arrowStart.current = null;
+      setDraft(null);
+      if (e.shiftKey) {
+        // Ctrl+Shift+click: add the object to the selection, or take it out again.
+        const picked = findAt(doc.annotations, p, tolerance);
+        if (!picked) return;
+        const current = multiIds.length ? [...multiIds] : selectedId ? [selectedId] : [];
+        const next = current.includes(picked.id) ? current.filter((id) => id !== picked.id) : [...current, picked.id];
+        onSelect(next.length === 1 ? next[0]! : null);
+        onMultiChange?.(next.length > 1 ? next : []);
+        return;
+      }
+      // Ctrl+click: only clears the selection (adds nothing, selects nothing).
+      onSelect(null);
+      onMultiChange?.([]);
+      return;
+    }
+
+    if (multiIds.length && tool !== 'eraser' && tool !== 'crop' && tool !== 'cut') {
+      const picked = findAt(doc.annotations, p, tolerance);
+      if (picked && multiIds.includes(picked.id)) {
+        drag.current = { kind: 'move-many', start: p, originals: doc.annotations.filter((a) => multiIds.includes(a.id)) };
+        return;
+      }
+      onMultiChange?.([]);
+    }
+
     // Second click of a click-to-click arrow: this is its end point.
     if (arrowStart.current && tool === 'arrow') {
       const start = arrowStart.current;
@@ -424,6 +480,12 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       }
       onSelect(hit.id);
       drag.current = { kind: 'move', start: p, original: hit, editOnClick };
+      return;
+    }
+
+    // New annotations start on the image only.
+    if (!onImage(p) && tool !== 'eraser' && tool !== 'crop' && tool !== 'cut') {
+      onSelect(null);
       return;
     }
 
@@ -512,6 +574,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    noteKeys(e);
     const p = toDoc(e.clientX, e.clientY);
     const d = drag.current;
     if (!d) {
@@ -535,8 +598,12 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       case 'move':
         setDraft(translate(d.original, p.x - d.start.x, p.y - d.start.y));
         return;
+      case 'move-many':
+        setManyDraft(d.originals.map((a) => translate(a, p.x - d.start.x, p.y - d.start.y)));
+        return;
       case 'resize':
-        setDraft(resizeBy(d.original, d.handle, p.x - d.start.x, p.y - d.start.y));
+        // Shift keeps shapes and callouts square (or round).
+        setDraft(resizeBy(d.original, d.handle, p.x - d.start.x, p.y - d.start.y, e.shiftKey));
         return;
       case 'rotate': {
         let delta = angleFrom(d.original, p) - d.startAngle;
@@ -628,11 +695,19 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       setCursor(tool === 'hand' || panning || SELECT_LIKE.has(tool) ? 'grab' : 'default');
       return;
     }
+    if (d.kind === 'move-many') {
+      if (manyDraft) {
+        const moved = new Map(manyDraft.map((a) => [a.id, a]));
+        onCommit({ ...doc, annotations: doc.annotations.map((a) => moved.get(a.id) ?? a) }, `Move ${moved.size} objects`);
+      }
+      setManyDraft(null);
+      return;
+    }
     if (d.kind === 'move' && !draft) {
       // A click without dragging.
       if (d.editOnClick && (d.original.type === 'text' || d.original.type === 'callout')) onTextEdit({ annotation: d.original, isNew: false });
     } else if ((d.kind === 'move' || d.kind === 'resize' || d.kind === 'rotate') && draft) {
-      const verb = d.kind === 'move' ? 'Move' : d.kind === 'resize' ? 'Resize' : 'Rotate';
+      const verb = d.kind === 'move' ? 'Move' : d.kind === 'resize' ? (isTextHandle(d.handle) ? 'Move text of' : 'Resize') : 'Rotate';
       if (draft !== d.original) onCommit(replace(draft), `${verb} ${describeAnnotation(draft).toLowerCase()}`);
     } else if (d.kind === 'draw' && draft) {
       const b = getBounds(draft);
@@ -692,18 +767,28 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       next = hit === 'from' || hit === 'to' ? (cut?.axis === 'columns' ? 'col-resize' : 'row-resize') : hit === 'inside' ? 'move' : 'crosshair';
     }
     else if (tool === 'crop') next = cropHandleAt(p) ? resizeCursor(cropHandleAt(p)!, 0) : crop && p.x > crop.x && p.x < crop.x + crop.w && p.y > crop.y && p.y < crop.y + crop.h ? 'move' : 'crosshair';
+    else if (multiIds.length && multiIds.includes(findAt(doc.annotations, p, tolerance)?.id ?? '')) next = 'move';
     else if (selected && handleAt(p, selected)) {
       const h = handleAt(p, selected)!;
-      next = h === 'rot' ? ROTATE_CURSOR : isRoundHandle(h) ? 'grab' : resizeCursor(h, rotationOf(selected));
+      next = h === 'rot' ? ROTATE_CURSOR : isTextHandle(h) ? 'move' : isRoundHandle(h) ? 'grab' : resizeCursor(h, rotationOf(selected));
     }
     // The selected object can be dragged with any tool: four-way move cursor over it.
     else if (selected && tool !== 'text' && findAt(doc.annotations, p, tolerance)?.id === selected.id) next = 'move';
     else if (SELECT_LIKE.has(tool)) next = findAt(doc.annotations, p, tolerance) ? 'move' : 'grab';
     else if (tool !== 'pen' && tool !== 'highlighter' && findAt(doc.annotations, p, tolerance)) next = 'pointer';
+    else if (!onImage(p)) next = 'default';
     else if (tool === 'text') next = 'text';
     else next = 'crosshair';
     if (next !== cursor) setCursor(next);
   }
+
+  /** Ctrl + click only clears the selection; Ctrl + Shift + click picks the object under the pointer. */
+  const shownCursor = (() => {
+    if (panning) return 'grab';
+    if (held === 'none' || tool === 'crop' || tool === 'cut' || cursor === 'grabbing') return cursor;
+    if (held === 'ctrl') return 'default';
+    return cursor === 'move' || cursor === 'pointer' ? 'pointer' : 'default';
+  })();
 
   function onDoubleClick(e: React.MouseEvent) {
     const hit = findAt(doc.annotations, toDoc(e.clientX, e.clientY), tolerance);
@@ -724,7 +809,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     >
       <div
         className={styles.stickyLayer}
-        style={{ width: view.width, height: view.height, cursor: panning ? 'grab' : cursor }}
+        style={{ width: view.width, height: view.height, cursor: shownCursor }}
         onPointerDown={(e) => {
           // The right button opens Pixora's menu (contextmenu event), it never draws.
           if (e.button === 2) return;
@@ -757,6 +842,14 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
           // Room for the rotation handle above rotatable boxes.
           const lift = handlesFor(selected, zoom).some((h) => h.handle === 'rot') ? 30 : 0;
           return <SelectionBar key={selected.id} anchor={{ ...anchor, y: anchor.y - lift, h: anchor.h + lift }} view={view} actions={selectionActions} />;
+        })()}
+        {multiIds.length > 1 && multiActions && !manyDraft && !textEdit && !crop && !cut && (() => {
+          const pts = doc.annotations.filter((a) => multiIds.includes(a.id)).flatMap((a) => selectionPolygon(a));
+          if (!pts.length) return null;
+          const xs = pts.map((p) => originX + p.x * zoom);
+          const ys = pts.map((p) => originY + p.y * zoom);
+          const anchor = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+          return <SelectionBar key="several" anchor={anchor} view={view} actions={multiActions} />;
         })()}
         {textEdit && (
           <TextEditor
@@ -803,9 +896,9 @@ function TextEditor({
   const toScreen = (x: number, y: number) => ({ x: originX + x * zoom, y: originY + y * zoom });
   let style: React.CSSProperties;
   if (a.type === 'callout') {
-    const L = calloutLayout(a);
-    const tl = toScreen(L.body.x, L.body.y);
-    style = { left: tl.x, top: tl.y, width: Math.max(40, L.body.w * zoom), height: Math.max(30, L.body.h * zoom), whiteSpace: 'pre-wrap', background: 'transparent' };
+    const { body } = calloutTextRects(a);
+    const tl = toScreen(body.x, body.y);
+    style = { left: tl.x, top: tl.y, width: Math.max(40, body.w * zoom), height: Math.max(30, body.h * zoom), whiteSpace: 'pre-wrap', background: 'transparent' };
   } else {
     const block = textBlock({ ...a, text: value || ' ' });
     const tl = toScreen(a.x, a.y + block.body.y);
