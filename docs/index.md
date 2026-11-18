@@ -5,12 +5,73 @@ title: Pixora – Screen Capture Studio
 # Pixora – Screen Capture Studio
 
 Screenshots, screen recording and step-by-step guides for Chrome — all on your own computer.
-No account, no uploads, no tracking.
+**No account, no uploads, no tracking.**
 
-![Pixora popup on a web page](images/hero.png)
+**[Add Pixora to Chrome — free on the Chrome Web Store](https://chromewebstore.google.com/detail/domfaochimmiimphibbkbhmkbcfeijff)**
+· Version 1.1.0 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
 
-- **[Privacy policy](privacy/)**
+![Pixora's popup over a web page: visible part, full page, selected area, Flow Capture and more](images/hero.png)
+
+## What's new in 1.1.0
+
+- **Themes for every window** — choose Dark, System or Light, then one of 9 dark or 9 light themes
+  (Graphite Dark is the default). Colours are tuned to be easy on the eyes, and the popup, editors,
+  settings and helper windows all follow your choice.
+- **Browser header in screenshots** — visible-part and full-page screenshots can include the real
+  tabs, address bar and bookmarks bar.
+- **Create a flow from a video** — pick frames of a recording and turn them into a step-by-step guide.
+- **Faster full pages** — the editor opens straight away while a long page is prepared; exports show
+  their progress, and screenshots you haven't changed download instantly.
+- **Redesigned settings**, a **System sound** button for recordings, smoother Recent captures and
+  many fixes. See the [release notes](RELEASE_NOTES.md) for everything.
+
+## Screenshots
+
+Capture the **visible part**, the **full page** (sticky headers handled, long pages split into
+several images), a **selected area**, the **entire screen or an app window**, or take a screenshot
+after a delay. Then annotate it in the editor: arrows, shapes, text, callouts, highlights, blur,
+pixelate and mask for private details, numbered steps, stickers, frames, crop, resize, and text
+recognition (OCR) that runs on your computer.
+
+![The image editor with an arrow and a highlight box on a screenshot](images/editor.png)
+
+## Collages
+
+Put several screenshots side by side, stacked or in a grid, resize the cells by dragging the gaps,
+and zoom or move each image inside its cell.
+
+![A collage of three screenshots in the Feature left layout](images/collage.png)
+
+## Screen recording
+
+Record a tab, a window or the whole screen, with your microphone, system sound and camera. Trim the
+result, add chapters, blur private areas over time, draw timed annotations with animations, and
+export to MP4 or WebM at the size and quality you choose — all on your computer.
+
+![The video page: player, timeline with trim handles, annotation tools and recording details](images/video-editor.png)
+
+## Flow Capture — step-by-step guides
+
+Turn on Flow Capture and use a website as usual: Pixora takes a screenshot at every step (clicks,
+form fields, page changes) and writes the step down. Edit any image in the Flow Editor and export the
+guide as PDF, Word, HTML, a ZIP, separate image files or JSON. You can also build a flow from
+frames of a recording.
+
+![The Flow Editor with the steps of a guide](images/flow-editor.png)
+
+## Themes
+
+![Settings › General › Theme: Dark, System and Light, with the dark themes listed](images/themes.png)
+
+## Private by design
+
+Everything stays on your computer. Pixora has no account, no server, no analytics and no advertising,
+and it never uploads your screenshots, recordings or anything else. Read the full
+**[privacy policy](privacy/)** and **[why each permission is needed](PERMISSIONS.md)**.
+
+## More
+
+- [Features in detail](FEATURES.md)
 - [Release notes](RELEASE_NOTES.md)
-- [Features](FEATURES.md)
 - [Permissions and why they are needed](PERMISSIONS.md)
 - [Source code on GitHub](https://github.com/RameshNR/Pixora-Screen-Capture-Studio)
