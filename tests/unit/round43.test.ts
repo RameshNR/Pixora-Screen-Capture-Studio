@@ -28,15 +28,15 @@ describe('longer full-page screenshots', () => {
 });
 
 describe('pointer arrow (tapered body, big head)', () => {
-  it('is one shape: thin tail, wider body, barbs reaching past the body, tip at the end', () => {
+  it('is one shape: rounded tail, wider body, barbs reaching past the body, tip at the end', () => {
     // A sampled straight path (the editor samples paths the same way before drawing).
     const path = Array.from({ length: 41 }, (_, i) => ({ x: i * 5, y: 0 }));
     const poly = pointerOutline(path, 10);
     const tip = poly.find((p) => Math.abs(p.x - 200) < 1e-6 && Math.abs(p.y) < 1e-6);
     expect(tip).toBeTruthy();
     const halfAt = (x: number) => Math.max(...poly.filter((p) => Math.abs(p.x - x) < 6).map((p) => Math.abs(p.y)));
-    // Tail much thinner than the body before the head; barbs much wider than the body.
-    expect(halfAt(0)).toBeLessThan(halfAt(120) / 3);
+    // Tail thinner than the body before the head; barbs much wider than the body.
+    expect(halfAt(0)).toBeLessThan(halfAt(120) / 2);
     const barb = Math.max(...poly.map((p) => Math.abs(p.y)));
     expect(barb).toBeGreaterThan(halfAt(120) * 2);
     expect(LINE_PRESETS.some((p) => p.id === 'pointer' && p.patch.body === 'pointer')).toBe(true);

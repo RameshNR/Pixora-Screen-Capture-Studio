@@ -1,5 +1,6 @@
 import type { Annotation, EditorDoc, Rect } from './types';
-import { handlesFor, isRoundHandle, renderAnnotation, rotationOf, selectionPolygon } from './tools/annotations';
+import { handlesFor, isRoundHandle, rotationOf, selectionPolygon } from './tools/annotations';
+import { drawLayers } from './tools/layers';
 import { leaderEndColorOf } from './tools/callouts';
 import type { Ctx2D } from './tools/common';
 import { clipImage, drawDeviceOver, drawFrameBackground, drawFrameOver, drawFrameUnder, drawWatermark, ensureFrameAssets, frameLayout } from './tools/decorations';
@@ -16,6 +17,10 @@ export interface ViewTransform {
 
 export interface SceneOverlay {
   selectedId: string | null;
+  /** The selected annotation is in "Move only": no handles. */
+  moveOnly?: boolean;
+  /** Where the watermark can be dragged (shown while the Watermark tool is open). */
+  watermarkBox?: Rect | null;
   /** Several objects selected together: outlined, without handles. */
   multi?: readonly Annotation[];
   /** Annotation currently being edited as text (drawn by the textarea instead). */
@@ -49,8 +54,7 @@ export function drawComposite(ctx: Ctx2D, doc: EditorDoc, extra: Annotation | nu
     .filter((a) => !hiddenIds.includes(a.id))
     .map((a) => (extra && a.id === extra.id ? extra : a));
   if (extra && !doc.annotations.some((a) => a.id === extra.id)) list.push(extra);
-  for (const a of list) if (a.type === 'blur' || a.type === 'pixelate') renderAnnotation(ctx, doc.base, a);
-  for (const a of list) if (a.type !== 'blur' && a.type !== 'pixelate') renderAnnotation(ctx, doc.base, a);
+  drawLayers(ctx, doc.base, list, doc.width, doc.height);
   drawWatermark(ctx, doc, doc.watermark);
   ctx.restore();
   drawFrameOver(ctx, doc, L);
@@ -145,6 +149,17 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
 
   if (overlay.cut) drawCutOverlay(ctx, overlay.cut, doc, toScreen, zoom);
 
+  if (overlay.watermarkBox) {
+    const b = overlay.watermarkBox;
+    const tl = toScreen(b.x, b.y);
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = SELECT_COLOR;
+    ctx.strokeRect(tl.x, tl.y, b.w * zoom, b.h * zoom);
+    ctx.restore();
+  }
+
   for (const a of overlay.multi ?? []) {
     if (a.hidden) continue;
     const outline = selectionPolygon(a).map((p) => toScreen(p.x, p.y));
@@ -182,9 +197,16 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+    const shownLock = selected.lock ?? (overlay.moveOnly ? 'move' : undefined);
+    if (shownLock) {
+      // A padlock (locked) or four arrows (move only) at the top right.
+      const xs = outline.map((p) => p.x);
+      const ys = outline.map((p) => p.y);
+      drawLockBadge(ctx, Math.max(...xs) + 4, Math.min(...ys) - 4, shownLock);
+    }
     ctx.strokeStyle = SELECT_COLOR;
     ctx.lineWidth = 1.5;
-    const hs = handlesFor(selected, zoom);
+    const hs = overlay.moveOnly ? [] : handlesFor(selected, zoom);
     // Stem from the top edge to the rotation handle.
     const rot = hs.find((h) => h.handle === 'rot');
     if (rot && outline.length === 4) {
@@ -197,7 +219,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
       ctx.stroke();
     }
     // Bend points: dashed guides through the control polygon.
-    if ((selected.type === 'line' || selected.type === 'arrow') && selected.bends?.length) {
+    if ((selected.type === 'line' || selected.type === 'arrow') && selected.bends?.length && selected.route !== 'elbow') {
       const pts = [{ x: selected.x1, y: selected.y1 }, ...selected.bends, { x: selected.x2, y: selected.y2 }].map((p) => toScreen(p.x, p.y));
       ctx.strokeStyle = 'rgba(124,58,237,0.6)';
       ctx.setLineDash([3, 3]);
@@ -266,6 +288,22 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
 
 /** Accent colour of selections (Pixora violet). */
 const SELECT_COLOR = '#7C3AED';
+
+function drawLockBadge(ctx: CanvasRenderingContext2D, x: number, y: number, lock: 'all' | 'move'): void {
+  drawDot(ctx, x, y, 11, '#fff', SELECT_COLOR, 1.5);
+  if (typeof Path2D === 'undefined') return;
+  const size = 13;
+  ctx.save();
+  ctx.translate(x - size / 2, y - size / 2);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = SELECT_COLOR;
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.setLineDash([]);
+  ctx.stroke(new Path2D(lock === 'all' ? 'M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zM7 11V7a5 5 0 0 1 10 0v4' : 'M12 2v20M2 12h20M15 19l-3 3-3-3M19 9l3 3-3 3M5 9l-3 3 3 3M9 5l3-3 3 3'));
+  ctx.restore();
+}
 
 /** The move handle of a callout's text: a small round button with four arrows. */
 function drawTextGrip(ctx: CanvasRenderingContext2D, x: number, y: number): void {

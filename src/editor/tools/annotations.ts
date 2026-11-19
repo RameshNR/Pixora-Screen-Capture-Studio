@@ -10,6 +10,7 @@ import { renderRedact } from './blur';
 import { stickerIconLabel } from './sticker-lib';
 import { cursorBounds, hitCursor, renderCursor } from './cursor';
 import { SHAPE_KIND_LABEL } from './shape-lib';
+import { mapClip, moveClip, rotateClip, withClip } from './stroke-clip';
 
 /** Central dispatch for per-type behaviour (render / bounds / hit-test / move / resize / rotate / transform). */
 
@@ -80,7 +81,7 @@ function renderPlain(ctx: Ctx2D, base: ImageBitmap, a: Annotation): void {
   switch (a.type) {
     case 'pen':
     case 'highlighter':
-      return renderStroke(ctx, a);
+      return withClip(ctx, a.clip, () => renderStroke(ctx, a));
     case 'rect':
     case 'ellipse':
       return renderBox(ctx, a);
@@ -196,7 +197,7 @@ export function translate(a: Annotation, dx: number, dy: number): Annotation {
   switch (a.type) {
     case 'pen':
     case 'highlighter':
-      return { ...a, points: a.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) };
+      return { ...a, points: a.points.map((p) => ({ x: p.x + dx, y: p.y + dy })), ...(a.clip ? { clip: moveClip(a.clip, dx, dy) } : {}) };
     case 'line':
     case 'arrow':
       return { ...a, x1: a.x1 + dx, y1: a.y1 + dy, x2: a.x2 + dx, y2: a.y2 + dy, bends: (a.bends ?? []).map((b) => ({ x: b.x + dx, y: b.y + dy })) };
@@ -217,15 +218,15 @@ function shiftBox(a: Annotation, dx: number, dy: number): Annotation {
 
 /** Box handles, line end points (p1/p2), bend points (b0–b5), callout tail (t), callout text (tt: title, tb: body) and rotation (rot). */
 export type Handle =
-  | 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2' | 'b0' | 'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 't' | 'tt' | 'tb' | 'rot';
+  | 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2' | 'b0' | 'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 't' | 'tt' | 'tb' | 'tg' | 'rot';
 
 export function isRoundHandle(h: Handle): boolean {
   return h === 't' || h === 'rot' || h.startsWith('b') || isTextHandle(h);
 }
 
 /** The move handles of a callout's title and body text. */
-export function isTextHandle(h: Handle): h is 'tt' | 'tb' {
-  return h === 'tt' || h === 'tb';
+export function isTextHandle(h: Handle): h is 'tt' | 'tb' | 'tg' {
+  return h === 'tt' || h === 'tb' || h === 'tg';
 }
 
 /** Box shapes that Shift keeps square (or round) while resizing. */
@@ -246,13 +247,20 @@ function handlePos(r: Rect, h: Handle): Point {
 const CORNERS: Handle[] = ['nw', 'ne', 'se', 'sw'];
 const EDGES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
+/** Locked annotations stay as they are; "move only" ones can still be dragged. */
+export const canMove = (a: Annotation): boolean => a.lock !== 'all';
+export const canChange = (a: Annotation): boolean => !a.lock;
+
 export function handlesFor(a: Annotation, zoom = 1): Array<{ handle: Handle; x: number; y: number }> {
+  // Locked (or move only): no handles to resize, rotate or reshape it.
+  if (a.lock) return [];
   if (a.type === 'line' || a.type === 'arrow') {
     const hs: Array<{ handle: Handle; x: number; y: number }> = [
       { handle: 'p1', x: a.x1, y: a.y1 },
       { handle: 'p2', x: a.x2, y: a.y2 },
     ];
-    (a.bends ?? []).forEach((b, i) => hs.push({ handle: `b${i}` as Handle, x: b.x, y: b.y }));
+    // An elbow always takes the same route: it has no curve points to drag.
+    if (a.route !== 'elbow') (a.bends ?? []).forEach((b, i) => hs.push({ handle: `b${i}` as Handle, x: b.x, y: b.y }));
     return hs;
   }
   const list = EDGE_TYPES.has(a.type) ? EDGES : CORNER_TYPES.has(a.type) ? CORNERS : [];
@@ -277,7 +285,9 @@ function scaleStroke(a: StrokeAnnotation, from: Rect, to: Rect): StrokeAnnotatio
   const ti = { x: to.x + pad, y: to.y + pad, w: Math.max(0, to.w - pad * 2), h: Math.max(0, to.h - pad * 2) };
   const sx = fi.w > 0.5 ? ti.w / fi.w : 1;
   const sy = fi.h > 0.5 ? ti.h / fi.h : 1;
-  return { ...a, points: a.points.map((p) => ({ x: ti.x + (p.x - fi.x) * sx, y: ti.y + (p.y - fi.y) * sy })) };
+  const map = (p: Point) => ({ x: ti.x + (p.x - fi.x) * sx, y: ti.y + (p.y - fi.y) * sy });
+  const clip = mapClip(a.clip, (r) => ({ ...map(r), w: r.w * sx, h: r.h * sy }));
+  return { ...a, points: a.points.map(map), ...(clip ? { clip } : {}) };
 }
 
 /** Resize in the object's own frame (no rotation involved). */
@@ -332,7 +342,7 @@ export function resizeBy(original: Annotation, handle: Handle, dx: number, dy: n
   if (original.type === 'callout' && handle === 't') return { ...original, tailX: original.tailX + dx, tailY: original.tailY + dy };
   if (original.type === 'callout' && isTextHandle(handle)) {
     const by = rotateVec(dx, dy, -rotationOf(original));
-    const key = handle === 'tt' ? 'titleOffset' : 'textOffset';
+    const key = handle === 'tt' ? 'titleOffset' : handle === 'tg' ? 'badgeOffset' : 'textOffset';
     const was = original[key] ?? { x: 0, y: 0 };
     return { ...original, [key]: { x: was.x + by.x, y: was.y + by.y } };
   }
@@ -357,7 +367,7 @@ export function resizeBy(original: Annotation, handle: Handle, dx: number, dy: n
 export function rotateBy(a: Annotation, deg: number): Annotation {
   if (a.type === 'pen' || a.type === 'highlighter') {
     const c = pivotOf(a);
-    return { ...a, points: a.points.map((p) => rotatePoint(p, deg, c)) };
+    return { ...a, points: a.points.map((p) => rotatePoint(p, deg, c)), ...(a.clip ? { clip: rotateClip(a.clip, deg, c) } : {}) };
   }
   if (!ROTATABLE.has(a.type)) return a;
   let r = ((a.rotation ?? 0) + deg) % 360;
@@ -395,7 +405,7 @@ export function transformAnnotation(a: Annotation, t: GeometryTransform): Annota
   switch (a.type) {
     case 'pen':
     case 'highlighter':
-      return { ...a, points: a.points.map(t.point), width: a.width * s };
+      return { ...a, points: a.points.map(t.point), width: a.width * s, ...(a.clip ? { clip: mapClip(a.clip, (r) => normalizeRect(t.rect(r))) } : {}) };
     case 'line':
     case 'arrow': {
       const p1 = t.point({ x: a.x1, y: a.y1 });
@@ -433,7 +443,7 @@ export function transformAnnotation(a: Annotation, t: GeometryTransform): Annota
       };
       return {
         ...a, ...normalizeRect(t.rect(a)), tailX: tail.x, tailY: tail.y, fontSize: Math.max(4, a.fontSize * s), strokeWidth: a.strokeWidth * s,
-        titleOffset: offset(a.titleOffset), textOffset: offset(a.textOffset), fitBase: undefined,
+        titleOffset: offset(a.titleOffset), textOffset: offset(a.textOffset), badgeOffset: offset(a.badgeOffset), fitBase: undefined,
         titleStyle: a.titleStyle ? { ...a.titleStyle, fontSize: Math.max(4, a.titleStyle.fontSize * s) } : a.titleStyle, rotation: mapRotation(a, t),
       };
     }

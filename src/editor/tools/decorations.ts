@@ -1,5 +1,5 @@
 import type { DeviceFinish, DeviceFrame, EditorDoc, Frame, Rect, Watermark } from '../types';
-import { dashPattern, makePaint, type Ctx2D } from './common';
+import { dashPattern, getMeasureContext, makePaint, type Ctx2D } from './common';
 import { alpha, shade, shapeGeometry } from './shape-lib';
 
 /**
@@ -616,8 +616,8 @@ const SCRIPT_FONT = '"Dancing Script", "Segoe Script", cursive';
  * frosted glass, and logo + text. Every design can carry a logo and a second line, and is tiled,
  * centred or placed in a corner, rotated and faded like the plain text.
  */
-export function drawWatermark(ctx: Ctx2D, doc: EditorDoc, wm: Watermark | null): void {
-  if (!wm || (!wm.text.trim() && !wm.logo)) return;
+/** Fonts and measurements of the watermark's mark. */
+function markMetrics(ctx: Ctx2D, doc: Pick<EditorDoc, 'width' | 'height'>, wm: Watermark) {
   const W = doc.width;
   const H = doc.height;
   const size = Math.max(8, wm.size * Math.min(W, H));
@@ -627,7 +627,6 @@ export function drawWatermark(ctx: Ctx2D, doc: EditorDoc, wm: Watermark | null):
   const text = style === 'stamp' || style === 'stamp-round' ? wm.text.toUpperCase() : wm.text;
   const font = style === 'signature' ? `400 ${size * 1.25}px ${SCRIPT_FONT}` : `${style === 'plain' ? 700 : 800} ${size}px ${wm.fontFamily}`;
   const subFont = `600 ${size * 0.42}px ${wm.fontFamily}`;
-  ctx.save();
   ctx.font = font;
   const textW = text ? ctx.measureText(text).width : 0;
   ctx.font = subFont;
@@ -642,6 +641,49 @@ export function drawWatermark(ctx: Ctx2D, doc: EditorDoc, wm: Watermark | null):
   const round = style === 'stamp-round';
   const markW = round ? Math.max(blockW, blockH) + size * 1.6 : blockW + padX * 2;
   const markH = round ? markW : blockH + padY * 2;
+  return { W, H, size, style, accent, logo, text, font, subFont, textW, subW, logoH, logoW, gap, blockW, blockH, padX, padY, round, markW, markH };
+}
+
+/** Centre of the mark at its chosen position, before it was dragged. */
+function markHome(wm: Watermark, W: number, H: number, size: number, markW: number, markH: number): { x: number; y: number } {
+  const m = size * 0.9;
+  return {
+    x: wm.position === 'center' ? W / 2 : wm.position.endsWith('left') ? m + markW / 2 : W - m - markW / 2,
+    y: wm.position === 'center' ? H / 2 : wm.position.startsWith('top') ? m + markH / 2 : H - m - markH / 2,
+  };
+}
+
+/** A tiled pattern covers the image and a ribbon belongs to its corner: the others can be dragged. */
+export const watermarkMovable = (wm: Watermark): boolean => wm.position !== 'tile' && wm.style !== 'ribbon';
+
+/** The area of the image the watermark covers (where it can be picked up). */
+export function watermarkBox(doc: Pick<EditorDoc, 'width' | 'height'>, wm: Watermark | null | undefined): Rect | null {
+  if (!wm || (!wm.text.trim() && !wm.logo) || !watermarkMovable(wm)) return null;
+  const ctx = getMeasureContext();
+  if (!ctx) return null;
+  const { W, H, size, markW, markH } = markMetrics(ctx, doc, wm);
+  const home = markHome(wm, W, H, size, markW, markH);
+  const angle = (wm.rotation * Math.PI) / 180;
+  const w = Math.abs(markW * Math.cos(angle)) + Math.abs(markH * Math.sin(angle));
+  const h = Math.abs(markW * Math.sin(angle)) + Math.abs(markH * Math.cos(angle));
+  return { x: home.x + (wm.offset?.x ?? 0) * W - w / 2, y: home.y + (wm.offset?.y ?? 0) * H - h / 2, w, h };
+}
+
+/** The watermark dragged by (dx, dy) image pixels; its centre stays on the image. */
+export function moveWatermark(doc: Pick<EditorDoc, 'width' | 'height'>, wm: Watermark, dx: number, dy: number): Watermark {
+  const ctx = getMeasureContext();
+  if (!ctx) return wm;
+  const { W, H, size, markW, markH } = markMetrics(ctx, doc, wm);
+  const home = markHome(wm, W, H, size, markW, markH);
+  const x = Math.max(0, Math.min(W, home.x + (wm.offset?.x ?? 0) * W + dx));
+  const y = Math.max(0, Math.min(H, home.y + (wm.offset?.y ?? 0) * H + dy));
+  return { ...wm, offset: { x: (x - home.x) / W, y: (y - home.y) / H } };
+}
+
+export function drawWatermark(ctx: Ctx2D, doc: EditorDoc, wm: Watermark | null): void {
+  if (!wm || (!wm.text.trim() && !wm.logo)) return;
+  ctx.save();
+  const { W, H, size, style, accent, logo, text, font, subFont, textW, logoH, logoW, gap, blockW, blockH, markW, markH } = markMetrics(ctx, doc, wm);
 
   /** Draws the whole mark centred on (0, 0). */
   const drawMark = () => {
@@ -808,15 +850,18 @@ export function drawWatermark(ctx: Ctx2D, doc: EditorDoc, wm: Watermark | null):
     }
   } else {
     const m = size * 0.9;
-    const x = wm.position === 'center' ? W / 2 : wm.position.endsWith('left') ? m + markW / 2 : W - m - markW / 2;
-    const y = wm.position === 'center' ? H / 2 : wm.position.startsWith('top') ? m + markH / 2 : H - m - markH / 2;
+    const home = markHome(wm, W, H, size, markW, markH);
+    const movedX = (wm.offset?.x ?? 0) * W;
+    const movedY = (wm.offset?.y ?? 0) * H;
+    const x = home.x + movedX;
+    const y = home.y + movedY;
     if (style === 'corner') {
       // L-shaped bracket in the corner, the mark beside it.
       const L = size * 1.4;
       const left = wm.position.endsWith('left') || wm.position === 'center';
       const top = wm.position.startsWith('top');
-      const bx = left ? m * 0.6 : W - m * 0.6;
-      const by = top ? m * 0.6 : H - m * 0.6;
+      const bx = (left ? m * 0.6 : W - m * 0.6) + movedX;
+      const by = (top ? m * 0.6 : H - m * 0.6) + movedY;
       ctx.save();
       ctx.strokeStyle = accent;
       ctx.lineWidth = Math.max(2, size * 0.14);

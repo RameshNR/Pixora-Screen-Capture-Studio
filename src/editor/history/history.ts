@@ -85,5 +85,16 @@ export function historyReducer(state: HistoryState, action: HistoryAction): Hist
   }
 }
 
+const sameValue = (a: unknown, b: unknown) => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** The two documents look the same (e.g. a drawing was added and removed again). */
+export function sameDoc(a: EditorDoc, b: EditorDoc): boolean {
+  if (a === b) return true;
+  return a.base === b.base && a.width === b.width && a.height === b.height
+    && a.annotations.length === b.annotations.length
+    && a.annotations.every((x, i) => x === b.annotations[i] || (x.type !== 'image' && sameValue(x, b.annotations[i])))
+    && sameValue(a.watermark, b.watermark) && sameValue(a.frame, b.frame);
+}
+
 export const canUndo = (s: HistoryState) => s.past.length > 0;
 export const canRedo = (s: HistoryState) => s.future.length > 0;

@@ -551,35 +551,109 @@ function strokePath(ctx: Ctx2D, pts: Point[]): void {
 }
 
 /**
- * "Pointer" arrow: one filled shape — a sharp tail that widens towards a large head whose barbs reach
- * back past the end of the body (a notch on each side). Corners are rounded by stroking the outline.
+ * Fills a line whose width changes along its length as one shape: round ends and smooth bends, with
+ * nothing cut off on tight curves. `radius` gets the position along the line (0–1).
  */
-export function pointerOutline(path: Point[], width: number): Point[] {
+function fillVaryingLine(ctx: Ctx2D, path: Point[], radius: (t: number) => number): void {
+  const total = pathLength(path);
+  if (total <= 0) return;
+  const step = Math.max(2, radius(0) * 0.6);
+  const dots: Array<{ x: number; y: number; r: number }> = [];
+  let walked = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]!;
+    const b = path[i]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const parts = Math.max(1, Math.ceil(len / step));
+    for (let k = i === 1 ? 0 : 1; k <= parts; k++) {
+      const f = k / parts;
+      dots.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, r: radius((walked + len * f) / total) });
+    }
+    walked += len;
+  }
+  // Every part turns the same way, so the overlaps add up to one solid shape.
+  ctx.beginPath();
+  dots.forEach((d, i) => {
+    ctx.moveTo(d.x + d.r, d.y);
+    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+    const n = dots[i + 1];
+    if (!n) return;
+    const len = Math.hypot(n.x - d.x, n.y - d.y) || 1;
+    const nx = -(n.y - d.y) / len;
+    const ny = (n.x - d.x) / len;
+    ctx.moveTo(d.x - nx * d.r, d.y - ny * d.r);
+    ctx.lineTo(n.x - nx * n.r, n.y - ny * n.r);
+    ctx.lineTo(n.x + nx * n.r, n.y + ny * n.r);
+    ctx.lineTo(d.x + nx * d.r, d.y + ny * d.r);
+    ctx.closePath();
+  });
+  ctx.fill();
+}
+
+/** The parts of a "pointer" arrow: a body widening from a round tail, and a large head. */
+function pointerParts(path: Point[], width: number) {
   const w = Math.max(2, width);
   const total = pathLength(path);
   // Proportions of a classic "pointer": the head is about twice as long as it is half-wide; the body
-  // widens from a thin rounded tail to about half the head's width where it meets the head.
+  // widens from a tail about as thick as the line to half the head's width where it meets the head.
   const headHalf = Math.max(w * 3, 12);
   const headLen = Math.min(headHalf * 1.9, total * 0.5);
   const bodyEnd = headHalf * 0.52;
-  const tail = Math.max(0.75, headHalf * 0.09);
-  // The body ends exactly at the head's straight back edge, and the barbs stick out beyond it on
-  // both sides — so the outline never crosses itself (crossing left white triangles in the fill).
+  const tail = Math.max(1.5, w * 0.45);
   const shaft = trim(path, headLen, 'end');
-  const { left, right } = ribbon(shaft, (t) => tail + (bodyEnd - tail) * t);
   const tip = path[path.length - 1]!;
   const base = shaft[shaft.length - 1] ?? pointAlong(path, headLen, 'end');
   const angle = Math.atan2(tip.y - base.y, tip.x - base.x);
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
   const barb = (side: number) => ({ x: base.x - side * sin, y: base.y + side * cos });
-  // The body ends exactly on the head's back edge (on a curve the body's own end edge is turned a
-  // little): drop body points past that edge and finish on it, so nothing crosses.
+  return { shaft, tip, base, cos, sin, barb, headHalf, bodyEnd, tail };
+}
+
+/**
+ * Outline of a "pointer" arrow (a sharp-cornered polygon, used for its coloured outline). The barbs
+ * reach out past the body on both sides, and the outline never crosses itself.
+ */
+export function pointerOutline(path: Point[], width: number): Point[] {
+  const { shaft, base, cos, sin, tip, barb, headHalf, bodyEnd, tail } = pointerParts(path, width);
+  const { left, right } = ribbon(shaft, (t) => tail + (bodyEnd - tail) * t);
+  // The body ends on the head's back edge: only the very end of the body is dropped, so a line
+  // that curves back on itself keeps the rest of its shape.
   const behind = (p: Point) => (p.x - base.x) * cos + (p.y - base.y) * sin < -0.01;
-  const l = left.slice(0, -1).filter(behind);
-  const r = right.slice(0, -1).filter(behind);
+  const body = (side: Point[]) => {
+    let n = side.length - 1;
+    while (n > 0 && !behind(side[n - 1]!)) n--;
+    return side.slice(0, n);
+  };
   // (ribbon's `left` is on the positive side of the direction, like `barb(+…)`.)
-  return [...l, barb(bodyEnd), barb(headHalf), tip, barb(-headHalf), barb(-bodyEnd), ...[...r].reverse()];
+  return [...body(left), barb(bodyEnd), barb(headHalf), tip, barb(-headHalf), barb(-bodyEnd), ...[...body(right)].reverse()];
+}
+
+function drawPointer(ctx: Ctx2D, a: LineAnnotation, path: Point[]): void {
+  const { shaft, tip, barb, headHalf, bodyEnd, tail } = pointerParts(path, a.width);
+  if (a.outline && a.outline !== 'transparent') {
+    const poly = pointerOutline(path, a.width);
+    ctx.save();
+    ctx.strokeStyle = a.outline;
+    ctx.lineWidth = Math.max(4, a.width * 0.24) + Math.max(2, a.width * 0.25);
+    ctx.beginPath();
+    poly.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+  fillVaryingLine(ctx, shaft, (t) => tail + (bodyEnd - tail) * t);
+  // The head, with softly rounded corners.
+  const left = barb(headHalf);
+  const right = barb(-headHalf);
+  ctx.beginPath();
+  ctx.moveTo(left.x, left.y);
+  ctx.lineTo(tip.x, tip.y);
+  ctx.lineTo(right.x, right.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.lineWidth = Math.max(2, a.width * 0.25);
+  ctx.stroke();
 }
 
 /** Block arrows: one filled (or outlined) polygon made of shaft and heads. */
@@ -630,19 +704,7 @@ export function renderLine(ctx: Ctx2D, a: LineAnnotation): void {
   const body = a.body ?? 'line';
 
   if (body === 'pointer') {
-    const poly = pointerOutline(path, a.width);
-    ctx.beginPath();
-    poly.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-    ctx.closePath();
-    ctx.fill();
-    // Rounded corners (tail, barbs, tip).
-    ctx.lineWidth = Math.max(2, a.width * 0.35);
-    ctx.stroke();
-    if (a.outline && a.outline !== 'transparent') {
-      ctx.strokeStyle = a.outline;
-      ctx.lineWidth = Math.max(2, a.width * 0.12);
-      ctx.stroke();
-    }
+    drawPointer(ctx, a, path);
     ctx.restore();
     return;
   }
@@ -674,11 +736,7 @@ export function renderLine(ctx: Ctx2D, a: LineAnnotation): void {
 
   switch (body) {
     case 'tapered': {
-      const { left, right } = ribbon(shaft, (t) => Math.max(0.5, a.width * (0.08 + 0.5 * t)));
-      ctx.beginPath();
-      [...left, ...[...right].reverse()].forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-      ctx.closePath();
-      ctx.fill();
+      fillVaryingLine(ctx, shaft, (t) => Math.max(1, a.width * (0.2 + 0.4 * t)));
       break;
     }
     case 'double': {
@@ -1093,6 +1151,57 @@ export function markerAutoColors(a: Pick<MarkerAnnotation, 'color' | 'style'>): 
   return { fill: '#FFFFFF', text: a.color, border: a.color };
 }
 
+/** Progress ring in the marker's style: a centre, a light track and a three-quarter arc. */
+function drawProgressRing(ctx: Ctx2D, a: MarkerAnnotation, style: NonNullable<MarkerAnnotation['style']>, r: number): void {
+  const ringR = r * 0.9;
+  const colour = a.fillColor ?? a.color;
+  const solid = style === 'filled' || style === 'gradient';
+  const disc = (radius: number) => {
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, radius, 0, Math.PI * 2);
+  };
+  // The centre.
+  ctx.save();
+  if (style === 'gradient') {
+    const g = ctx.createLinearGradient(a.x, a.y - r, a.x, a.y + r);
+    g.addColorStop(0, shade(colour, 0.32));
+    g.addColorStop(0.55, colour);
+    g.addColorStop(1, shade(colour, -0.22));
+    ctx.fillStyle = g;
+    ctx.shadowColor = alpha(shade(colour, -0.4), 0.45);
+    ctx.shadowBlur = r * 0.45;
+    ctx.shadowOffsetY = r * 0.14;
+  } else if (style === 'filled') {
+    ctx.fillStyle = colour;
+  } else if (style === 'soft') {
+    ctx.fillStyle = a.fillColor ?? alpha(a.color, 0.2);
+  } else {
+    ctx.fillStyle = a.fillColor ?? '#FFFFFF';
+    if (style === 'layered') {
+      ctx.shadowColor = alpha(shade(a.color, -0.4), 0.35);
+      ctx.shadowBlur = r * 0.4;
+      ctx.shadowOffsetY = r * 0.1;
+    }
+  }
+  disc(solid ? r * 0.64 : ringR);
+  ctx.fill();
+  ctx.restore();
+  // The track and the arc.
+  const width = Math.max(1.5, r * (style === 'outline' || style === 'soft' ? 0.1 : style === 'layered' ? 0.26 : 0.2));
+  ctx.lineWidth = width;
+  ctx.strokeStyle = style === 'dashed' ? a.borderColor ?? a.color : shade(a.color, 0.75);
+  if (style === 'dashed') ctx.setLineDash([r * 0.22, r * 0.18]);
+  disc(ringR);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = a.borderColor ?? a.color;
+  ctx.lineWidth = style === 'dashed' ? width * 1.5 : width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(a.x, a.y, ringR, -Math.PI / 2, Math.PI * 1.05);
+  ctx.stroke();
+}
+
 export function renderMarker(ctx: Ctx2D, a: MarkerAnnotation): void {
   const r = a.size / 2;
   const shape = a.shape ?? 'circle';
@@ -1141,19 +1250,7 @@ export function renderMarker(ctx: Ctx2D, a: MarkerAnnotation): void {
   markerPath(ctx, shape, a.x, a.y, r);
   const auto = markerAutoColors(a);
   if (shape === 'ring') {
-    // Progress ring: light track, coloured three-quarter arc, white centre.
-    ctx.fillStyle = a.fillColor ?? '#FFFFFF';
-    ctx.fill();
-    ctx.lineWidth = Math.max(2, r * 0.2);
-    ctx.strokeStyle = shade(a.color, 0.75);
-    ctx.beginPath();
-    ctx.arc(a.x, a.y, r * 0.9, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = a.borderColor ?? a.color;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.arc(a.x, a.y, r * 0.9, -Math.PI / 2, Math.PI * 1.05);
-    ctx.stroke();
+    drawProgressRing(ctx, a, style, r);
   } else if (style === 'dashed') {
     ctx.fillStyle = a.fillColor ?? '#FFFFFF';
     ctx.fill();
@@ -1263,7 +1360,7 @@ export function renderMarker(ctx: Ctx2D, a: MarkerAnnotation): void {
     }
     ctx.restore();
   }
-  const light = style === 'dashed' || style === 'layered' || shape === 'ring';
+  const light = style === 'dashed' || style === 'layered';
   ctx.fillStyle = a.textColor ?? (light ? a.color : auto.text);
   const one = (LABEL_FIT[shape] ?? 0.5) * (WIDE_MARKERS.has(shape) && label.length > 2 ? 1.5 : 1);
   const fit = label.length > 4 ? one * 0.5 : label.length > 2 ? one * 0.68 : label.length > 1 ? one * 0.84 : one;

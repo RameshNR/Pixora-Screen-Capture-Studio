@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Eye, EyeOff, Frame as FrameIcon, Stamp, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, Frame as FrameIcon, Lock, LockOpen, Move, Stamp, Trash2 } from 'lucide-react';
 import type { Annotation, EditorDoc } from '../types';
 import { IconButton } from '@/shared/components/Button';
 import { describeAnnotation } from '../tools/annotations';
@@ -10,6 +10,8 @@ interface LayersProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onToggleHidden: (a: Annotation) => void;
+  /** Locks an unlocked annotation, unlocks a locked (or move only) one. */
+  onToggleLock: (a: Annotation) => void;
   onMove: (a: Annotation, dir: 1 | -1) => void;
   onDelete: (a: Annotation) => void;
   onOpenWatermark: () => void;
@@ -46,10 +48,12 @@ export function LayersPanel(p: LayersProps) {
                 <span className={styles.layerSwatch} style={{ background: swatchColor(a) }} />
                 {describeAnnotation(a)}
               </button>
+              <IconButton tone="dark" size="sm" label={a.lock === 'all' ? 'Unlock' : a.lock === 'move' ? 'Unlock (move only now)' : 'Lock'} active={Boolean(a.lock)}
+                icon={a.lock === 'all' ? <Lock size={14} /> : a.lock === 'move' ? <Move size={14} /> : <LockOpen size={14} />} onClick={() => p.onToggleLock(a)} tooltipSide="left" />
               <IconButton tone="dark" size="sm" label={a.hidden ? 'Show' : 'Hide'} icon={a.hidden ? <EyeOff size={14} /> : <Eye size={14} />} onClick={() => p.onToggleHidden(a)} tooltipSide="left" />
               <IconButton tone="dark" size="sm" label="Bring forward" icon={<ArrowUp size={14} />} disabled={index === p.doc.annotations.length - 1} onClick={() => p.onMove(a, 1)} tooltipSide="left" />
               <IconButton tone="dark" size="sm" label="Send backward" icon={<ArrowDown size={14} />} disabled={index === 0} onClick={() => p.onMove(a, -1)} tooltipSide="left" />
-              <IconButton tone="dark" size="sm" label="Remove" icon={<Trash2 size={14} />} onClick={() => p.onDelete(a)} tooltipSide="left" />
+              <IconButton tone="dark" size="sm" label="Remove" icon={<Trash2 size={14} />} disabled={Boolean(a.lock)} onClick={() => p.onDelete(a)} tooltipSide="left" />
             </li>
           );
         })}

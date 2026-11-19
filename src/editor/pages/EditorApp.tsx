@@ -5,7 +5,7 @@ import type { AutoFrame, CaptureRecord, ImageFormat, Settings } from '@/shared/t
 import { loadSettings } from '@/settings/settings-service';
 import { usePageContextMenu } from '@/shared/components/PageContextMenu';
 import type { MenuItem } from '@/shared/components/Dropdown';
-import { AlignCenter, ArrowDown, ArrowUp, BringToFront, ClipboardPaste, Copy, CopyPlus, Download, Keyboard, Maximize, Pencil, Redo2, SendToBack, Trash2, Undo2 } from 'lucide-react';
+import { AlignCenter, AlignCenterHorizontal, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowUp, BringToFront, ClipboardPaste, Copy, CopyPlus, Download, Keyboard, Lock, LockOpen, Maximize, Move, Pencil, Redo2, Scissors, SendToBack, Trash2, Undo2 } from 'lucide-react';
 import { useSettings } from '@/shared/hooks/useSettings';
 import { useToast } from '@/shared/components/Toast';
 import { Spinner } from '@/shared/components/Progress';
@@ -17,9 +17,9 @@ import { copyImageToClipboard, copyText, downloadBlob } from '@/shared/utils/dow
 import { buildFilename, stripExtension } from '@/shared/utils/filename';
 import { useTheme } from '@/shared/hooks/useTheme';
 import { generateImageThumbnail } from '@/recording/services/thumbnail';
-import type { Annotation, EditorDoc, MarkerAnnotation, Frame, Rect, Tool, ToolStyles, Watermark } from '../types';
+import type { Annotation, BoxAnnotation, EditorDoc, MarkerAnnotation, StrokeAnnotation, Frame, Rect, Tool, ToolStyles, Watermark } from '../types';
 import { BACKGROUND_DEFAULTS, BORDER_DEFAULTS, DEFAULT_TOOL_STYLES, EMPTY_FRAME } from '../types';
-import { canRedo, canUndo, createHistory, historyReducer, timeline, type HistoryState } from '../history/history';
+import { canRedo, canUndo, createHistory, historyReducer, sameDoc, timeline, type HistoryState } from '../history/history';
 import { exportDocument } from '../render';
 import { applyCrop, applyCutOut, applyFlip, applyResize, applyRotate, aspectValue, constrainAspect, cutBand, defaultCutBand, type AspectRatio, type CutBand } from '../tools/crop';
 import { annotationId } from '../tools/common';
@@ -27,6 +27,7 @@ import { describeAnnotation, getBounds, rotateBy, translate } from '../tools/ann
 import type { AlignTo, LayerMove, SelectionActions } from '../components/SelectionBar';
 import { defaultBends } from '../tools/shapes';
 import { fitCallout } from '../tools/callouts';
+import { clipFromShape, isCutShape, isStroke } from '../tools/stroke-clip';
 import { clearRedactCache } from '../tools/blur';
 import { EditorToolbar, nextZoom } from '../components/EditorToolbar';
 import { CanvasWorkspace, type TextEditState, type WorkspaceHandle } from '../components/CanvasWorkspace';
@@ -87,6 +88,8 @@ export function EditorApp() {
   /** Undo history per image (kept while switching images) and the doc last saved for each. */
   const histories = useRef(new Map<string, HistoryState>());
   const savedDocs = useRef(new Map<string, EditorDoc>());
+  /** Whether each image already had saved edits when it was opened. */
+  const editedAtOpen = useRef(new Map<string, boolean>());
   const currentId = load.status === 'ready' ? load.record.id : null;
 
   // Follows Settings › General › Theme (light, dark or the computer's setting).
@@ -110,6 +113,7 @@ export function EditorApp() {
         clean.delete('fresh');
         history.replaceState(null, '', `?${clean.toString()}`);
       }
+      if (!editedAtOpen.current.has(record.id)) editedAtOpen.current.set(record.id, Boolean(record.edited));
       setLoad({ status: 'ready', record, doc: { base, width: base.width, height: base.height, annotations: [], watermark: null, frame } });
     } catch (err) {
       setLoad({ status: 'error', message: err instanceof Error ? err.message : 'The image could not be opened.' });
@@ -143,11 +147,23 @@ export function EditorApp() {
   /** Changed since it was opened or last saved. */
   const changedDoc = (id: string) => {
     const h = histories.current.get(id);
-    return h && h.present.doc !== h.original && h.present.doc !== savedDocs.current.get(id) ? h.present.doc : null;
+    return h && !sameDoc(h.present.doc, h.original) && h.present.doc !== savedDocs.current.get(id) ? h.present.doc : null;
+  };
+  /** Every edit of this session was taken back, and the image had none before. */
+  const reverted = (id: string) => {
+    const h = histories.current.get(id);
+    return Boolean(h) && sameDoc(h!.present.doc, h!.original) && editedAtOpen.current.get(id) === false;
   };
   /** Saves the edits of an image (its original is kept) — before switching away, comparing, collage. */
   const flush = async (id: string | null) => {
     if (!id) return;
+    // Edits saved earlier in this session were all removed again: back to the untouched picture.
+    if (reverted(id) && records[id]?.edited) {
+      const rec = await restoreOriginalImage(id);
+      savedDocs.current.delete(id);
+      if (rec) setRecords((r) => ({ ...r, [id]: rec }));
+      return;
+    }
     const doc = changedDoc(id);
     if (!doc) return;
     const png = await exportDocument(doc, 'png', 1);
@@ -159,7 +175,7 @@ export function EditorApp() {
     setRecords((r) => ({ ...r, [id]: rec }));
     broadcast({ target: 'broadcast', type: 'history/changed' });
   };
-  const isEdited = (id: string) => Boolean(records[id]?.edited) || (dirty.has(id) && Boolean(changedDoc(id)));
+  const isEdited = (id: string) => !reverted(id) && (Boolean(records[id]?.edited) || (dirty.has(id) && Boolean(changedDoc(id))));
 
   const openImage = async (id: string) => {
     if (id === currentId) return;
@@ -253,7 +269,7 @@ export function EditorApp() {
     try {
       const original = await getOriginalImage(id);
       if (!original) return;
-      const edited = changedDoc(id) ? await currentBlob(id) : records[id]?.edited ? await getCaptureBlob(id) : undefined;
+      const edited = changedDoc(id) ? await currentBlob(id) : records[id]?.edited && !reverted(id) ? await getCaptureBlob(id) : undefined;
       setCompare({ id, original: URL.createObjectURL(original), ...(edited ? { edited: URL.createObjectURL(edited) } : {}) });
     } catch (err) {
       toast.error(errorInfoOf(err));
@@ -373,7 +389,7 @@ export function EditorApp() {
         initialHistory={histories.current.get(id)}
         onHistory={(h) => {
           histories.current.set(id, h);
-          const changed = h.present.doc !== h.original;
+          const changed = !sameDoc(h.present.doc, h.original);
           setDirty((d) => (d.has(id) === changed ? d : changed ? new Set(d).add(id) : new Set([...d].filter((x) => x !== id))));
         }}
         onSaved={(rec) => { savedDocs.current.set(id, histories.current.get(id)?.present.doc ?? load.doc); setRecords((r) => ({ ...r, [id]: rec })); }}
@@ -537,9 +553,24 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   /** Several copied objects (used when no single object was copied after them). */
   const manyClipboard = useRef<Annotation[]>([]);
   const workspace = useRef<WorkspaceHandle>(null);
+  /** The object menus as they are now (the selection bar opens them later). */
+  const menusRef = useRef<{ one: () => MenuItem[]; many: () => MenuItem[] }>({ one: () => [], many: () => [] });
+  const selectedRef = useRef<Annotation | null>(null);
+  /** The properties of a locked annotation can't be used. */
+  const lockedPanel = useRef<HTMLDivElement>(null);
   const initialActions = useRef(false);
 
-  const selected = selectedId ? doc.annotations.find((a) => a.id === selectedId) ?? null : null;
+  /** "Move only": the selected annotation can be dragged (and nudged) but not changed, until a click elsewhere. */
+  const [moveOnlyId, setMoveOnlyId] = useState<string | null>(null);
+  const moveOnlyRef = useRef(moveOnlyId);
+  moveOnlyRef.current = moveOnlyId;
+  const found = selectedId ? doc.annotations.find((a) => a.id === selectedId) ?? null : null;
+  // While moving only, it behaves like a "move only" lock (the lock isn't saved with it).
+  const selected = useMemo(() => (found && found.id === moveOnlyId && !found.lock ? ({ ...found, lock: 'move' } as Annotation) : found), [found, moveOnlyId]);
+  useEffect(() => {
+    if (moveOnlyId && moveOnlyId !== selectedId) setMoveOnlyId(null);
+  }, [selectedId, moveOnlyId]);
+  selectedRef.current = selected;
 
   // Persisted tool styles and editor choices: loaded once, then saved whenever they change.
   useEffect(() => {
@@ -571,6 +602,14 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   useLayoutEffect(() => {
     workspace.current?.fit();
   }, []);
+
+  const selectedLock = selected?.lock;
+  useEffect(() => {
+    const el = lockedPanel.current;
+    if (!el) return;
+    if (selectedLock) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  });
 
   // Drop the selection if the object disappeared (undo, eraser…).
   useEffect(() => {
@@ -679,7 +718,11 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
 
   /* ------------------------------ style changes ------------------------------ */
   const replaceAnnotation = useCallback(
-    (a: Annotation, label: string, key?: string) => commit({ ...doc, annotations: doc.annotations.map((x) => (x.id === a.id ? a : x)) }, label, key),
+    (a: Annotation, label: string, key?: string) => {
+      // "Move only" is not kept on the annotation.
+      const kept = a.lock === 'move' && a.id === moveOnlyRef.current && !doc.annotations.find((x) => x.id === a.id)?.lock ? ({ ...a, lock: undefined } as Annotation) : a;
+      commit({ ...doc, annotations: doc.annotations.map((x) => (x.id === a.id ? kept : x)) }, label, key);
+    },
     [doc, commit],
   );
 
@@ -721,7 +764,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         }
         return;
       }
-      if (!selected || styleKindFor(selected.type) !== kind) return;
+      if (!selected || styleKindFor(selected.type) !== kind || selected.lock) return;
       const { bends, curve, ...rest } = patch as { bends?: number; curve?: boolean } & Record<string, unknown>;
       let updated = { ...selected, ...rest } as Annotation;
       if ((updated.type === 'line' || updated.type === 'arrow') && typeof bends === 'number' && (bends !== (updated.bends?.length ?? 0) || curve)) {
@@ -735,12 +778,24 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     [selected, replaceAnnotation, doc, commit],
   );
 
+  const setLock = useCallback(
+    (a: Annotation, lock: 'all' | 'move' | null) => {
+      const name = describeAnnotation(a).toLowerCase();
+      replaceAnnotation({ ...a, lock: lock ?? undefined } as Annotation, lock === 'all' ? `Lock ${name}` : lock === 'move' ? `Move only ${name}` : `Unlock ${name}`);
+    },
+    [replaceAnnotation],
+  );
+
   const removeAnnotation = useCallback(
     (a: Annotation) => {
+      if (a.lock) {
+        toast.info('This annotation is locked', 'Unlock it first: right-click it, or use the lock in the Layers panel.');
+        return;
+      }
       commit({ ...doc, annotations: doc.annotations.filter((x) => x.id !== a.id) }, `Remove ${describeAnnotation(a).toLowerCase()}`);
       if (selectedId === a.id) setSelectedId(null);
     },
-    [doc, commit, selectedId],
+    [doc, commit, selectedId, toast],
   );
 
   const deleteSelected = useCallback(() => {
@@ -813,9 +868,9 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
 
   const persistEdits = useCallback(
     async (blob: Blob, patch: Partial<CaptureRecord> = {}) => {
-      if (doc === savedDoc && !patch.downloadId && !patch.name) return;
+      if (sameDoc(doc, savedDoc) && !patch.downloadId && !patch.name) return;
       const png = blob.type === 'image/png' ? blob : await exportDocument(doc, 'png', 1);
-      const changed = doc !== savedDoc;
+      const changed = !sameDoc(doc, savedDoc);
       const bitmap = changed ? await createImageBitmap(png) : null;
       // Every image keeps its original (Compare / Restore original in both editors).
       if (changed) await keepOriginal(record.id);
@@ -846,7 +901,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       setWorking(`Preparing ${filename || 'screenshot'}.${ext}…`);
       try {
         // Nothing drawn, framed or changed: the stored PNG is the result (no re-encoding, instant).
-        const untouched = format === 'png' && doc === savedDoc && doc.annotations.length === 0 && !doc.frame && !doc.watermark
+        const untouched = format === 'png' && sameDoc(doc, savedDoc) && doc.annotations.length === 0 && !doc.frame && !doc.watermark
           && doc.width === record.width && doc.height === record.height && record.mimeType === 'image/png';
         const blob = (untouched ? await getCaptureBlob(record.id).catch(() => undefined) : undefined) ?? (await render());
         setWorking(null);
@@ -989,7 +1044,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   // Warn about unsaved annotations when closing the tab.
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
-      if (doc !== savedDoc) e.preventDefault();
+      if (!sameDoc(doc, savedDoc)) e.preventDefault();
     };
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);
@@ -1007,7 +1062,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
 
   const duplicate = useCallback(
     (a: Annotation, offset = 16) => {
-      const copy = { ...translate(a, offset, offset), id: annotationId() } as Annotation;
+      const copy = { ...translate(a, offset, offset), id: annotationId(), lock: undefined } as Annotation;
       if (copy.type === 'marker') copy.n = doc.annotations.reduce((m, x) => (x.type === 'marker' ? Math.max(m, x.n) : m), 0) + 1;
       addAnnotations([copy], `Duplicate ${describeAnnotation(a).toLowerCase()}`);
     },
@@ -1039,8 +1094,10 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const selectionActions = useMemo<SelectionActions | null>(() => {
     if (!selected) return null;
     const kind = styleKindFor(selected.type);
-    const textual = (selected.type === 'text' || selected.type === 'callout') && kind;
+    const textual = (selected.type === 'text' || selected.type === 'callout') && kind && !selected.lock;
     return {
+      menu: () => menusRef.current.one(),
+      ...(selected.lock ? { locked: selected.lock, unlock: () => (selected.id === moveOnlyId && !found?.lock ? setMoveOnlyId(null) : setLock(selected, null)) } : {}),
       copy: () => {
         clipboard.current = selected;
         setHasClipboard(true);
@@ -1056,7 +1113,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       duplicate: () => duplicate(selected),
       remove: () => removeAnnotation(selected),
       layer: (to) => moveLayerTo(selected, to),
-      align: (to) => alignTo(selected, to),
+      ...(selected.lock === 'all' ? {} : { align: (to: AlignTo) => alignTo(selected, to) }),
       text: textual
         ? {
             size: selected.fontSize,
@@ -1068,14 +1125,14 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           }
         : undefined,
     };
-  }, [selected, hasClipboard, duplicate, removeAnnotation, moveLayerTo, alignTo, onStyleChange, toast]);
+  }, [selected, found, moveOnlyId, hasClipboard, duplicate, removeAnnotation, moveLayerTo, alignTo, onStyleChange, toast, setLock]);
 
   /* ------------------------------ several objects ----------------------------- */
   const multiSelected = useMemo(() => doc.annotations.filter((a) => multiIds.includes(a.id)), [doc.annotations, multiIds]);
   const addCopies = useCallback((list: readonly Annotation[], offset: number, label: string) => {
     let lastMarker = doc.annotations.reduce((m, x) => (x.type === 'marker' ? Math.max(m, x.n) : m), 0);
     const copies = list.map((a) => {
-      const copy = { ...translate(a, offset, offset), id: annotationId() } as Annotation;
+      const copy = { ...translate(a, offset, offset), id: annotationId(), lock: undefined } as Annotation;
       if (copy.type === 'marker') copy.n = ++lastMarker;
       return copy;
     });
@@ -1096,15 +1153,19 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     },
     duplicate: () => addCopies(multiSelected, 16, 'Duplicate'),
     remove: () => {
-      commit({ ...doc, annotations: doc.annotations.filter((a) => !multiIds.includes(a.id)) }, `Delete ${multiSelected.length} objects`);
+      // Locked annotations stay.
+      const gone = multiSelected.filter((a) => !a.lock);
+      if (!gone.length) return;
+      commit({ ...doc, annotations: doc.annotations.filter((a) => !gone.some((g) => g.id === a.id)) }, `Delete ${gone.length} objects`);
       setMultiIds([]);
     },
-    nudge: (dx: number, dy: number) => commit({ ...doc, annotations: doc.annotations.map((a) => (multiIds.includes(a.id) ? translate(a, dx, dy) : a)) }, `Move ${multiSelected.length} objects`, 'many:nudge'),
+    nudge: (dx: number, dy: number) => commit({ ...doc, annotations: doc.annotations.map((a) => (multiIds.includes(a.id) && a.lock !== 'all' ? translate(a, dx, dy) : a)) }, `Move ${multiSelected.length} objects`, 'many:nudge'),
   };
   const manyRef = useRef(many);
   manyRef.current = many;
   const multiActions: SelectionActions | null = multiIds.length > 1 ? {
     count: multiIds.length,
+    menu: () => menusRef.current.many(),
     copy: many.copy,
     paste: clipboard.current ? () => { if (clipboard.current) duplicate(clipboard.current, 24); } : manyClipboard.current.length ? pasteMany : null,
     duplicate: many.duplicate,
@@ -1113,21 +1174,72 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
 
   /* --------------------------- right-click menus --------------------------- */
   /** Menu for an object on the canvas (it is selected first). */
+  /**
+   * Cutting pen / highlighter strokes with a shape: offered when several objects are selected — the
+   * selected strokes are cut with the selected shape (the highest one when there are several).
+   * "Undo cut" is also offered for a single cut stroke.
+   */
+  const cutItems = (picked: readonly Annotation[]): MenuItem[] => {
+    const shape = [...picked].reverse().find((x) => isCutShape(x)) as BoxAnnotation | undefined;
+    const strokes = picked.filter((x) => isStroke(x) && !x.lock) as StrokeAnnotation[];
+    const cut = strokes.filter((x) => x.clip);
+    const canCut = picked.length > 1 && Boolean(shape) && strokes.length > 0;
+    const what = strokes.some((x) => x.type === 'highlighter') ? 'highlight' : 'drawing';
+    const apply = (keep: 'inside' | 'outside' | null, list: StrokeAnnotation[], label: string) => {
+      const ids = new Set(list.map((x) => x.id));
+      // The shape has done its job: it goes (unless locked). Ctrl+Z brings both back.
+      const used = keep && shape && !shape.lock ? shape.id : null;
+      commit({
+        ...doc,
+        annotations: doc.annotations
+          .filter((x) => x.id !== used)
+          .map((x) => (ids.has(x.id) && isStroke(x) ? ({ ...x, clip: keep && shape ? clipFromShape(shape, keep) : undefined } as Annotation) : x)),
+      }, label);
+      if (used) setMultiIds([]);
+    };
+    return [
+      ...(canCut ? [
+        { id: 'cut-out', label: `Cut the ${what} away inside the shape`, icon: <Scissors size={14} />, separatorBefore: true, onSelect: () => apply('outside', strokes, `Cut ${what} with shape`) },
+        { id: 'cut-in', label: `Keep the ${what} only inside the shape`, icon: <Scissors size={14} />, onSelect: () => apply('inside', strokes, `Cut ${what} to shape`) },
+      ] : []),
+      ...(cut.length ? [{ id: 'cut-undo', label: 'Undo cut', icon: <Undo2 size={14} />, separatorBefore: !canCut, onSelect: () => apply(null, cut, `Undo cut of ${what}`) }] : []),
+    ];
+  };
+
   const objectMenu = (a: Annotation): MenuItem[] => {
     const textual = a.type === 'text' || a.type === 'callout';
     return [
-      ...(textual ? [{ id: 'edit', label: 'Edit text', icon: <Pencil size={14} />, onSelect: () => setTextEdit({ annotation: a as TextEditState['annotation'], isNew: false }) }] : []),
+      ...(textual ? [{ id: 'edit', label: 'Edit text', icon: <Pencil size={14} />, disabled: Boolean(a.lock), onSelect: () => setTextEdit({ annotation: a as TextEditState['annotation'], isNew: false }) }] : []),
       { id: 'copy', label: 'Copy', description: 'Ctrl+C', icon: <Copy size={14} />, separatorBefore: textual, onSelect: () => { clipboard.current = a; setHasClipboard(true); } },
       { id: 'paste', label: 'Paste', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current, onSelect: () => { if (clipboard.current) { duplicate(clipboard.current, 24); clipboard.current = translate(clipboard.current, 24, 24); } } },
       { id: 'dup', label: 'Duplicate', description: 'Ctrl+D', icon: <CopyPlus size={14} />, onSelect: () => duplicate(a) },
+      ...cutItems([a]),
+      ...(a.lock ? [{ id: 'unlock', label: 'Unlock', icon: <LockOpen size={14} />, separatorBefore: true, onSelect: () => setLock(a, null) }] : []),
+      ...(!a.lock ? [{ id: 'move-only', label: 'Move only', icon: <Move size={14} />, separatorBefore: true, onSelect: () => { setSelectedId(a.id); setMoveOnlyId(a.id); } }] : []),
+      ...(a.lock !== 'all' ? [{ id: 'lock', label: 'Lock', icon: <Lock size={14} />, onSelect: () => setLock(a, 'all') }] : []),
       { id: 'front', label: 'Bring to front', icon: <BringToFront size={14} />, separatorBefore: true, onSelect: () => moveLayerTo(a, 'front') },
       { id: 'fwd', label: 'Bring forward', icon: <ArrowUp size={14} />, onSelect: () => moveLayerTo(a, 'forward') },
       { id: 'back', label: 'Send backward', icon: <ArrowDown size={14} />, onSelect: () => moveLayerTo(a, 'backward') },
       { id: 'toback', label: 'Send to back', icon: <SendToBack size={14} />, onSelect: () => moveLayerTo(a, 'back') },
-      { id: 'centre', label: 'Centre on image', icon: <AlignCenter size={14} />, separatorBefore: true, onSelect: () => { alignTo(a, 'center'); } },
-      { id: 'del', label: 'Delete', description: 'Del', icon: <Trash2 size={14} />, danger: true, separatorBefore: true, onSelect: () => removeAnnotation(a) },
+      { id: 'align-left', label: 'Align left', icon: <AlignStartVertical size={14} />, separatorBefore: true, disabled: a.lock === 'all', onSelect: () => alignTo(a, 'left') },
+      { id: 'centre', label: 'Centre on image', icon: <AlignCenter size={14} />, disabled: a.lock === 'all', onSelect: () => { alignTo(a, 'center'); } },
+      { id: 'align-right', label: 'Align right', icon: <AlignEndVertical size={14} />, disabled: a.lock === 'all', onSelect: () => alignTo(a, 'right') },
+      { id: 'align-top', label: 'Align top', icon: <AlignStartHorizontal size={14} />, disabled: a.lock === 'all', onSelect: () => alignTo(a, 'top') },
+      { id: 'align-middle', label: 'Align middle', icon: <AlignCenterHorizontal size={14} />, disabled: a.lock === 'all', onSelect: () => alignTo(a, 'middle') },
+      { id: 'align-bottom', label: 'Align bottom', icon: <AlignEndHorizontal size={14} />, disabled: a.lock === 'all', onSelect: () => alignTo(a, 'bottom') },
+      { id: 'del', label: 'Delete', description: 'Del', icon: <Trash2 size={14} />, danger: true, separatorBefore: true, disabled: Boolean(a.lock), onSelect: () => removeAnnotation(a) },
     ];
   };
+  /** Menu for several selected objects (right-click on one of them, or the bar's ⋯). */
+  const multiMenu = (): MenuItem[] => [
+    { id: 'copy', label: 'Copy', description: 'Ctrl+C', icon: <Copy size={14} />, onSelect: () => manyRef.current.copy() },
+    { id: 'paste', label: 'Paste', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current && !manyClipboard.current.length, onSelect: () => (clipboard.current ? duplicate(clipboard.current, 24) : pasteMany()) },
+    { id: 'dup', label: 'Duplicate', description: 'Ctrl+D', icon: <CopyPlus size={14} />, onSelect: () => manyRef.current.duplicate() },
+    ...cutItems(multiSelected),
+    { id: 'del', label: 'Delete', description: 'Del', icon: <Trash2 size={14} />, danger: true, separatorBefore: true, onSelect: () => manyRef.current.remove() },
+  ];
+  menusRef.current = { one: () => (selectedRef.current ? objectMenu(selectedRef.current) : []), many: multiMenu };
+
   /** Menu for the image / the rest of the editor. */
   const canvasMenu = (): MenuItem[] => [
     { id: 'paste', label: 'Paste object', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current, onSelect: () => { if (clipboard.current) { duplicate(clipboard.current, 24); clipboard.current = translate(clipboard.current, 24, 24); } } },
@@ -1148,16 +1260,17 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     (dir: 1 | -1) => {
       const grow = (v: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(v * (dir > 0 ? 1.15 : 1 / 1.15) + dir)));
       if (selected) {
+        if (selected.lock) return;
         let next: Annotation | null = null;
         if ('width' in selected && typeof selected.width === 'number') {
-          next = { ...selected, width: grow(selected.width, 1, 200) } as Annotation;
+          next = { ...selected, width: grow(selected.width, 1, 600) } as Annotation;
         } else if (selected.type === 'text' || selected.type === 'callout') {
-          next = { ...selected, fontSize: grow(selected.fontSize, 6, 400) };
+          next = { ...selected, fontSize: grow(selected.fontSize, 6, 600) };
           if (next.type === 'callout') next = fitCallout(next);
         } else if (selected.type === 'marker' || selected.type === 'sticker' || selected.type === 'cursor') {
-          next = { ...selected, size: grow(selected.size, 8, 600) };
+          next = { ...selected, size: grow(selected.size, 8, 1000) };
         } else if (selected.type === 'blur' || selected.type === 'pixelate') {
-          next = { ...selected, intensity: grow(selected.intensity, 2, 60) };
+          next = { ...selected, intensity: grow(selected.intensity, 2, 200) };
         }
         if (next) replaceAnnotation(next, `Resize ${describeAnnotation(selected).toLowerCase()}`, `${selected.id}:size`);
         return;
@@ -1253,6 +1366,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       if (mod || e.altKey) return;
       if (e.key === '?' || e.key === 'F1') { e.preventDefault(); setShortcutsOpen(true); return; }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
+      if (e.key === 'Escape' && moveOnlyRef.current) { setMoveOnlyId(null); return; }
       if (e.key === 'Escape') {
         if (crop) { setCrop(null); setToolState('select'); }
         else if (cut) { setCut(null); setToolState('select'); }
@@ -1262,7 +1376,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       }
       if (e.key === 'Enter' && crop) { e.preventDefault(); applyCurrentCrop(); return; }
       if (e.key === 'Enter' && cut) { e.preventDefault(); applyCurrentCut(); return; }
-      if (e.key === 'Enter' && selected && (selected.type === 'text' || selected.type === 'callout')) {
+      if (e.key === 'Enter' && selected && !selected.lock && (selected.type === 'text' || selected.type === 'callout')) {
         e.preventDefault();
         setTextEdit({ annotation: selected, isNew: false });
         return;
@@ -1278,7 +1392,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       }
       if (e.key === ' ' && !e.repeat) { e.preventDefault(); setPanning(true); return; }
       if (e.key === '[' || e.key === ']') { e.preventDefault(); stepSize(e.key === ']' ? 1 : -1); return; }
-      if ((e.key === ',' || e.key === '.' || e.key === '<' || e.key === '>') && selected) {
+      if ((e.key === ',' || e.key === '.' || e.key === '<' || e.key === '>') && selected && !selected.lock) {
         e.preventDefault();
         const step = e.shiftKey ? 1 : 15;
         const deg = e.key === ',' || e.key === '<' ? -step : step;
@@ -1286,7 +1400,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         if (next !== selected) replaceAnnotation(next, `Rotate ${describeAnnotation(selected).toLowerCase()}`, `${selected.id}:rotate`);
         return;
       }
-      if (selected && e.key.startsWith('Arrow')) {
+      if (selected && selected.lock !== 'all' && e.key.startsWith('Arrow')) {
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
@@ -1325,7 +1439,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         onTool={setTool}
         canUndo={canUndo(hist)}
         canRedo={canRedo(hist)}
-        canReset={hist.present.doc !== hist.original}
+        canReset={!sameDoc(hist.present.doc, hist.original)}
         onUndo={() => dispatch({ type: 'undo' })}
         onRedo={() => dispatch({ type: 'redo' })}
         onReset={() => { setCrop(null); setSelectedId(null); dispatch({ type: 'reset' }); requestAnimationFrame(() => workspace.current?.fit()); }}
@@ -1375,7 +1489,10 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           multiIds={multiIds}
           onMultiChange={setMultiIds}
           multiActions={multiActions}
-          onCanvasMenu={(e, hit) => pageMenu.handle(e, hit ? objectMenu(hit) : canvasMenu())}
+          onWatermarkMove={(w) => setWatermark(w, 'watermark:move')}
+          moveOnlyId={moveOnlyId}
+          onMoveOnlyEnd={() => setMoveOnlyId(null)}
+          onCanvasMenu={(e, hit) => pageMenu.handle(e, hit ? (multiIds.length > 1 && multiIds.includes(hit.id) ? multiMenu() : objectMenu(hit)) : canvasMenu())}
           {...(inline ? { padding: 0 } : {})}
         />
         {panelPortal(<aside className={inline ? styles.panelInline : styles.panel} aria-label="Properties">
@@ -1395,7 +1512,24 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
                 <div className={styles.hint}>Move, copy, paste, duplicate or delete them together. Select one object to change its style.</div>
               </section>
             )}
+            {panelTab === 'props' && multiIds.length <= 1 && selected?.lock && (
+              <section className={styles.section} aria-label="Locked">
+                <div className={styles.sectionTitle}>{selected.lock === 'all' ? 'Locked' : 'Move only'}</div>
+                {selected.id === moveOnlyId && !found?.lock ? (
+                  <>
+                    <div className={styles.hint}>Drag it (or use the arrow keys) to move it; nothing else changes. Click anywhere else to finish.</div>
+                    <Button size="sm" variant="secondary" onClick={() => setMoveOnlyId(null)}>Done</Button>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.hint}>{selected.lock === 'all' ? 'This annotation can’t be moved or changed.' : 'This annotation can be moved, but not changed.'} Unlock it to change it.</div>
+                    <Button size="sm" variant="secondary" icon={<LockOpen size={14} />} onClick={() => setLock(selected, null)}>Unlock</Button>
+                  </>
+                )}
+              </section>
+            )}
             {panelTab === 'props' && multiIds.length <= 1 && (
+              <div ref={lockedPanel} className={selected?.lock ? styles.lockedPanel : undefined}>
               <PropertiesPanel
                 tool={tool}
                 docSize={{ w: doc.width, h: doc.height }}
@@ -1434,12 +1568,14 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
                     : null
                 }
               />
+              </div>
             )}
             {panelTab === 'layers' && (
               <LayersPanel
                 doc={doc}
                 selectedId={selectedId}
                 onSelect={(id) => { setToolState('select'); setSelectedId(id); setPanelTab('props'); }}
+                onToggleLock={(a) => setLock(a, a.lock ? null : 'all')}
                 onToggleHidden={(a) => replaceAnnotation({ ...a, hidden: !a.hidden }, `${a.hidden ? 'Show' : 'Hide'} ${describeAnnotation(a).toLowerCase()}`)}
                 onMove={moveLayer}
                 onDelete={removeAnnotation}

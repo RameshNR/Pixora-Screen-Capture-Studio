@@ -142,7 +142,7 @@ export function EditorToolbar(p: Props) {
 
       <div className={`${styles.group} ${styles.center}`}>
         {T('select', 'Select & move', <MousePointer2 size={18} />, 'V')}
-        {T('hand', 'Pan', <Hand size={18} />, 'Space')}
+        {T('hand', 'Move & pan (drag an object to move it, the image to pan)', <Hand size={18} />, 'H')}
         {!p.videoMode && <>
         <span className={styles.sep} />
         {T('crop', 'Crop', <Crop size={18} />, 'C')}

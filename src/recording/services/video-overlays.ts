@@ -1,6 +1,7 @@
 import type { Annotation, EditorDoc, Watermark } from '@/editor/types';
 import { getBounds, renderAnnotation, translate } from '@/editor/tools/annotations';
 import { drawWatermark } from '@/editor/tools/decorations';
+import { isRedaction, redactSource } from '@/editor/tools/layers';
 import { viewScale, type Ctx2D } from '@/editor/tools/common';
 
 /**
@@ -203,7 +204,9 @@ export function drawOverlays(ctx: Ctx2D, base: ImageBitmap | null, overlays: rea
   const size = Math.min(w, h);
   // Canvas blur and glow are measured in real pixels, the drawings in video pixels.
   const px = viewScale(ctx);
-  for (const o of activeOverlays(overlays, t)) {
+  const active = activeOverlays(overlays, t);
+  const layers = active.map((o) => o.annotation);
+  for (const [index, o] of active.entries()) {
     const st = overlayState(o, t, size);
     const { l, r, t: ct, b: cb } = st.clip;
     if (st.alpha <= 0.001 || r - l <= 0.001 || cb - ct <= 0.001) continue;
@@ -233,7 +236,7 @@ export function drawOverlays(ctx: Ctx2D, base: ImageBitmap | null, overlays: rea
       ctx.shadowColor = 'rgba(255, 220, 90, 0.95)';
       ctx.shadowBlur = size * 0.02 * st.glow * px;
     }
-    if (base || (a.type !== 'blur' && a.type !== 'pixelate')) renderAnnotation(ctx, base ?? (null as unknown as ImageBitmap), a);
+    if (base || !isRedaction(a)) renderAnnotation(ctx, (base && isRedaction(a) ? redactSource(base, w, h, layers, index) : base ?? null) as ImageBitmap, a);
     ctx.restore();
   }
   if (watermark) drawWatermark(ctx, { width: w, height: h } as EditorDoc, watermark);

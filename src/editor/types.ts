@@ -31,6 +31,8 @@ interface Base {
   hidden?: boolean;
   /** Rotation in degrees around the object's centre (box-like objects). */
   rotation?: number;
+  /** 'all': can't be moved or changed; 'move': can be moved but not changed. */
+  lock?: 'all' | 'move';
 }
 
 /** Pen designs: standard, brush, dotted / dashed, sketch, creative, pressure, textured and special effects. */
@@ -51,6 +53,18 @@ export interface StrokeAnnotation extends Base {
   design?: PenDesign | HighlightDesign;
   /** Second colour (outline of outlined pens, border of text-box highlights, arrow of annotation highlights). */
   accent?: string;
+  /** Cut by a shape: only the part inside it is kept, or its area is cut out. */
+  clip?: StrokeClip;
+}
+
+export interface StrokeClip extends Rect {
+  /** The shape it was cut with (an annotation id). */
+  from: string;
+  keep: 'inside' | 'outside';
+  /** Outline of the shape (a shape-library kind). */
+  kind: string;
+  radius: number;
+  rotation: number;
 }
 
 export interface BoxAnnotation extends Base, Rect {
@@ -192,6 +206,8 @@ export interface CalloutAnnotation extends Base, Rect, TextStyle {
   /** How far the title and the body text were dragged from their place in the design. */
   titleOffset?: Point;
   textOffset?: Point;
+  /** How far the number badge / icon was dragged from its place in the design. */
+  badgeOffset?: Point;
   /** The size chosen by the user while the box is enlarged to fit its text. */
   fitBase?: { w: number; h: number };
   /** Secondary colour: title bars, quote marks, stripes. */
@@ -362,6 +378,8 @@ export interface Watermark {
   color: string;
   opacity: number;
   position: WatermarkPosition;
+  /** How far it was dragged from `position`, as a share of the image's width and height. */
+  offset?: Point;
   /** Degrees. */
   rotation: number;
   style?: WatermarkStyle;

@@ -70,8 +70,8 @@ test('canvas clicks: outside the image, Ctrl+click, and Ctrl+Shift+click for sev
   await bar.getByRole('button', { name: 'More options' }).click();
   const menu = editor.getByRole('menu', { name: 'Object options' });
   for (const name of ['Copy', 'Paste', 'Duplicate', 'Delete']) await expect(menu.getByRole('menuitem', { name })).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: 'Layer' })).toHaveCount(0);
-  await expect(menu.getByRole('menuitem', { name: 'Align to image' })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: 'Bring forward' })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: 'Align left' })).toHaveCount(0);
   await editor.keyboard.press('Escape');
 
   // Drag one: both move in a single step.

@@ -246,7 +246,7 @@ export function VideoApp() {
       { id: 'start', label: 'Start at the playhead', separatorBefore: true, disabled: time >= o.end, onSelect: () => updateOverlay(o, { start: Math.min(time, o.end - 0.1) }) },
       { id: 'end', label: 'End at the playhead', disabled: time <= o.start, onSelect: () => updateOverlay(o, { end: Math.max(time, o.start + 0.1) }) },
       { id: 'whole', label: 'Apply throughout video', onSelect: () => updateOverlay(o, { start: 0, end: duration }) },
-      { id: 'del', label: 'Delete', description: 'Del', icon: <Trash2 size={14} />, danger: true, separatorBefore: true, onSelect: () => deleteOverlay(o) },
+      { id: 'del', label: 'Delete', description: 'Del', icon: <Trash2 size={14} />, danger: true, separatorBefore: true, disabled: Boolean(o.annotation.lock), onSelect: () => deleteOverlay(o) },
     ];
   };
 
@@ -257,7 +257,7 @@ export function VideoApp() {
       const t = e.target as HTMLElement | null;
       if (t?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
       const o = overlays.find((x) => x.annotation.id === selectedAnnotation);
-      if (!o) return;
+      if (!o || o.annotation.lock) return;
       e.preventDefault();
       deleteOverlay(o);
     };

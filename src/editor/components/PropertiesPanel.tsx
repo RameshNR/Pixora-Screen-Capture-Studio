@@ -18,7 +18,7 @@ import { BLUR_GROUPS, CLEAR_LOOK, MASK_GROUPS, MASK_REGIONS, PIXEL_GROUPS, rende
 import { renderSticker } from '../tools/shapes';
 import { GRADIENT_PAIRS, TEXT_DECOS, TEXT_GROUPS, TEXT_LOOK_RESET, type TextPreset } from '../tools/text-presets';
 import { renderText, textBounds } from '../tools/text';
-import { drawWatermark, WATERMARK_PRESETS } from '../tools/decorations';
+import { drawWatermark, watermarkMovable, WATERMARK_PRESETS } from '../tools/decorations';
 import { CURSOR_GROUPS, CURSOR_TRAILS, cursorGroupOf, type CursorGroup } from '../tools/cursor';
 import type { DeviceFinish, DeviceKind } from '../types';
 import { rememberFrameImage } from '../tools/decorations';
@@ -118,6 +118,12 @@ const BODY_OPTIONS: Array<{ value: LineBody; label: string }> = [
   { value: 'bars', label: 'Bar trail' },
   { value: 'loop', label: 'Loop' },
 ];
+
+/** Line designs drawn with a line that can be dashed or dotted. */
+const DASH_BODIES = new Set<LineBody>(['line', 'outline', 'double', 'triple']);
+/** Filled block arrows: a head is either there or not, in the block's own shape. */
+const BLOCK_BODIES = new Set<LineBody>(['block', 'outline', 'notched']);
+const BLOCK_HEADS = HEAD_OPTIONS.filter((h) => h.value === 'none' || h.value === 'triangle');
 
 const DASH_OPTIONS = [
   { value: 'solid' as const, label: <span className={styles.dashPreview} style={{ borderTopStyle: 'solid' }} aria-label="Solid" /> },
@@ -219,7 +225,7 @@ function FontSelect({ value, onChange, label = 'Font' }: { value: string; onChan
  * ("Title colour", "Header size"…) when several text styles share a panel.
  */
 function TextStyleFields({
-  v, set, name = '', alignment = true, effects = true, section = true, maxSize = 200,
+  v, set, name = '', alignment = true, effects = true, section = true, maxSize = 600,
 }: {
   v: Partial<TextStyle>; set: (patch: Partial<TextStyle>, key: string) => void; name?: string; alignment?: boolean; effects?: boolean; section?: boolean; maxSize?: number;
 }) {
@@ -266,7 +272,7 @@ function TextStyleFields({
             <ColorSwatches label={n('Section background')} colors={['transparent', ...PALETTE.slice(0, 7)]} value={String(v.sectionBg ?? 'transparent')} onChange={(c) => set({ sectionBg: c }, key('sectionBg'))} />
           </Field>
           {(v.sectionBg ?? 'transparent') !== 'transparent' && (
-            <Slider tone="dark" label={n('Section padding')} min={0} max={60} value={Number(v.sectionPad ?? 6)} format={(x) => `${x}px`} onChange={(x) => set({ sectionPad: x }, key('sectionPad'))} />
+            <Slider tone="dark" label={n('Section padding')} min={0} max={200} value={Number(v.sectionPad ?? 6)} format={(x) => `${x}px`} onChange={(x) => set({ sectionPad: x }, key('sectionPad'))} />
           )}
         </>
       )}
@@ -281,8 +287,8 @@ function TextEffectFields({ v, set, name = '' }: { v: Partial<TextStyle>; set: (
   const key = (k: string) => (name ? `${name}-${k}` : k);
   return (
     <>
-      <Slider tone="dark" label={n('Letter spacing')} min={-2} max={30} value={Number(v.letterSpacing ?? 0)} format={(x) => `${x}px`} onChange={(x) => set({ letterSpacing: x }, key('letterSpacing'))} />
-      <Slider tone="dark" label={n('Text outline')} min={0} max={12} value={Number(v.outlineWidth ?? 0)} format={(x) => (x ? `${x}px` : 'None')} onChange={(x) => set({ outlineWidth: x }, key('outlineWidth'))} />
+      <Slider tone="dark" label={n('Letter spacing')} min={-2} max={100} value={Number(v.letterSpacing ?? 0)} format={(x) => `${x}px`} onChange={(x) => set({ letterSpacing: x }, key('letterSpacing'))} />
+      <Slider tone="dark" label={n('Text outline')} min={0} max={60} value={Number(v.outlineWidth ?? 0)} format={(x) => (x ? `${x}px` : 'None')} onChange={(x) => set({ outlineWidth: x }, key('outlineWidth'))} />
       {Number(v.outlineWidth ?? 0) > 0 && (
         <ColorSwatches label={n('Outline colour')} colors={PALETTE} value={String(v.outlineColor ?? '#FFFFFF')} onChange={(c) => set({ outlineColor: c }, key('outlineColor'))} />
       )}
@@ -795,7 +801,7 @@ function RedactDesigns({ kind, v, set, selected, docSize, part }: { kind: 'blur'
   return (
     <>
       {kind !== 'mask' && (
-        <Slider tone="dark" label={kind === 'blur' ? 'Blur intensity' : 'Block size'} min={2} max={kind === 'blur' ? 40 : 48} value={intensity} format={(x) => `${x}px`} onChange={(x) => set({ intensity: x }, 'intensity')} />
+        <Slider tone="dark" label={kind === 'blur' ? 'Blur intensity' : 'Block size'} min={2} max={200} value={intensity} format={(x) => `${x}px`} onChange={(x) => set({ intensity: x }, 'intensity')} />
       )}
       {kind === 'mask' && (
         <>
@@ -830,7 +836,7 @@ function RedactDesigns({ kind, v, set, selected, docSize, part }: { kind: 'blur'
         )}
       </div>
       {(!s('shape') || s('shape') === 'rect') && (
-        <Slider tone="dark" label="Region corner radius" min={0} max={80} value={typeof v.radius === 'number' ? (v.radius as number) : 0} format={(x) => `${x}px`} onChange={(x) => set({ radius: x || undefined }, 'radius')} />
+        <Slider tone="dark" label="Region corner radius" min={0} max={400} value={typeof v.radius === 'number' ? (v.radius as number) : 0} format={(x) => `${x}px`} onChange={(x) => set({ radius: x || undefined }, 'radius')} />
       )}
       {kind !== 'mask' && (
         <>
@@ -1122,7 +1128,7 @@ function TextSettings({ v, set, selected }: { v: Record<string, unknown>; set: (
                   <ColorSwatches label={prefix ? `${prefix} section background` : 'Section background'} colors={['transparent', ...PALETTE.slice(0, 7)]} value={String(style.sectionBg ?? 'transparent')} onChange={(c) => setStyle({ sectionBg: c }, `${prefix}sectionBg`)} />
                 </Field>
                 {(style.sectionBg ?? 'transparent') !== 'transparent' && (
-                  <Slider tone="dark" label={prefix ? `${prefix} section padding` : 'Section padding'} min={0} max={60} value={Number(style.sectionPad ?? 6)} format={(x) => `${x}px`} onChange={(x) => setStyle({ sectionPad: x }, `${prefix}sectionPad`)} />
+                  <Slider tone="dark" label={prefix ? `${prefix} section padding` : 'Section padding'} min={0} max={200} value={Number(style.sectionPad ?? 6)} format={(x) => `${x}px`} onChange={(x) => setStyle({ sectionPad: x }, `${prefix}sectionPad`)} />
                 )}
               </>
             )}
@@ -1130,7 +1136,7 @@ function TextSettings({ v, set, selected }: { v: Record<string, unknown>; set: (
           <Group title="Border" icon={<LayoutGrid size={15} />} action={<ToggleSwitch size="sm" label="Text border" checked={num('borderWidth', 0) > 0} onChange={(x) => set({ borderWidth: x ? 3 : 0 }, 'borderWidth')} />}>
             {num('borderWidth', 0) > 0 ? (
               <>
-                <Slider tone="dark" label="Border width" min={1} max={24} value={num('borderWidth', 0)} format={(x) => `${x}px`} onChange={(x) => set({ borderWidth: x }, 'borderWidth')} />
+                <Slider tone="dark" label="Border width" min={1} max={100} value={num('borderWidth', 0)} format={(x) => `${x}px`} onChange={(x) => set({ borderWidth: x }, 'borderWidth')} />
                 <Field label="Border colour">
                   <ColorSwatches label="Border colour" colors={PALETTE} value={str('borderColor', '#E05252')} onChange={(c) => set({ borderColor: c }, 'borderColor')} />
                 </Field>
@@ -1141,18 +1147,18 @@ function TextSettings({ v, set, selected }: { v: Record<string, unknown>; set: (
             ) : <div className={styles.hint}>Turn on for a line around the text.</div>}
           </Group>
           <Group title="Spacing & corners" icon={<Move size={15} />}>
-            <Slider tone="dark" label="Corner radius" min={0} max={80} value={Math.min(80, num('borderRadius', 6))} format={(x) => `${x}px`} onChange={(x) => set({ borderRadius: x }, 'borderRadius')} />
+            <Slider tone="dark" label="Corner radius" min={0} max={300} value={Math.min(300, num('borderRadius', 6))} format={(x) => `${x}px`} onChange={(x) => set({ borderRadius: x }, 'borderRadius')} />
             <div className={styles.subTitle}>
               Padding
               <IconButton tone="dark" size="sm" label={padLinked ? 'Set each side separately' : 'Same on all sides'} icon={padLinked ? <Link size={14} /> : <Unlink size={14} />} active={padLinked}
                 onClick={() => { const p = padding(); set({ padding: padLinked ? [p[0], p[1] + 1, p[2], p[3] + 1] : [p[0], p[0], p[0], p[0]] }, 'padding-link'); }} />
             </div>
             {padLinked ? (
-              <Slider tone="dark" label="All sides" min={0} max={120} value={padding()[0]} format={(x) => `${x}px`} onChange={(x) => set({ padding: [x, x, x, x] }, 'padding')} />
+              <Slider tone="dark" label="All sides" min={0} max={400} value={padding()[0]} format={(x) => `${x}px`} onChange={(x) => set({ padding: [x, x, x, x] }, 'padding')} />
             ) : (
               <div className={styles.padGrid}>
                 {(['Top', 'Right', 'Bottom', 'Left'] as const).map((side, i) => (
-                  <Slider key={side} tone="dark" label={side} min={0} max={120} value={padding()[i]!} format={(x) => `${x}px`}
+                  <Slider key={side} tone="dark" label={side} min={0} max={400} value={padding()[i]!} format={(x) => `${x}px`}
                     onChange={(x) => { const p = [...padding()] as [number, number, number, number]; p[i] = x; set({ padding: p }, `padding-${side}`); }} />
                 ))}
               </div>
@@ -1278,12 +1284,24 @@ export function PropertiesPanel({
     if (!kind) return;
     const base = { ...(DEFAULT_TOOL_STYLES[kind] as Record<string, unknown>) };
     if (kind === 'blur' || kind === 'pixelate' || kind === 'mask') Object.assign(base, CLEAR_LOOK);
+    // The look goes back to the default; the callout's own words and their place stay.
+    if (kind === 'callout') {
+      delete base.title;
+      Object.assign(base, { leaderEndColor: undefined });
+    }
     set(base, `${kind}-reset`);
   };
-  const resetButton = kind && kind !== 'text' && kind !== 'eraser' && (
+  const resetButton = kind && kind !== 'text' && (
     <Button size="sm" variant="secondary" icon={<RotateCcw size={14} />} onClick={onDefaults} title="Back to the default look of this tool">Reset</Button>
   );
   const strokeKind = kind === 'pen' || kind === 'highlighter';
+  const lineBody = str('body', 'line') as LineBody;
+  const elbow = str('route') === 'elbow';
+  const headOptions = BLOCK_BODIES.has(lineBody) ? BLOCK_HEADS : HEAD_OPTIONS;
+  const headValue = (key: string, fallback: HeadStyle) => {
+    const h = str(key, fallback) as HeadStyle;
+    return BLOCK_BODIES.has(lineBody) && h !== 'none' ? 'triangle' : h;
+  };
   const designName = str('design', 'bubble') as CalloutAnnotation['design'];
   const recipe = kind === 'callout' ? recipeOf({ design: designName }) : null;
   const hasCustomMarkerColours = v.fillColor !== undefined || v.textColor !== undefined || v.borderColor !== undefined;
@@ -1325,7 +1343,7 @@ export function PropertiesPanel({
                   )}
                 </Group>
                 <Group title="Size" icon={<Ruler size={15} />}>
-                  <Slider tone="dark" label="Thickness" min={1} max={kind === 'highlighter' ? 200 : 100} value={Math.round(num('width', 4))} format={(x) => `${x}px`} onChange={(x) => set({ width: x }, 'width')} />
+                  <Slider tone="dark" label="Thickness" min={1} max={600} value={Math.round(num('width', 4))} format={(x) => `${x}px`} onChange={(x) => set({ width: x }, 'width')} />
                 </Group>
               </>
             ),
@@ -1375,7 +1393,7 @@ export function PropertiesPanel({
               <>
                 <Group title="Colour & thickness" icon={<Palette size={15} />}>
                   <ColorSwatches label="Colour" colors={PALETTE} value={str('color')} onChange={(c) => set({ color: c }, 'color')} />
-                  <Slider tone="dark" label="Thickness" min={1} max={60} value={Math.round(num('width', 4))} format={(x) => `${x}px`} onChange={(x) => set({ width: x }, 'width')} />
+                  <Slider tone="dark" label="Thickness" min={1} max={300} value={Math.round(num('width', 4))} format={(x) => `${x}px`} onChange={(x) => set({ width: x }, 'width')} />
                 </Group>
                 <Group title="Shape of the line" icon={<Spline size={15} />}>
                   <Field label="Route">
@@ -1384,25 +1402,31 @@ export function PropertiesPanel({
                   <Field label="Design">
                     <Select label="Line design" variant="dark" value={str('body', 'line') as LineBody} minWidth={170} onChange={(b) => set({ body: b }, 'body')} options={BODY_OPTIONS} />
                   </Field>
-                  <Field label="Line style">
-                    <RadioGroup label="Line style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} options={DASH_OPTIONS} />
-                  </Field>
-                  <Field label="Curve points">
-                    <RadioGroup label="Curve points" tone="dark" size="sm" value={num('bends', 0)} onChange={(n) => set({ bends: n, curve: false }, 'bends')}
-                      options={[{ value: 0, label: 'None' }, ...Array.from({ length: MAX_BENDS }, (_, i) => ({ value: i + 1, label: String(i + 1) }))]} />
-                  </Field>
-                </Group>
-                <Group title="Arrow heads" icon={<ArrowUpRight size={15} />}>
-                  <div className={styles.row}>
-                    <Field label="Start">
-                      <Select label="Start head" variant="dark" value={str('headStart', 'none') as HeadStyle} minWidth={150} onChange={(h) => set({ headStart: h }, 'headStart')} options={HEAD_OPTIONS} />
+                  {DASH_BODIES.has(lineBody) && (
+                    <Field label="Line style">
+                      <RadioGroup label="Line style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} options={DASH_OPTIONS} />
                     </Field>
-                    <Field label="End">
-                      <Select label="End head" variant="dark" value={str('headEnd', 'triangle') as HeadStyle} minWidth={150} onChange={(h) => set({ headEnd: h }, 'headEnd')} options={HEAD_OPTIONS} />
+                  )}
+                  {!elbow && (
+                    <Field label="Curve points">
+                      <RadioGroup label="Curve points" tone="dark" size="sm" value={num('bends', 0)} onChange={(n) => set({ bends: n, curve: false }, 'bends')}
+                        options={[{ value: 0, label: 'None' }, ...Array.from({ length: MAX_BENDS }, (_, i) => ({ value: i + 1, label: String(i + 1) }))]} />
                     </Field>
-                  </div>
+                  )}
                 </Group>
-                <div className={styles.hint}>{num('bends', 0) > 0 && selected ? 'Drag the round handles to shape the curve.' : 'Drag from A to B, or click A then click B. Shift keeps 45° angles; Esc cancels. A line is an arrow without heads.'}</div>
+                {lineBody !== 'pointer' && (
+                  <Group title="Arrow heads" icon={<ArrowUpRight size={15} />}>
+                    <div className={styles.row}>
+                      <Field label="Start">
+                        <Select label="Start head" variant="dark" value={headValue('headStart', 'none')} minWidth={150} onChange={(h) => set({ headStart: h }, 'headStart')} options={headOptions} />
+                      </Field>
+                      <Field label="End">
+                        <Select label="End head" variant="dark" value={headValue('headEnd', 'triangle')} minWidth={150} onChange={(h) => set({ headEnd: h }, 'headEnd')} options={headOptions} />
+                      </Field>
+                    </div>
+                  </Group>
+                )}
+                <div className={styles.hint}>{num('bends', 0) > 0 && !elbow && selected ? 'Drag the round handles to shape the curve.' : 'Drag from A to B, or click A then click B. Shift keeps 45° angles; Esc cancels. A line is an arrow without heads.'}</div>
               </>
             ),
           },
@@ -1441,12 +1465,12 @@ export function PropertiesPanel({
                   </Field>
                 </Group>
                 <Group title="Border & corners" icon={<Square size={15} />}>
-                  <Slider tone="dark" label="Thickness" min={1} max={40} value={Math.round(num('width', 4))} format={(x) => `${x}px`} onChange={(x) => set({ width: x }, 'width')} />
+                  <Slider tone="dark" label="Thickness" min={1} max={300} value={Math.round(num('width', 4))} format={(x) => `${x}px`} onChange={(x) => set({ width: x }, 'width')} />
                   <Field label="Border style">
                     <RadioGroup label="Border style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} options={DASH_OPTIONS} />
                   </Field>
                   {(subject === 'rect' || (!selected && tool === 'rect')) && (
-                    <Slider tone="dark" label="Corner radius" min={0} max={120} value={num('radius', 0)} format={(x) => `${x}px`} onChange={(x) => set({ radius: x }, 'radius')} />
+                    <Slider tone="dark" label="Corner radius" min={0} max={500} value={num('radius', 0)} format={(x) => `${x}px`} onChange={(x) => set({ radius: x }, 'radius')} />
                   )}
                 </Group>
               </>
@@ -1477,7 +1501,7 @@ export function PropertiesPanel({
                     const nts = { ...ts, ...(d.patch.titleStyle ?? {}) };
                     const sampleTitle = d.sample?.title ?? (titled ? (d.id === 'number' ? '01' : d.id === 'step' ? '1' : 'Title') : '');
                     set({
-                      shape: undefined, icon: undefined, badge: undefined, dash: 'solid', bold: false, italic: false, leaderEndColor: undefined, titleOffset: undefined, textOffset: undefined,
+                      shape: undefined, icon: undefined, badge: undefined, dash: 'solid', bold: false, italic: false, leaderEndColor: undefined, titleOffset: undefined, textOffset: undefined, badgeOffset: undefined,
                       ...d.patch, design: d.id, titleStyle: nts,
                       // A new callout starts with the design's sample words; an existing one keeps its own.
                       title: selected ? curTitle || (d.sample?.title && !str('text') ? d.sample.title : curTitle) : sampleTitle,
@@ -1512,16 +1536,16 @@ export function PropertiesPanel({
                   {selected ? <AutoTextarea label="Edit text" value={str('text')} placeholder="Type your text…" onChange={(t) => set({ text: t }, 'text')} /> : <div className={styles.hint}>Click (or drag) on the image to add a callout and start typing; it grows to fit.</div>}
                 </Group>
                 <Group title="Typography" icon={<Type size={15} />}>
-                  <TextStyleFields v={v as Partial<TextStyle>} set={set} maxSize={160} effects={false} />
+                  <TextStyleFields v={v as Partial<TextStyle>} set={set} maxSize={600} effects={false} />
                 </Group>
                 <Group title="Title" icon={<Baseline size={15} />}>
                   <TextField tone="dark" value={str('title')} placeholder="No title" onChange={(e) => set({ title: e.target.value }, 'title')} aria-label="Callout title" />
-                  {str('title') && <TextStyleFields name="Title" v={ts} maxSize={160} effects={false} set={(patch, key) => set({ titleStyle: { ...ts, ...patch } }, key)} />}
+                  {str('title') && <TextStyleFields name="Title" v={ts} maxSize={600} effects={false} set={(patch, key) => set({ titleStyle: { ...ts, ...patch } }, key)} />}
                 </Group>
                 {selected && (
-                  <Group title="Text position" icon={<Move size={15} />}>
-                    <div className={styles.hint}>Drag the round four-arrow handle next to the title or the text to place it anywhere.</div>
-                    <button type="button" className={styles.ocrBtn} disabled={!v.titleOffset && !v.textOffset} onClick={() => set({ titleOffset: undefined, textOffset: undefined }, 'textPosition')}>Reset text position</button>
+                  <Group title="Text & number position" icon={<Move size={15} />}>
+                    <div className={styles.hint}>Drag the round four-arrow handle next to the title, the text or the number to place it anywhere.</div>
+                    <button type="button" className={styles.ocrBtn} disabled={!v.titleOffset && !v.textOffset && !v.badgeOffset} onClick={() => set({ titleOffset: undefined, textOffset: undefined, badgeOffset: undefined }, 'textPosition')}>Reset positions</button>
                   </Group>
                 )}
               </>
@@ -1557,11 +1581,11 @@ export function PropertiesPanel({
                   <Field label="Lines">
                     <ColorSwatches label="Outline colour" colors={PALETTE} value={str('stroke')} onChange={(c) => set({ stroke: c }, 'stroke')} />
                   </Field>
-                  <Slider tone="dark" label="Line width" min={0} max={16} value={num('strokeWidth', 3)} format={(x) => `${x}px`} onChange={(x) => set({ strokeWidth: x }, 'strokeWidth')} />
+                  <Slider tone="dark" label="Line width" min={0} max={80} value={num('strokeWidth', 3)} format={(x) => `${x}px`} onChange={(x) => set({ strokeWidth: x }, 'strokeWidth')} />
                   <Field label="Line style">
                     <RadioGroup label="Callout line style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} options={DASH_OPTIONS} />
                   </Field>
-                  <Slider tone="dark" label="Corner radius" min={0} max={60} value={num('radius', 12)} format={(x) => `${x}px`} onChange={(x) => set({ radius: x }, 'radius')} />
+                  <Slider tone="dark" label="Corner radius" min={0} max={300} value={num('radius', 12)} format={(x) => `${x}px`} onChange={(x) => set({ radius: x }, 'radius')} />
                 </Group>
                 <div className={styles.hint}>Drag the round handle to point the callout; click a selected callout to edit its text on the image.</div>
               </>
@@ -1617,7 +1641,7 @@ export function PropertiesPanel({
                     <span>Sticker edge (white die-cut + shadow)</span>
                     <ToggleSwitch size="sm" label="Sticker edge" checked={Boolean(v.cutout)} onChange={(on) => set({ cutout: on }, 'cutout')} />
                   </div>
-                  <Slider tone="dark" label="Size" min={20} max={300} value={Math.round(num('size', 64))} format={(x) => `${Math.round(x)}px`} onChange={(x) => set({ size: x }, 'size')} />
+                  <Slider tone="dark" label="Size" min={20} max={1000} value={Math.round(num('size', 64))} format={(x) => `${Math.round(x)}px`} onChange={(x) => set({ size: x }, 'size')} />
                 </Group>
               </>
             ),
@@ -1695,7 +1719,7 @@ export function PropertiesPanel({
               <>
                 <Group title="Colour & size" icon={<Palette size={15} />}>
                   <ColorSwatches label="Colour" colors={PALETTE} value={str('color')} onChange={(c) => set({ color: c }, 'color')} />
-                  <Slider tone="dark" label="Size" min={16} max={160} value={Math.round(num('size', 50))} format={(x) => `${x}px`} onChange={(x) => set({ size: x }, 'size')} />
+                  <Slider tone="dark" label="Size" min={16} max={600} value={Math.round(num('size', 50))} format={(x) => `${x}px`} onChange={(x) => set({ size: x }, 'size')} />
                 </Group>
                 <Group title="Custom colours" icon={<Brush size={15} />} action={
                   <ToggleSwitch size="sm" label="Custom marker colours" checked={hasCustomMarkerColours}
@@ -1771,7 +1795,7 @@ export function PropertiesPanel({
             id: 'effects', label: 'Click & effects', content: (
               <>
                 <Group title="Cursor" icon={<Palette size={15} />}>
-                  <Slider tone="dark" label="Cursor size" min={16} max={240} value={Math.round(num('size', 56))} format={(x) => `${Math.round(x)}px`} onChange={(x) => set({ size: x }, 'size')} />
+                  <Slider tone="dark" label="Cursor size" min={16} max={800} value={Math.round(num('size', 56))} format={(x) => `${Math.round(x)}px`} onChange={(x) => set({ size: x }, 'size')} />
                   <Field label="Cursor colour">
                     <ColorSwatches label="Cursor colour" colors={['#FFFFFF', '#101828', ...PALETTE.filter((c) => c !== '#FFFFFF' && c !== '#101828')]} value={str('color', '#FFFFFF')} onChange={(c) => set({ color: c }, 'color')} />
                   </Field>
@@ -1810,7 +1834,7 @@ export function PropertiesPanel({
   } else if (kind === 'eraser') {
     body = (
       <Group title="Eraser" icon={<Eraser size={15} />}>
-        <Slider tone="dark" label="Eraser size" min={4} max={200} value={num('size', 24)} format={(x) => `${x}px`} onChange={(x) => set({ size: x }, 'size')} />
+        <Slider tone="dark" label="Eraser size" min={4} max={600} value={num('size', 24)} format={(x) => `${x}px`} onChange={(x) => set({ size: x }, 'size')} />
         <div className={styles.hint}>Click or drag across annotations to remove them; the circle shows what the eraser touches. Press [ and ] to change the size. The screenshot itself is never erased.</div>
       </Group>
     );
@@ -1988,7 +2012,8 @@ function CropSection({ crop }: { crop: CropProps }) {
 
 function WatermarkSection({ watermark, onChange, last }: { watermark: Watermark | null; onChange: (w: Watermark | null, key: string) => void; last: Watermark | null }) {
   const wm = watermark;
-  const set = (patch: Partial<Watermark>, key: string) => wm && onChange({ ...wm, ...patch }, `watermark:${key}`);
+  // A new position starts from that position, not from where the mark was dragged.
+  const set = (patch: Partial<Watermark>, key: string) => wm && onChange({ ...wm, ...('position' in patch ? { offset: undefined } : {}), ...patch }, `watermark:${key}`);
   return (
     <Section
       title="Watermark"
@@ -2079,8 +2104,13 @@ function WatermarkSection({ watermark, onChange, last }: { watermark: Watermark 
                         ]}
                       />
                     </Field>
-                    <Slider tone="dark" label="Size" min={0.015} max={0.2} step={0.005} value={wm.size} format={(x) => `${Math.round(x * 100)}%`} onChange={(x) => set({ size: x }, 'size')} />
+                    <Slider tone="dark" label="Size" min={0.015} max={0.5} step={0.005} value={wm.size} format={(x) => `${Math.round(x * 100)}%`} onChange={(x) => set({ size: x }, 'size')} />
                     <Slider tone="dark" label="Rotation" min={-90} max={90} value={wm.rotation} format={(x) => `${x}°`} onChange={(x) => set({ rotation: x }, 'rotation')} />
+                    {watermarkMovable(wm) && <div className={styles.hint}>Drag the watermark on the image to place it anywhere.</div>}
+                    <div className={styles.row}>
+                      {watermarkMovable(wm) && <Button size="sm" variant="secondary" icon={<RotateCcw size={14} />} disabled={!wm.offset} onClick={() => set({ offset: undefined }, 'offset')}>Reset position</Button>}
+                      <Button size="sm" variant="secondary" icon={<RotateCcw size={14} />} onClick={() => onChange({ ...DEFAULT_WATERMARK, text: wm.text, ...(wm.logo ? { logo: wm.logo } : {}) }, 'watermark:reset')}>Reset</Button>
+                    </div>
                   </Group>
                 </>
               ),
@@ -2148,7 +2178,7 @@ function FrameSection({ frame, onChange, last, sourceUrl, sourceTitle, apply }: 
                 </div>
                 {bgOn && f && (
                   <>
-                    <Slider tone="dark" label="Padding" min={4} max={240} value={f.padding} format={(x) => `${x}px`} onChange={(x) => update({ padding: x }, 'padding')} />
+                    <Slider tone="dark" label="Padding" min={4} max={600} value={f.padding} format={(x) => `${x}px`} onChange={(x) => update({ padding: x }, 'padding')} />
                     <Field label="Background">
                       <div className={styles.bgGrid}>
                         <label className={styles.bgSwatch} title="Your own image" aria-label="Background image" style={{ background: f.background.startsWith('image:') ? `center / cover url("${f.background.slice(6)}")` : 'repeating-linear-gradient(45deg,#cbd5e1 0 4px,#f1f5f9 4px 8px)' }}>
@@ -2242,14 +2272,15 @@ function FrameSection({ frame, onChange, last, sourceUrl, sourceTitle, apply }: 
                 {!bgOn && <div className={styles.hint}>Turn on Background & padding first; the border goes around the padded frame.</div>}
                 {borderOn && f && (
                   <>
-                    <Slider tone="dark" label="Border width" min={1} max={40} value={f.borderWidth} format={(x) => `${x}px`} onChange={(x) => update({ borderWidth: x }, 'borderWidth')} />
+                    <Slider tone="dark" label="Border width" min={1} max={120} value={f.borderWidth} format={(x) => `${x}px`} onChange={(x) => update({ borderWidth: x }, 'borderWidth')} />
                     <ColorSwatches label="Border colour" colors={PALETTE} value={f.borderColor} onChange={(c) => update({ borderColor: c }, 'borderColor')} />
                     <RadioGroup label="Frame border style" tone="dark" size="sm" value={f.borderStyle ?? 'solid'} onChange={(d) => update({ borderStyle: d }, 'borderStyle')} options={DASH_OPTIONS} />
                   </>
                 )}
               </div>
 
-              {f && <Slider tone="dark" label="Corner radius" min={0} max={60} value={f.radius} format={(x) => `${x}px`} onChange={(x) => update({ radius: x }, 'radius')} />}
+              {f && <Slider tone="dark" label="Corner radius" min={0} max={200} value={f.radius} format={(x) => `${x}px`} onChange={(x) => update({ radius: x }, 'radius')} />}
+              {f && <Button size="sm" variant="secondary" icon={<RotateCcw size={14} />} onClick={() => onChange(null, 'frame:reset')}>Reset frame</Button>}
               </>
             ),
           },

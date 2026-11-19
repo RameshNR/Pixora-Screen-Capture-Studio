@@ -51,6 +51,8 @@ Before every submission:
 > • Optional real browser header — tabs, address bar and bookmarks — in your screenshots
 > • Turn frames of a recording into a step-by-step guide
 > • Full pages open in the editor straight away; exports show their progress
+> • Video editor: undo, redo, history and reset; annotations keep their size at any export resolution
+> • Lock annotations, cut a highlight with a shape, move callout text and numbers anywhere
 >
 > SCREENSHOTS
 > • Visible part, full page, selected area, delayed, or your whole screen / an app window
@@ -179,12 +181,16 @@ Package → **Upload new package** with the new `release/pixora-<version>.zip`, 
   GitHub Pages).
 - Submit for review. The listing keeps showing the old version until the new one is approved.
 
-### 1.1.1 (over 1.1.0)
+### 1.1.1 (over the published 1.0.0)
+
+1.1.0 was never published (its submission was cancelled), so 1.1.1 carries everything since 1.0.0:
 
 - Permissions: **unchanged** (only `version` changed in the manifest).
-- Justifications, data usage and privacy policy: unchanged.
-- Description and screenshots: can stay as they are.
-- Upload `release/pixora-1.1.1.zip`. If 1.1.0 is still in review, cancel that submission first.
+- `desktopCapture` justification: **use the text in section 3** (it covers the optional browser header).
+- Data usage: unchanged. Privacy policy: updated 18 November 2026.
+- Description: section 2 text, with the "NEW IN 1.1" block.
+- Screenshots: the five in `store-assets/upload/` (screenshot-1 … screenshot-5).
+- Upload `release/pixora-1.1.1.zip`; if a submission is still pending, cancel it first.
 
 ### 1.1.0 (over 1.0.0)
 

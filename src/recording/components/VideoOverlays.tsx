@@ -396,7 +396,7 @@ export function OverlayTracks({ overlays, duration, time, selectedId, onChange, 
               )}
               <div className={styles.trackHead} style={{ left: pct(time) }} aria-hidden />
             </div>
-            <IconButton size="sm" label={`Delete ${name}`} icon={<Trash2 size={14} />} onClick={() => onDelete(o)} />
+            <IconButton size="sm" label={`Delete ${name}`} icon={<Trash2 size={14} />} disabled={Boolean(o.annotation.lock)} onClick={() => onDelete(o)} />
           </div>
         );
       })}

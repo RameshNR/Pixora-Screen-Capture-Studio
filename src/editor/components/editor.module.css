@@ -1361,3 +1361,9 @@
     justify-content: flex-start;
   }
 }
+
+/* Properties of a locked annotation: shown, but not usable. */
+.lockedPanel {
+  opacity: 0.45;
+  pointer-events: none;
+}

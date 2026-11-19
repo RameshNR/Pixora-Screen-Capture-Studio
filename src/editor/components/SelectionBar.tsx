@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical,
-  ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Bold, ChevronRight, ClipboardPaste, Copy, CopyPlus, Italic, Layers, Minus,
+  ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Bold, ChevronRight, ClipboardPaste, Copy, CopyPlus, Italic, Layers, Lock, Minus,
   MoreHorizontal, Plus, Trash2,
 } from 'lucide-react';
 import type { Rect } from '../types';
+import type { MenuItem } from '@/shared/components/Dropdown';
 import styles from './SelectionBar.module.css';
 
 export type LayerMove = 'forward' | 'backward' | 'front' | 'back';
@@ -20,6 +21,11 @@ export interface SelectionActions {
   align?: (to: AlignTo) => void;
   /** Several objects selected: how many (shown on the bar). */
   count?: number;
+  /** Locked ('all') or move only: no deleting; the bar offers Unlock. */
+  locked?: 'all' | 'move';
+  unlock?: () => void;
+  /** The object's menu: the same items as its right-click menu. */
+  menu?: () => MenuItem[];
   /** Quick text controls for text and callouts. */
   text?: { size: number; bold: boolean; italic: boolean; setSize: (n: number) => void; toggleBold: () => void; toggleItalic: () => void };
 }
@@ -90,16 +96,27 @@ export function SelectionBar({ anchor, view, actions }: Props) {
           </>
         )}
         {actions.count !== undefined && <span className={styles.count}>{actions.count} selected</span>}
+        {actions.locked && actions.unlock && <Btn label={actions.locked === 'all' ? 'Locked: click to unlock' : 'Move only: click to finish'} onClick={actions.unlock}><Lock size={15} /></Btn>}
         <Btn label="Duplicate (Ctrl+D)" onClick={actions.duplicate}><CopyPlus size={16} /></Btn>
-        <Btn label="Delete (Del)" onClick={actions.remove}><Trash2 size={16} /></Btn>
+        {!actions.locked && <Btn label="Delete (Del)" onClick={actions.remove}><Trash2 size={16} /></Btn>}
         <Btn label="More options" pressed={menu} onClick={() => { setMenu((m) => !m); setSub(null); }} haspopup><MoreHorizontal size={17} /></Btn>
       </div>
-      {menu && (
+      {menu && actions.menu && (
+        <div className={`${styles.menu} ${menuBelow ? '' : styles.menuUp}`} role="menu" aria-label="Object options">
+          {actions.menu().map((m) => (
+            <div key={m.id} role="none">
+              {m.separatorBefore && <div className={styles.divider} role="separator" />}
+              <Item icon={m.icon} label={String(m.label)} kbd={typeof m.description === 'string' ? m.description : undefined} disabled={m.disabled} onClick={act(() => m.onSelect?.())} />
+            </div>
+          ))}
+        </div>
+      )}
+      {menu && !actions.menu && (
         <div className={`${styles.menu} ${menuBelow ? '' : styles.menuUp}`} role="menu" aria-label="Object options">
           <Item icon={<Copy size={16} />} label="Copy" kbd="Ctrl+C" onClick={act(actions.copy)} />
           <Item icon={<ClipboardPaste size={16} />} label="Paste" kbd="Ctrl+V" disabled={!actions.paste} onClick={act(() => actions.paste?.())} />
           <Item icon={<CopyPlus size={16} />} label="Duplicate" kbd="Ctrl+D" onClick={act(actions.duplicate)} />
-          <Item icon={<Trash2 size={16} />} label="Delete" kbd="Delete" onClick={act(actions.remove)} />
+          <Item icon={<Trash2 size={16} />} label="Delete" kbd="Delete" disabled={Boolean(actions.locked)} onClick={act(actions.remove)} />
           {actions.layer && <div className={styles.divider} role="separator" />}
           {actions.layer && <Item icon={<Layers size={16} />} label="Layer" submenu open={sub === 'layer'} onClick={() => setSub(sub === 'layer' ? null : 'layer')} />}
           {actions.layer && sub === 'layer' && (
@@ -128,7 +145,7 @@ export function SelectionBar({ anchor, view, actions }: Props) {
 }
 
 const MIN_SIZE = 6;
-const MAX_SIZE = 400;
+const MAX_SIZE = 600;
 const clampSize = (n: number) => Math.max(MIN_SIZE, Math.min(MAX_SIZE, Math.round(n)));
 
 /** − size +: hold a button to keep changing the size, click the number to type one. */

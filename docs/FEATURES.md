@@ -779,3 +779,41 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - **Ctrl + Shift + click** selects several objects. Together they can be moved (drag or arrow keys), copied, pasted, duplicated and deleted; style, layer and alignment controls are hidden until one object is selected.
 - **Callouts keep their shape when the text grows**: the box grows in proportion around its centre, by the least needed, and returns to the size you chose when the text gets smaller. The pointer's end stays where you placed it.
 - Tests: tests/unit/round64.test.ts, tests/e2e/round64.spec.ts.
+
+### Round 65 – Honest "edited" state, arrows, blur over annotations, movable watermark
+- **Nothing left, nothing changed**: annotations added and removed again no longer count as an edit (Compare, Reset, the image list, leaving the page).
+- **Pointer and tapered arrows** follow every curve smoothly and end in a round tail about as thick as the line.
+- **Only controls that do something are shown**: Line style only for designs that can be dashed, Curve points not for Elbow, Arrow heads not for Pointer, and block arrows offer a head or none.
+- **Box-like highlights** (rectangle, text box, circle…) follow the pointer both ways while drawing.
+- **Blur and pixelate work in layer order**: they also blur the annotations on lower layers, in the editor, on video and in exports.
+- **Ctrl + drag** moves an annotation without selecting it.
+- **The watermark can be dragged** with the Select or Watermark tool; *Reset position* puts it back. Tiled watermarks and ribbons stay in place.
+- **Higher limits** across the panels (pen and highlighter up to 600 px, lines and shapes 300 px, text 600 px, blur 200 px, stickers 1000 px…).
+- **Reset** added for the eraser, watermark and frame.
+- Tests: tests/unit/round65.test.ts, tests/e2e/round65.spec.ts.
+
+### Round 66 – Progress ring styles, callouts grow around their centre
+- The **Progress ring** marker follows the Style setting (Premium, Filled, Outline, Soft, Dashed, Layered).
+- **Callouts stay in place when the text size changes**: every design, including those that need a minimum height, grows around its centre and returns to its own size and place when the text gets smaller.
+- Tests: tests/unit/round66.test.ts.
+
+### Round 67 – Move a callout's number, Lock and Move only
+- **Callout number badges and icons can be dragged** with their four-arrow handle, like the title and text; *Reset positions* (Callout › Text) puts all three back.
+- **Lock** (right-click menu, or the padlock in the Layers panel): the annotation can't be moved or changed. **Move only**: the annotation is ready to drag (or nudge with the arrow keys) at once, with nothing else changeable; a click anywhere else (or Esc / Done) ends it. Nothing is saved on the annotation.
+- Locked annotations show a padlock (or four arrows for move only) on their selection, have no handles, are skipped by the eraser and kept by multiple delete, and their properties are greyed out with an Unlock button. Copies are never locked.
+- Tests: tests/unit/round67.test.ts, tests/e2e/round67.spec.ts.
+
+### Round 68 – Move only as a moment, panning a fitted picture
+- **Move only** is a short mode instead of a saved lock: right-click › Move only, drag, then click anywhere else.
+- **The Pan tool (and Space + drag) moves the picture** also when it fits in the view; a new zoom or *Fit* centres it again.
+- Tests: tests/e2e/round67.spec.ts.
+
+### Round 69 – Cut a highlight with a shape
+- Select a highlight (or pen stroke) and a shape together (Ctrl + Shift + click), then right-click or use the bar's ⋯: **Cut the highlight away inside the shape** or **Keep the highlight only inside the shape**. The shape's outline (any shape, rounded corners and rotation included) is copied onto the stroke and the shape itself is removed (Ctrl+Z brings both back; a locked shape stays). **Undo cut** shows the whole stroke again; the cut follows the stroke when it is moved, rotated or resized.
+- Tests: tests/unit/round69.test.ts, tests/e2e/round69.spec.ts.
+
+### Round 70 – One object menu, Move & pan tool, cutting from a selection
+- **The selection bar's ⋯ menu and the right-click menu are the same list** (edit text, copy, paste, duplicate, lock, layer order, align, delete). With several objects selected, a right-click on one of them keeps the selection and shows the same menu as the bar.
+- **Move & pan tool (H)**: drag an annotation to move it (or the selected ones); drag an empty spot to pan.
+- **Cutting a highlight with a shape is offered only for several selected objects**: the selected strokes are cut with the selected shape. *Undo cut* is also on a single cut stroke.
+- Tests: tests/e2e/round69.spec.ts, round70.spec.ts.

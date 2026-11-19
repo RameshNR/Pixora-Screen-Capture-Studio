@@ -8,7 +8,15 @@
 - **Shift while resizing** keeps shapes and callouts square or round.
 - **Size control**: hold − or + to keep changing the size, or click the number to type one.
 - **Select several objects** with Ctrl + Shift + click, then move, copy, paste, duplicate or delete them together.
-- **Ctrl + click** clears the selection without adding an annotation.
+- **Ctrl + click** clears the selection without adding an annotation; **Ctrl + drag** moves an annotation.
+- **Lock** an annotation (right-click, or the padlock in Layers) so it can't be moved or changed; **Move only** lets you drag it without changing anything else.
+- **Cut a highlight with a shape**: select both, then *Cut the highlight away inside the shape* or *Keep the highlight only inside the shape*; *Undo cut* brings it back.
+- **Move a callout's number badge** like its title and text; **Reset positions** puts them back.
+- **Move the watermark** by dragging it; **Reset position** puts it back.
+- **Move & pan tool (H)**: drag an annotation to move it, or the image to pan — also when the image fits on screen.
+- **Blur and pixelate** also blur the annotations on lower layers.
+- **Higher limits**: pen and highlighter up to 600 px, text 600 px, blur 200 px, stickers 1000 px and more.
+- **Reset** buttons for the eraser, watermark and frame; the image editor's Reset has its own icon.
 
 ### Fixed
 - Exporting at a lower resolution (for example 4K to 1080p) keeps annotations at the right size.
@@ -18,6 +26,10 @@
 - Clicking outside the image no longer adds an annotation.
 - Callouts keep their shape when the text size changes, and return to their size when the text gets smaller.
 - The Frames tab counts frames added by hand.
+- Pointer and tapered arrows follow curves smoothly with a round tail; panels only show the options a design supports.
+- Box highlights shrink again when you drag back; the Progress ring marker follows its style.
+- Adding and removing annotations no longer marks an image as edited (Compare, Reset).
+- The selection bar's ⋯ menu and the right-click menu offer the same options.
 - Leader lines join the callout cleanly and arrow heads follow straight lines; dotted callout lines show; callouts without a background have a clean tail.
 
 ## 1.1.0 — themes, browser header and editor improvements (November 2026)

@@ -219,18 +219,31 @@ export function calloutTextRects(a: CalloutAnnotation): { title: Rect | null; bo
   return { title: L.title ? moved(L.title, a.titleOffset) : null, body: moved(L.body, a.textOffset) };
 }
 
+/** Badges that sit apart from the text (a title bar is part of the box, so it stays). */
+const MOVABLE_BADGES = new Set(['seal', 'circle', 'chip', 'peel', 'arc', 'icon']);
+
+/** Where the number badge or icon is drawn: its place in the design plus where it was dragged. */
+export function calloutBadgeRect(a: CalloutAnnotation): Rect | null {
+  const r = recipeOf(a);
+  if (!r?.badge || !MOVABLE_BADGES.has(r.badge)) return null;
+  const L = calloutLayout(a);
+  return L.band ? moved(L.band, a.badgeOffset) : null;
+}
+
 /** Screen distance of a text block's move handle from the start of its first line. */
 const TEXT_GRIP_GAP = 15;
 
 /** Move handles of the title and body text, just before their first line (in the callout's own frame). */
-export function calloutTextGrips(a: CalloutAnnotation, zoom = 1): Array<{ handle: 'tt' | 'tb'; x: number; y: number }> {
+export function calloutTextGrips(a: CalloutAnnotation, zoom = 1): Array<{ handle: 'tt' | 'tb' | 'tg'; x: number; y: number }> {
   const R = calloutTextRects(a);
   const grip = (handle: 'tt' | 'tb', r: Rect, text: string, style: TextStyle) => {
     const block = wrapText(text, style, Math.max(10, r.w));
     const inset = style.align === 'center' ? (r.w - block.width) / 2 : style.align === 'right' ? r.w - block.width : 0;
     return { handle, x: r.x + Math.max(0, inset) - TEXT_GRIP_GAP / zoom, y: r.y + style.fontSize * 0.65 };
   };
-  const out: Array<{ handle: 'tt' | 'tb'; x: number; y: number }> = [];
+  const out: Array<{ handle: 'tt' | 'tb' | 'tg'; x: number; y: number }> = [];
+  const badge = calloutBadgeRect(a);
+  if (badge) out.push({ handle: 'tg', x: badge.x - TEXT_GRIP_GAP / zoom, y: badge.y + badge.h / 2 });
   if (R.title && hasTitle(a)) out.push(grip('tt', R.title, a.title!, titleStyleOf(a)));
   if (a.text.trim()) out.push(grip('tb', R.body, a.text, a));
   return out;
@@ -253,7 +266,7 @@ export function fitCallout<T extends CalloutAnnotation>(c: T, snug = false): T {
     const { fitBase: _base, ...rest } = c;
     return fitMinimums(growHeight({ ...rest, h: Math.max(24, c.fontSize * 1.5) } as T));
   }
-  return fitMinimums(growInProportion(c));
+  return growInProportion(c);
 }
 
 const textFits = (c: CalloutAnnotation): boolean => {
@@ -289,14 +302,25 @@ function growInProportion<T extends CalloutAnnotation>(c: T): T {
   const sized = (w: number, h: number): T => {
     const k = w / c.w;
     const scaled = (p: Point | undefined) => (p ? { x: p.x * k, y: p.y * k } : p);
-    return { ...c, x: cx - w / 2, y: cy - h / 2, w, h, titleOffset: scaled(c.titleOffset), textOffset: scaled(c.textOffset) };
+    return { ...c, x: cx - w / 2, y: cy - h / 2, w, h, titleOffset: scaled(c.titleOffset), textOffset: scaled(c.textOffset), badgeOffset: scaled(c.badgeOffset) };
+  };
+  /** Designs that need a minimum height get it around the centre too (never only downwards). */
+  const finish = (out: T): T => {
+    const need = minHeightOf(out);
+    let done = out;
+    if (out.h < need) {
+      const bigger = sized(Math.ceil((out.w * need) / out.h), need);
+      done = minHeightOf(bigger) <= bigger.h ? bigger : sized(out.w, need);
+    }
+    if (done.w === chosen.w && done.h === chosen.h) {
+      if (!c.fitBase && done.w === c.w && done.h === c.h) return c;
+      const { fitBase: _base, ...rest } = done;
+      return rest as T;
+    }
+    return { ...done, fitBase: chosen };
   };
   const atChosen = sized(chosen.w, chosen.h);
-  if (textFits(atChosen)) {
-    if (!c.fitBase) return c;
-    const { fitBase: _base, ...rest } = atChosen;
-    return rest as T;
-  }
+  if (textFits(atChosen)) return finish(atChosen);
   const base = { w: chosen.w, h: Math.max(chosen.h, chosen.w / MAX_FIT_ASPECT) };
   const at = (k: number) => sized(Math.ceil(base.w * k), Math.ceil(base.h * k));
   let low = 1;
@@ -310,19 +334,19 @@ function growInProportion<T extends CalloutAnnotation>(c: T): T {
     if (textFits(at(mid))) high = mid;
     else low = mid;
   }
-  return { ...at(high), fitBase: chosen };
+  return finish(at(high));
 }
 
-/** Number badges, icons and the step circle must fit inside the box. */
+/** Height that number badges, icons, round bodies and the step circle need. */
+function minHeightOf(c: CalloutAnnotation): number {
+  const step = designOf(c) === 'step' ? Math.ceil(stepDiameter(c) + calloutPadding(c) * 1.6) : 0;
+  return Math.max(recipeMinHeight(c, calloutPadding(c)), step);
+}
+
+/** A new design at the width it already has: grows to the height it needs. */
 function fitMinimums<T extends CalloutAnnotation>(c: T): T {
-  let out = c;
-  const minH = recipeMinHeight(out, calloutPadding(out));
-  if (minH && out.h < minH) out = { ...out, h: minH };
-  if (designOf(out) === 'step') {
-    const need = Math.ceil(stepDiameter(out) + calloutPadding(out) * 1.6);
-    if (out.h < need) out = { ...out, h: need };
-  }
-  return out;
+  const need = minHeightOf(c);
+  return c.h < need ? { ...c, h: need } : c;
 }
 
 /* --------------------------------- pointers --------------------------------- */
@@ -926,7 +950,7 @@ export function renderCallout(ctx: Ctx2D, a: CalloutAnnotation): void {
   // A fill that doesn't hide the overlap: body and tail are drawn as one shape.
   const merged = !recipe && tail && seeThroughFill(a.fill) ? calloutOutline(a) : null;
   if (recipe) {
-    drawRecipe(ctx, a, tail, L);
+    drawRecipe(ctx, a, tail, a.badgeOffset ? { ...L, band: calloutBadgeRect(a) ?? L.band } : L);
   } else {
   if (SHADOWED.has(design)) {
     // Soft, layered-looking shadow scaled to the callout.
@@ -989,7 +1013,7 @@ export function renderCallout(ctx: Ctx2D, a: CalloutAnnotation): void {
 /** Text dragged away from its place (it can leave the box). */
 function movedTextRects(a: CalloutAnnotation): Rect[] {
   const R = calloutTextRects(a);
-  return [a.titleOffset && hasTitle(a) ? R.title : null, a.textOffset && a.text ? R.body : null].filter((r): r is Rect => !!r);
+  return [a.titleOffset && hasTitle(a) ? R.title : null, a.textOffset && a.text ? R.body : null, a.badgeOffset ? calloutBadgeRect(a) : null].filter((r): r is Rect => !!r);
 }
 
 export function calloutBounds(a: CalloutAnnotation): Rect {

@@ -20,6 +20,8 @@ Screenshots, screen recording and step-by-step guides for Chrome — all on your
   and keep the shape when the text size changes.
 - **Faster editing** — select several objects with Ctrl + Shift + click, hold Shift to resize shapes
   as squares or circles, and hold + or − to change the text size.
+- **Lock and Move only**, **cut a highlight with a shape**, a movable watermark, and blur that also
+  covers the annotations beneath it.
 
 ## New in 1.1.0
 

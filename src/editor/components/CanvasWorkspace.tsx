@@ -1,17 +1,20 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import type { Annotation, CalloutAnnotation, EditorDoc, Point, Rect, RedactLook, TextAnnotation, Tool, ToolStyles } from '../types';
+import type { Annotation, CalloutAnnotation, EditorDoc, Point, Rect, RedactLook, TextAnnotation, Tool, ToolStyles, Watermark } from '../types';
 import { HANDLE_HIT_RADIUS, renderScene, usedFonts } from '../render';
 import { annotationId, rectFromPoints } from '../tools/common';
 import { appendPoint } from '../tools/pen';
 import { defaultBends, snap45 } from '../tools/shapes';
 import { SelectionBar, type SelectionActions } from './SelectionBar';
 import {
-  angleFrom, describeAnnotation, findAt, getBounds, handlesFor, isRoundHandle, isTextHandle, pivotOf, resizeBy, rotateBy, rotationOf, translate, type Handle, selectionPolygon,
+  angleFrom, describeAnnotation, findAt, getBounds, handlesFor, canChange, canMove, isRoundHandle, isTextHandle, pivotOf, resizeBy, rotateBy, rotationOf, translate, type Handle, selectionPolygon,
 } from '../tools/annotations';
 import { constrainAspect } from '../tools/crop';
 import { frameLayout, onFrameImageLoaded } from '../tools/decorations';
 import { fontString, LINE_HEIGHT, textBlock } from '../tools/text';
 import { calloutTextRects, fitCallout } from '../tools/callouts';
+import { moveWatermark, watermarkBox } from '../tools/decorations';
+import { isBoxyStroke } from '../tools/pen-styles';
+import { inRect } from '../tools/common';
 import { ensureFonts } from '../fonts';
 import styles from './editor.module.css';
 
@@ -74,6 +77,11 @@ interface Props {
   multiIds?: readonly string[];
   onMultiChange?: (ids: string[]) => void;
   multiActions?: SelectionActions | null;
+  /** The watermark was dragged to a new place. */
+  onWatermarkMove?: (watermark: Watermark) => void;
+  /** "Move only": this annotation can only be dragged; a click anywhere else ends it. */
+  moveOnlyId?: string | null;
+  onMoveOnlyEnd?: () => void;
   /** Space around the picture (0: the picture fills the view exactly, e.g. over a video). */
   padding?: number;
   /** Right click on the canvas: the object under the pointer (selected first), or null. */
@@ -81,9 +89,10 @@ interface Props {
 }
 
 type Drag =
-  | { kind: 'pan'; startX: number; startY: number; scrollX: number; scrollY: number }
+  | { kind: 'pan'; startX: number; startY: number; scrollX: number; scrollY: number; shiftX: number; shiftY: number }
   | { kind: 'move'; start: Point; original: Annotation; editOnClick: boolean }
   | { kind: 'move-many'; start: Point; originals: Annotation[] }
+  | { kind: 'watermark'; start: Point; original: Watermark }
   | { kind: 'resize'; start: Point; original: Annotation; handle: Handle }
   | { kind: 'rotate'; startAngle: number; original: Annotation }
   | { kind: 'draw'; start: Point; clickHit: Annotation | null }
@@ -101,7 +110,7 @@ const NO_IDS: readonly string[] = [];
 export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function CanvasWorkspace(props, ref) {
   const {
     doc, tool, toolStyles, zoom, onZoom, selectedId, onSelect, onCommit, crop, cropAspect, onCropChange, cut = null, onCutChange,
-    textEdit, onTextEdit, onTextCommit, panning, selectionActions, multiIds = NO_IDS, onMultiChange, multiActions, onCanvasMenu, padding = PAD,
+    textEdit, onTextEdit, onTextCommit, panning, selectionActions, multiIds = NO_IDS, onMultiChange, multiActions, onWatermarkMove, moveOnlyId = null, onMoveOnlyEnd, onCanvasMenu, padding = PAD,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -109,9 +118,17 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const [draft, setDraft] = useState<Annotation | null>(null);
   /** Several selected objects while they are being dragged. */
   const [manyDraft, setManyDraft] = useState<Annotation[] | null>(null);
+  /** The watermark while it is being dragged. */
+  const [markDraft, setMarkDraft] = useState<Watermark | null>(null);
+  /** The pointer is over an annotation. */
+  const [overObject, setOverObject] = useState(false);
   const [eraserTrail, setEraserTrail] = useState<Point[] | null>(null);
   const [eraserAt, setEraserAt] = useState<Point | null>(null);
   const [cursor, setCursor] = useState('default');
+  /** How far the picture was panned while it fits in the view (no scrolling possible). */
+  const [shift, setShift] = useState({ x: 0, y: 0 });
+  // A new zoom level starts centred again.
+  useEffect(() => setShift({ x: 0, y: 0 }), [zoom]);
   /** Ctrl (⌘) is held, with or without Shift: a click won't add anything, so the cursor says so. */
   const [held, setHeld] = useState<'none' | 'ctrl' | 'ctrl-shift'>('none');
   const noteKeys = useCallback((e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
@@ -142,8 +159,10 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const tilt = layout.tilt ?? null;
   const contentW = outer.w * zoom + padding * 2;
   const contentH = outer.h * zoom + padding * 2;
-  const outerX = contentW <= view.width + 0.5 ? (view.width - outer.w * zoom) / 2 : padding - view.scrollX;
-  const outerY = contentH <= view.height + 0.5 ? (view.height - outer.h * zoom) / 2 : padding - view.scrollY;
+  const fitsX = contentW <= view.width + 0.5;
+  const fitsY = contentH <= view.height + 0.5;
+  const outerX = fitsX ? (view.width - outer.w * zoom) / 2 + shift.x : padding - view.scrollX;
+  const outerY = fitsY ? (view.height - outer.h * zoom) / 2 + shift.y : padding - view.scrollY;
   const originX = outerX - outer.x * zoom;
   const originY = outerY - outer.y * zoom;
 
@@ -204,7 +223,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   }, [view.width, view.height]);
 
   useImperativeHandle(ref, () => ({
-    fit: () => { const z = Math.round(fitZoom() * 1e4) / 1e4; fittedZoom.current = z; fittedView.current = { w: view.width, h: view.height }; onZoom(z); },
+    fit: () => { setShift({ x: 0, y: 0 }); const z = Math.round(fitZoom() * 1e4) / 1e4; fittedZoom.current = z; fittedView.current = { w: view.width, h: view.height }; onZoom(z); },
     setZoomAt: (z: number) => {
       const el = scrollRef.current;
       if (el) {
@@ -251,20 +270,21 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
       const moving = manyDraft ? new Map(manyDraft.map((a) => [a.id, a])) : null;
-      const shown = moving ? { ...doc, annotations: doc.annotations.map((a) => moving.get(a.id) ?? a) } : doc;
+      const layered = moving ? { ...doc, annotations: doc.annotations.map((a) => moving.get(a.id) ?? a) } : doc;
+      const shown = markDraft ? { ...layered, watermark: markDraft } : layered;
       renderScene(
         ctx,
         shown,
         { zoom, originX, originY, dpr },
         {
-          selectedId, multi: shown.annotations.filter((a) => multiIds.includes(a.id)), hiddenId: textEdit?.annotation.id ?? null, draft, crop, cut, eraserTrail,
+          selectedId, moveOnly: Boolean(selectedId && selectedId === moveOnlyId), multi: shown.annotations.filter((a) => multiIds.includes(a.id)), watermarkBox: tool === 'watermark' ? watermarkBox(shown, shown.watermark) : null, hiddenId: textEdit?.annotation.id ?? null, draft, crop, cut, eraserTrail,
           eraserCursor: tool === 'eraser' && eraserAt ? { ...eraserAt, r: toolStyles.eraser.size / 2 } : null,
         },
         { width: view.width, height: view.height },
       );
     });
     return () => cancelAnimationFrame(raf);
-  }, [doc, zoom, originX, originY, dpr, selectedId, multiIds, manyDraft, draft, crop, cut, eraserTrail, eraserAt, tool, toolStyles.eraser.size, view.width, view.height, textEdit, fontsTick]);
+  }, [doc, zoom, originX, originY, dpr, selectedId, moveOnlyId, multiIds, manyDraft, markDraft, draft, crop, cut, eraserTrail, eraserAt, tool, toolStyles.eraser.size, view.width, view.height, textEdit, fontsTick]);
 
   /* --------------------------------- wheel ---------------------------------- */
   useEffect(() => {
@@ -291,7 +311,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const onImage = (p: Point) => p.x >= 0 && p.y >= 0 && p.x <= doc.width && p.y <= doc.height;
 
   const handleAt = (p: Point, a: Annotation | null): Handle | null => {
-    if (!a) return null;
+    if (!a || a.id === moveOnlyId) return null;
     for (const h of handlesFor(a, zoom)) if (Math.hypot(h.x - p.x, h.y - p.y) <= HANDLE_HIT_RADIUS / zoom) return h.handle;
     return null;
   };
@@ -389,9 +409,25 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     const el = scrollRef.current!;
     e.currentTarget.setPointerCapture(e.pointerId);
     const p = toDoc(e.clientX, e.clientY);
+    // "Move only" ends with a press anywhere but on that annotation.
+    if (moveOnlyId && findAt(doc.annotations, p, tolerance)?.id !== moveOnlyId) onMoveOnlyEnd?.();
+
+    // Move & pan tool: drag an annotation (or the selected ones) to move it; drag elsewhere to pan.
+    if (tool === 'hand' && !panning && e.button === 0) {
+      const under = findAt(doc.annotations, p, tolerance);
+      if (under && multiIds.includes(under.id)) {
+        drag.current = { kind: 'move-many', start: p, originals: doc.annotations.filter((a) => multiIds.includes(a.id) && canMove(a)) };
+        return;
+      }
+      if (under && canMove(under)) {
+        onSelect(under.id);
+        drag.current = { kind: 'move', start: p, original: under, editOnClick: false };
+        return;
+      }
+    }
 
     if (panning || tool === 'hand' || e.button === 1) {
-      drag.current = { kind: 'pan', startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop };
+      drag.current = { kind: 'pan', startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop, shiftX: shift.x, shiftY: shift.y };
       setCursor('grabbing');
       return;
     }
@@ -409,16 +445,22 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
         onMultiChange?.(next.length > 1 ? next : []);
         return;
       }
-      // Ctrl+click: only clears the selection (adds nothing, selects nothing).
+      const under = findAt(doc.annotations, p, tolerance);
+      if (under && multiIds.includes(under.id)) {
+        drag.current = { kind: 'move-many', start: p, originals: doc.annotations.filter((a) => multiIds.includes(a.id) && canMove(a)) };
+        return;
+      }
+      // Ctrl+click clears the selection (adds and selects nothing); Ctrl+drag moves what is under it.
       onSelect(null);
       onMultiChange?.([]);
+      if (under && canMove(under)) drag.current = { kind: 'move', start: p, original: under, editOnClick: false };
       return;
     }
 
     if (multiIds.length && tool !== 'eraser' && tool !== 'crop' && tool !== 'cut') {
       const picked = findAt(doc.annotations, p, tolerance);
       if (picked && multiIds.includes(picked.id)) {
-        drag.current = { kind: 'move-many', start: p, originals: doc.annotations.filter((a) => multiIds.includes(a.id)) };
+        drag.current = { kind: 'move-many', start: p, originals: doc.annotations.filter((a) => multiIds.includes(a.id) && canMove(a)) };
         return;
       }
       onMultiChange?.([]);
@@ -455,14 +497,25 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     const hit = findAt(doc.annotations, p, tolerance);
     const textLike = (a: Annotation | null) => a?.type === 'text' || a?.type === 'callout';
     // Clicking an already-selected text or callout edits it (with any tool).
-    const editOnClick = !!hit && hit.id === selectedId && textLike(hit);
+    const editOnClick = !!hit && hit.id === selectedId && textLike(hit) && canChange(hit) && hit.id !== moveOnlyId;
+    /** Pressing on an annotation drags it, unless it is locked. */
+    const pressOn = (a: Annotation) => { drag.current = canMove(a) ? { kind: 'move', start: p, original: a, editOnClick } : null; };
+
+    if (SELECT_LIKE.has(tool) && !hit && doc.watermark) {
+      const box = watermarkBox(doc, doc.watermark);
+      if (box && inRect(p, box)) {
+        onSelect(null);
+        drag.current = { kind: 'watermark', start: p, original: doc.watermark };
+        return;
+      }
+    }
 
     if (SELECT_LIKE.has(tool)) {
       onSelect(hit?.id ?? null);
-      if (hit) drag.current = { kind: 'move', start: p, original: hit, editOnClick };
+      if (hit) pressOn(hit);
       else {
         // Select tool on an empty spot: drag to move around the image (like the hand tool).
-        drag.current = { kind: 'pan', startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop };
+        drag.current = { kind: 'pan', startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop, shiftX: shift.x, shiftY: shift.y };
         setCursor('grabbing');
       }
       return;
@@ -473,13 +526,13 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     const drawsOver = tool === 'pen' || tool === 'highlighter' || tool === 'eraser' || tool === 'crop' || tool === 'cut';
     // ...except the object that is already selected: pressing on it moves it with any tool.
     if (hit && (!drawsOver || ((tool === 'pen' || tool === 'highlighter') && hit.id === selectedId))) {
-      if (tool === 'text' && textLike(hit)) {
+      if (tool === 'text' && textLike(hit) && canChange(hit)) {
         onSelect(hit.id);
         onTextEdit({ annotation: hit as TextAnnotation | CalloutAnnotation, isNew: false });
         return;
       }
       onSelect(hit.id);
-      drag.current = { kind: 'move', start: p, original: hit, editOnClick };
+      pressOn(hit);
       return;
     }
 
@@ -544,7 +597,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       case 'eraser': {
         erased.current = new Set();
         const first = findAt(doc.annotations, p, eraseReach);
-        if (first) erased.current.add(first.id);
+        if (first && canChange(first)) erased.current.add(first.id);
         setEraserTrail([p]);
         drag.current = { kind: 'erase' };
         return;
@@ -591,12 +644,24 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     switch (d.kind) {
       case 'pan': {
         const el = scrollRef.current!;
-        el.scrollLeft = d.scrollX - (e.clientX - d.startX);
-        el.scrollTop = d.scrollY - (e.clientY - d.startY);
+        const dx = e.clientX - d.startX;
+        const dy = e.clientY - d.startY;
+        el.scrollLeft = d.scrollX - dx;
+        el.scrollTop = d.scrollY - dy;
+        // A picture that fits in the view can't scroll: move it instead (keeping part of it on screen).
+        if (fitsX || fitsY) {
+          const limX = Math.max(0, (view.width + outer.w * zoom) / 2 - 40);
+          const limY = Math.max(0, (view.height + outer.h * zoom) / 2 - 40);
+          const clamp = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
+          setShift({ x: fitsX ? clamp(d.shiftX + dx, limX) : 0, y: fitsY ? clamp(d.shiftY + dy, limY) : 0 });
+        }
         return;
       }
       case 'move':
         setDraft(translate(d.original, p.x - d.start.x, p.y - d.start.y));
+        return;
+      case 'watermark':
+        setMarkDraft(moveWatermark(doc, d.original, p.x - d.start.x, p.y - d.start.y));
         return;
       case 'move-many':
         setManyDraft(d.originals.map((a) => translate(a, p.x - d.start.x, p.y - d.start.y)));
@@ -621,6 +686,8 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
             if (!prev || (prev.type !== 'pen' && prev.type !== 'highlighter')) return prev;
             // Shift: a perfectly straight stroke (snapped to 45 degrees), like the line tool.
             if (e.shiftKey) return { ...prev, points: [d.start, snap45(d.start, p)] };
+            // Box-like highlights follow the pointer both ways: from the start to where it is now.
+            if (isBoxyStroke(prev)) return { ...prev, points: [d.start, p] };
             return { ...prev, points: appendPoint(prev.points, p, 1 / zoom) };
           });
         } else {
@@ -640,7 +707,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
         const steps = Math.max(1, Math.ceil(Math.hypot(p.x - prev.x, p.y - prev.y) / Math.max(2, eraseReach)));
         for (let i = 1; i <= steps; i++) {
           const q = { x: prev.x + ((p.x - prev.x) * i) / steps, y: prev.y + ((p.y - prev.y) * i) / steps };
-          for (const a of doc.annotations) if (!erased.current.has(a.id) && findAt([a], q, eraseReach)) erased.current.add(a.id);
+          for (const a of doc.annotations) if (canChange(a) && !erased.current.has(a.id) && findAt([a], q, eraseReach)) erased.current.add(a.id);
         }
         setEraserAt(p);
         setEraserTrail((t) => (t ? [...t.slice(-40), p] : [p]));
@@ -693,6 +760,11 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     if (!d) return;
     if (d.kind === 'pan') {
       setCursor(tool === 'hand' || panning || SELECT_LIKE.has(tool) ? 'grab' : 'default');
+      return;
+    }
+    if (d.kind === 'watermark') {
+      if (markDraft) onWatermarkMove?.(markDraft);
+      setMarkDraft(null);
       return;
     }
     if (d.kind === 'move-many') {
@@ -756,8 +828,12 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   }
 
   function updateHoverCursor(p: Point) {
+    const over = findAt(doc.annotations, p, tolerance);
+    setOverObject(Boolean(over));
+    const box = !over && SELECT_LIKE.has(tool) ? watermarkBox(doc, doc.watermark) : null;
     let next = 'default';
-    if (panning || tool === 'hand') next = 'grab';
+    if (panning) next = 'grab';
+    else if (tool === 'hand') next = over && canMove(over) ? 'move' : 'grab';
     else if (tool === 'eraser') {
       next = ERASER_CURSOR;
       setEraserAt(p);
@@ -774,7 +850,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     }
     // The selected object can be dragged with any tool: four-way move cursor over it.
     else if (selected && tool !== 'text' && findAt(doc.annotations, p, tolerance)?.id === selected.id) next = 'move';
-    else if (SELECT_LIKE.has(tool)) next = findAt(doc.annotations, p, tolerance) ? 'move' : 'grab';
+    else if (SELECT_LIKE.has(tool)) next = over || (box && inRect(p, box)) ? 'move' : 'grab';
     else if (tool !== 'pen' && tool !== 'highlighter' && findAt(doc.annotations, p, tolerance)) next = 'pointer';
     else if (!onImage(p)) next = 'default';
     else if (tool === 'text') next = 'text';
@@ -782,17 +858,17 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     if (next !== cursor) setCursor(next);
   }
 
-  /** Ctrl + click only clears the selection; Ctrl + Shift + click picks the object under the pointer. */
+  /** Ctrl + drag moves the object under the pointer; Ctrl + Shift + click picks it. */
   const shownCursor = (() => {
     if (panning) return 'grab';
     if (held === 'none' || tool === 'crop' || tool === 'cut' || cursor === 'grabbing') return cursor;
-    if (held === 'ctrl') return 'default';
-    return cursor === 'move' || cursor === 'pointer' ? 'pointer' : 'default';
+    if (held === 'ctrl') return overObject ? 'move' : 'default';
+    return overObject ? 'pointer' : 'default';
   })();
 
   function onDoubleClick(e: React.MouseEvent) {
     const hit = findAt(doc.annotations, toDoc(e.clientX, e.clientY), tolerance);
-    if (hit?.type === 'text' || hit?.type === 'callout') {
+    if ((hit?.type === 'text' || hit?.type === 'callout') && canChange(hit) && hit.id !== moveOnlyId) {
       onSelect(hit.id);
       onTextEdit({ annotation: hit, isNew: false });
     }
@@ -819,7 +895,8 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
           if (!onCanvasMenu || textEdit) return;
           arrowStart.current = null;
           const hit = findAt(doc.annotations, toDoc(e.clientX, e.clientY), tolerance);
-          if (hit) onSelect(hit.id);
+          // A right-click on one of several selected objects keeps them all selected.
+          if (hit && !multiIds.includes(hit.id)) onSelect(hit.id);
           onCanvasMenu(e, hit);
         }}
         onPointerMove={onPointerMove}

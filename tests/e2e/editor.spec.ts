@@ -421,14 +421,12 @@ test.describe('screenshot editor', () => {
     await bar.getByRole('button', { name: /Duplicate/ }).click();
     await expect.poll(async () => (await layers()).length).toBe(2);
     await bar.getByRole('button', { name: 'More options' }).click();
-    await editor.getByRole('menuitem', { name: 'Align to image' }).click();
-    await editor.getByRole('menuitem', { name: 'Left' }).click();
+    await editor.getByRole('menuitem', { name: 'Align left' }).click();
     await expect(editor.getByRole('menu')).toHaveCount(0);
     await editor.getByRole('tab', { name: /History/ }).click();
     await expect(editor.getByRole('button', { name: /Align rectangle left/ })).toBeVisible();
     await editor.getByRole('tab', { name: /Properties/ }).click();
     await bar.getByRole('button', { name: 'More options' }).click();
-    await editor.getByRole('menuitem', { name: 'Layer' }).click();
     await editor.getByRole('menuitem', { name: 'Send to back' }).click();
     await bar.getByRole('button', { name: 'More options' }).click();
     await editor.getByRole('menuitem', { name: 'Copy' }).click();
