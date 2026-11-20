@@ -817,3 +817,41 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - **Move & pan tool (H)**: drag an annotation to move it (or the selected ones); drag an empty spot to pan.
 - **Cutting a highlight with a shape is offered only for several selected objects**: the selected strokes are cut with the selected shape. *Undo cut* is also on a single cut stroke.
 - Tests: tests/e2e/round69.spec.ts, round70.spec.ts.
+
+### Round 71 – Click highlights on every page, editor click effects
+- **Click highlights (and key combos, cursor halo, styled cursor) stay on while you move to other pages**: they are added again to each page that loads in the recorded tab. Screen and window recordings also add them to whichever tab you switch to. Pages of other sites need Pixora's optional "all sites" access, which is asked for when a recording with these effects starts (declining keeps them on the first page).
+- **The click effect uses the image editor's cursor effects** (Click ring, Ripple, Glow, Halo, Burst, Target, Click rays, Pulse, Emphasis), with size (10–200 px), opacity, animation length and left / right click colours, and can show the cursor (any editor cursor design) with its left / right click mark. A live preview shows both clicks. The same controls are in the popup and in Settings › Recording.
+- Tests: tests/unit/round71.test.ts, tests/e2e/round71.spec.ts.
+
+### Round 72 – Taller video for drawing
+- **Drag the bar under the video** (or focus it and press ↑ / ↓, Shift for big steps) to make the video taller or shorter — a bigger picture makes marking and drawing shapes easier, also on small screens (the page scrolls). It grows until the picture fills the player's width (a narrower window, or the single-column layout on small screens, gives the most height). The height is remembered; double-click the bar to fit the window again.
+- Tests: tests/e2e/round72.spec.ts.
+
+### Round 73 – One set of cursor pickers
+- The click-highlight settings (popup and Settings › Recording), the styled cursor and the image editor's Cursor tool use the same pickers: **Quick looks**, **Cursor designs** in their groups (Classic & system, Themed, Shape, Recording & tutorial, Hand & gesture, Resize, UI & action, Custom & creative) and **effects shown as pictures** with their names — every cursor design and effect is in both places.
+- A click highlight can take a whole quick look (design, effect and colours) in one click; with the cursor shown, the effect can also be *None* (just the cursor and its click mark).
+- Settings changes made quickly one after another are all kept (they are saved in order; before, a later save could undo an earlier one).
+- Tests: tests/e2e/round73.spec.ts, tests/unit/round73.test.ts.
+
+### Round 74 – Chosen quick look, two columns, cursor colours
+- **The quick look in use is highlighted** (click settings and the editor's Cursor tool).
+- **Click settings in two columns** in Settings › Recording (cursor on the left, effect on the right); one column in the narrow popup.
+- **Cursor and outline colour** for the cursor shown with clicks, and on the editor Cursor tool's Design tab (next to the designs).
+- Tests: tests/e2e/round73.spec.ts.
+- The click preview grows with the effect size and keeps the cursor at its real size (it used to shrink everything, the cursor too).
+- **Try it** on the settings page: clicking the pad (left or right button) plays the click effect exactly as in a recording.
+
+### Round 75 – Click highlight studio: real animations, one set of options everywhere
+- **New card layout** for Settings › Recording › Highlight mouse clicks: Preview + Try it, Click effect, Quick looks, Effect settings, Click colours, Cursor design (with Motion) and Other options; two columns when there is room, one column in the popup.
+- **Real animations, different for every effect**: Ring grows and flashes, Ripple sends three rings, Glow swells, Halo and Target pop in, Burst flies outwards, Click rays shoot out, Pulse beats twice, Emphasis rings follow each other, Spotlight closes in on the click. Clicks are drawn frame by frame (recordings, preview, Try it), and the cursor is pressed at each click.
+- **Motion looks really move**: Trail, Dotted trail, Ghost, Bounce, Wavy, Loading and Signal each animate their own way. Quick looks now apply their motion, click mark and Spotlight (before, Ghost / Bounce / Wavy all became the same plain arrow).
+- **Richer colours**: rings get a soft glow of their own colour, halos a gradient, rays and bursts alternate two shades.
+- **Same options in Settings and the editor**: Settings gained cursor size, motion, the mouse-button mark (left / right / double click is detected) and Spotlight; the editor's Cursor tool gained motion pictures, an animated click preview, animation duration and "In videos" (still, play once, repeat), which the video editor plays and exports.
+- Selected items show a check badge (quick looks, effects, designs, motion).
+- Tests: tests/unit/round74.test.ts, tests/e2e/round74.spec.ts, tests/e2e/round73.spec.ts.
+
+### Round 76 – Clicks always show, smoother, fixed preview
+- **Clicks no longer go missing**: the animation clock starts with the first painted frame (a busy page never skips it), the first frame already shows the effect, the effect is drawn into the page's live layer (pages that re-render their `<html>`), pages get the highlights as soon as they start loading (not only once fully loaded), and clicks inside embedded frames are shown too (frames only do clicks and shortcuts).
+- **Smoother**: every step of the animations eases in and out.
+- **The preview keeps one size** whatever the effect size (big effects are drawn as big as fit; the cursor keeps its size).
+- Tests: tests/e2e/round73.spec.ts, tests/e2e/round76.spec.ts.

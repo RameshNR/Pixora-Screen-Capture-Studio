@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Check, ChevronDown, Clapperboard, Clock, Copy, Download, EyeOff, FastForward, FileOutput, FileVideo, FolderOpen, History, Images, ListOrdered, Pencil, Play, Rewind, Save, Trash2, Upload, VolumeX, Workflow, X } from 'lucide-react';
 import type { AppErrorInfo, CaptureRecord, HardwareAcceleration, Marker, VideoContainer, VideoRedaction } from '@/shared/types';
 import { ChaptersPanel, PrivacyPanel, RedactionPreview, TrimEditor } from '../components/VideoTools';
@@ -43,6 +43,11 @@ import type { VideoQuality } from '../services/export-service';
 import { VideoPlayer, type TrimRange, type VideoPlayerHandle } from '../components/VideoPlayer';
 import { TopBar } from './TopBar';
 import styles from './video.module.css';
+
+const PLAYER_HEIGHT_KEY = 'pixora.video.playerHeight';
+const PLAYER_MIN_H = 200;
+const PLAYER_MAX_H = 2400;
+const clampPlayer = (h: number) => Math.round(Math.max(PLAYER_MIN_H, Math.min(PLAYER_MAX_H, h)));
 
 /** Recording result page: playback, metadata, rename, download, trim and format conversion. */
 export function VideoApp() {
@@ -116,6 +121,43 @@ export function VideoApp() {
   const [muting, setMuting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const playerRef = useRef<VideoPlayerHandle>(null);
+  /** Height of the video chosen by dragging the bar under it (null: fits the window). */
+  const [playerHeight, setPlayerHeight] = useState<number | null>(() => {
+    try {
+      const v = Number(localStorage.getItem(PLAYER_HEIGHT_KEY));
+      return v >= PLAYER_MIN_H ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const savePlayerHeight = (h: number | null) => {
+    setPlayerHeight(h);
+    try {
+      if (h === null) localStorage.removeItem(PLAYER_HEIGHT_KEY);
+      else localStorage.setItem(PLAYER_HEIGHT_KEY, String(Math.round(h)));
+    } catch { /* private window */ }
+  };
+  /** The tallest useful height: the picture fills the player's width (taller would only add black bars). */
+  const fitPlayer = (h: number) => {
+    const v = playerRef.current?.element();
+    const full = v && v.videoWidth ? (v.clientWidth * v.videoHeight) / v.videoWidth : PLAYER_MAX_H;
+    return clampPlayer(Math.min(h, Math.max(PLAYER_MIN_H, full)));
+  };
+  /** Drag the bar under the video: taller for precise drawing, shorter to see more of the timeline. */
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = playerRef.current?.element()?.clientHeight ?? playerHeight ?? 400;
+    const move = (ev: PointerEvent) => setPlayerHeight(fitPlayer(startH + ev.clientY - startY));
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      savePlayerHeight(fitPlayer(startH + ev.clientY - startY));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   const autosaved = useRef(false);
 
   useEffect(() => {
@@ -545,7 +587,7 @@ export function VideoApp() {
 
       <main className={`${styles.layout} ${advanced ? styles.layoutRail : ''}`}>
         {advanced && <AnnotateRail tool={currentTool} active={editing} onPick={pickTool} privacy={{ count: regions.length, open: sideTab === 'privacy', onOpen: () => setSideTab('privacy') }} />}
-        <section className={styles.stage}>
+        <section className={styles.stage} style={playerHeight ? ({ '--player-max-h': `${playerHeight}px`, '--player-h': `${playerHeight}px` } as CSSProperties) : undefined}>
           <VideoPlayer
             ref={playerRef}
             src={url}
@@ -582,6 +624,29 @@ export function VideoApp() {
               </>
             )}
           />
+
+          <div
+            className={styles.playerResize}
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Video height"
+            aria-valuemin={PLAYER_MIN_H}
+            aria-valuemax={PLAYER_MAX_H}
+            aria-valuenow={Math.round(playerHeight ?? playerRef.current?.element()?.clientHeight ?? 0)}
+            tabIndex={0}
+            title="Drag to make the video taller or shorter (double-click: fit the window)"
+            onPointerDown={startResize}
+            onDoubleClick={() => savePlayerHeight(null)}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+              e.preventDefault();
+              e.stopPropagation();
+              const now = playerHeight ?? playerRef.current?.element()?.clientHeight ?? 400;
+              savePlayerHeight(fitPlayer(now + (e.key === 'ArrowDown' ? 1 : -1) * (e.shiftKey ? 100 : 20)));
+            }}
+          >
+            <span />
+          </div>
 
           <TrimEditor
             src={url}

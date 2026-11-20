@@ -7,6 +7,10 @@ import { RadioGroup, Slider, TextField, ToggleSwitch } from '@/shared/components
 import { COUNTDOWN_OPTIONS, MAX_DURATION_OPTIONS } from '@/shared/constants/media';
 import { buildCandidates } from '@/recording/services/codec-service';
 import styles from '../styles/popup.module.css';
+import { ClickHighlightFields } from '@/shared/components/ClickHighlightFields';
+import { CURSOR_DESIGNS } from '@/editor/tools/cursor';
+import { CursorDesignGrid } from '@/editor/components/CursorPickers';
+import type { CursorDesign } from '@/editor/types';
 
 interface Props {
   settings: Settings;
@@ -45,20 +49,7 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
 
 /** Click ring / ripple / pulse style, colours, size, opacity and duration. */
 function ClickEffectFields({ rec, updateRec }: { rec: RecordingSettings; updateRec: (patch: Partial<RecordingSettings>) => void }) {
-  const fx = rec.cursorEffects;
-  const set = (patch: Partial<RecordingSettings['cursorEffects']>) => updateRec({ cursorEffects: { ...fx, ...patch } });
-  return (
-    <>
-      <Line label="Click effect">
-        <Select label="Click effect" value={fx.style} minWidth={150} onChange={(style) => set({ style })} options={[{ value: 'ring', label: 'Ring' }, { value: 'ripple', label: 'Ripple' }, { value: 'pulse', label: 'Pulse' }, { value: 'burst', label: 'Burst' }, { value: 'target', label: 'Target' }, { value: 'glow', label: 'Glow' }]} />
-      </Line>
-      <ColorRow label="Left click" value={fx.leftColor} onChange={(leftColor) => set({ leftColor })} />
-      <ColorRow label="Right click" value={fx.rightColor} onChange={(rightColor) => set({ rightColor })} />
-      <Slider label="Click radius" min={10} max={80} value={fx.radius} format={(v) => `${v}px`} onChange={(radius) => set({ radius })} />
-      <Slider label="Effect opacity" min={0.2} max={1} step={0.05} value={fx.opacity} format={(v) => `${Math.round(v * 100)}%`} onChange={(opacity) => set({ opacity })} />
-      <Slider label="Animation" min={200} max={2000} step={50} value={fx.durationMs} format={(v) => `${(v / 1000).toFixed(2)} s`} onChange={(durationMs) => set({ durationMs })} />
-    </>
-  );
+  return <ClickHighlightFields fx={rec.cursorEffects} onChange={(patch) => updateRec({ cursorEffects: { ...rec.cursorEffects, ...patch } })} />;
 }
 
 function codecSupported(container: 'webm' | 'mp4', codec: 'vp9' | 'vp8' | 'av1' | 'h264'): boolean {
@@ -209,7 +200,7 @@ export function AdvancedRecordingSettings({ settings, updateRec, updateSchedule,
 
         <div className={styles.group}>
           <div className={styles.groupTitle}>Overlays</div>
-          <Line label="Highlight mouse clicks" hint="Shows a ripple where you click in the page">
+          <Line label="Highlight mouse clicks" hint="Shows an effect where you click — on every page and tab you visit while recording">
             <ToggleSwitch size="sm" label="Highlight mouse clicks" checked={rec.highlightClicks} onChange={(v) => updateRec({ highlightClicks: v })} />
           </Line>
           {rec.highlightClicks && <ClickEffectFields rec={rec} updateRec={updateRec} />}
@@ -227,18 +218,9 @@ export function AdvancedRecordingSettings({ settings, updateRec, updateSchedule,
           </Line>
           {rec.cursorEffects.pointer && (
             <>
-              <Line label="Cursor design">
-                <Select
-                  label="Cursor design"
-                  value={rec.cursorEffects.pointerDesign ?? 'arrow'}
-                  minWidth={170}
-                  onChange={(pointerDesign) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerDesign } })}
-                  options={[
-                    { value: 'arrow', label: 'Classic arrow' }, { value: 'modern', label: 'Modern arrow' }, { value: 'pointer', label: 'Pointer' }, { value: 'hand', label: 'Hand' },
-                    { value: 'ibeam', label: 'Text (I-beam)' }, { value: 'crosshair', label: 'Crosshair' }, { value: 'dot', label: 'Presenter dot' }, { value: 'touch', label: 'Touch point' },
-                  ]}
-                />
-              </Line>
+              <div className={styles.lineHint}>Cursor design</div>
+              <CursorDesignGrid value={(rec.cursorEffects.pointerDesign ?? 'arrow') as CursorDesign}
+                onPick={(pointerDesign) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerDesign, pointerColor: CURSOR_DESIGNS[pointerDesign].fill, pointerOutline: CURSOR_DESIGNS[pointerDesign].outline } })} />
               <Slider label="Cursor size" min={14} max={96} value={rec.cursorEffects.pointerSize ?? 28} format={(v) => `${v}px`} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerSize: v } })} />
               <ColorRow label="Cursor colour" value={rec.cursorEffects.pointerColor ?? '#FFFFFF'} onChange={(c) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerColor: c } })} />
               <ColorRow label="Outline colour" value={rec.cursorEffects.pointerOutline ?? '#111827'} onChange={(c) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerOutline: c } })} />

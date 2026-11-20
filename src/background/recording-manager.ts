@@ -1,5 +1,5 @@
 import type { AppErrorInfo, ControlBarPosition, RecordingConfig, RecordingEvent, RecordingState, RelativeRect } from '@/shared/types';
-import type { RecordingCommand } from '@/shared/messaging/messages';
+import type { ContentMessage, RecordingCommand } from '@/shared/messaging/messages';
 import { broadcast, sendToHost } from '@/shared/messaging/client';
 import { AppError, makeErrorInfo, toAppError } from '@/shared/utils/errors';
 import { createId } from '@/shared/utils/misc';
@@ -321,23 +321,13 @@ async function sideEffects(prev: RecordingState, next: RecordingState, event: Re
       }
     }
     if (next.targetTabId !== null && config && next.mode !== 'camera') {
-      // The styled cursor is drawn into the page, so it only makes sense when the tab itself is
-      // recorded. Desktop / window recordings show the real cursor (Chrome records it); a page-drawn
-      // copy would trail behind it and freeze when the mouse leaves the page.
-      const cursorFx = tabCapture ? config.cursorEffects : { ...config.cursorEffects, pointer: false, hideSystemCursor: false };
-      const wantsPageFx = config.highlightClicks || config.highlightKeys || cursorFx.cursor || Boolean(cursorFx.pointer);
-      // Desktop recordings: the page also reports the mouse, so zoom follows it (placed on the screen by the recorder).
-      if (tabCapture || wantsPageFx || next.mode === 'desktop') {
+      const fx = pageEffects(config, next.mode);
+      if (fx) {
+        // Tab recordings already have the overlay (countdown, area frame).
         if (!tabCapture) await injectOverlay(next.targetTabId).catch(() => undefined);
-        sendOverlaySafe(next.targetTabId, {
-          target: 'content',
-          type: 'overlay/effects',
-          cursor: cursorFx,
-          clicks: config.highlightClicks,
-          keys: config.highlightKeys,
-          // Cursor positions drive zoom / spotlight; only meaningful when the tab itself is recorded.
-          track: tabCapture || next.mode === 'desktop',
-        });
+        await injectFrames(next.targetTabId);
+        sendOverlaySafe(next.targetTabId, fx);
+        fxTabs.add(next.targetTabId);
       }
     }
     if (next.mode === 'area' && next.area) {
@@ -348,8 +338,75 @@ async function sideEffects(prev: RecordingState, next: RecordingState, event: Re
   const ended = (next.status === 'idle' || next.status === 'error') && prev.status !== 'idle' && prev.status !== 'error';
   if (ended) {
     sendOverlaySafe(prev.targetTabId, { target: 'content', type: 'overlay/teardown' });
+    for (const id of fxTabs) if (id !== prev.targetTabId) sendOverlaySafe(id, { target: 'content', type: 'overlay/teardown' });
+    fxTabs.clear();
     await closeControlBar(next.controlBarWindowId ?? prev.controlBarWindowId);
   }
+}
+
+/* ---------------------- click / key effects on every page ---------------------- */
+
+/** Pages that got the click / key / cursor effects during this recording (removed at the end). */
+const fxTabs = new Set<number>();
+
+/**
+ * What the recorded page draws: click highlights, key combos, cursor halo / styled cursor and the
+ * mouse position for zoom. Null when nothing is wanted.
+ */
+export function pageEffects(config: RecordingConfig, mode: RecordingState['mode']): Extract<ContentMessage, { type: 'overlay/effects' }> | null {
+  if (mode === 'camera') return null;
+  const tabCapture = mode === 'tab' || mode === 'area';
+  // The styled cursor is drawn into the page, so it only makes sense when the tab itself is
+  // recorded. Desktop / window recordings show the real cursor (Chrome records it); a page-drawn
+  // copy would trail behind it and freeze when the mouse leaves the page.
+  const cursor = tabCapture ? config.cursorEffects : { ...config.cursorEffects, pointer: false, hideSystemCursor: false };
+  const wanted = config.highlightClicks || config.highlightKeys || cursor.cursor || Boolean(cursor.pointer);
+  // Desktop recordings: the page also reports the mouse, so zoom follows it (placed on the screen by the recorder).
+  if (!tabCapture && !wanted && mode !== 'desktop') return null;
+  // Cursor positions drive zoom / spotlight; only meaningful when the tab itself (or the desktop) is recorded.
+  return { target: 'content', type: 'overlay/effects', cursor, clicks: config.highlightClicks, keys: config.highlightKeys, track: tabCapture || mode === 'desktop' };
+}
+
+/** Puts the effects into a page (again): a page that was just loaded starts without them. */
+async function applyPageEffects(tabId: number): Promise<void> {
+  const config = (await getPendingStore())?.config;
+  const fx = config ? pageEffects(config, state.mode) : null;
+  if (!fx) return;
+  try {
+    await injectOverlay(tabId);
+  } catch {
+    return; // A browser page, or no access to this site.
+  }
+  await injectFrames(tabId);
+  sendOverlaySafe(tabId, fx);
+  fxTabs.add(tabId);
+}
+
+/** Embedded frames (videos, forms, editors in iframes) show their clicks too, where the site allows it. */
+async function injectFrames(tabId: number): Promise<void> {
+  await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content/overlay.js'] }).catch(() => undefined);
+}
+
+const recordingNow = () => state.status === 'recording' || state.status === 'paused';
+
+/** The recorded page loaded a new page (link, form, reload): its click highlights come back. */
+export function onRecordingTabUpdated(tabId: number, info: { status?: string }, tab: chrome.tabs.Tab): Promise<void> {
+  return serial(async () => {
+    await ensureLoaded();
+    // As soon as the new page starts (clicks while a slow page is still loading), and again once it has loaded.
+    if ((info.status !== 'loading' && info.status !== 'complete') || !recordingNow()) return;
+    const followsActive = state.mode === 'desktop'; // (screen or window)
+    if (tabId === state.targetTabId || (followsActive && tab.active) || fxTabs.has(tabId)) await applyPageEffects(tabId);
+  });
+}
+
+/** Screen and window recordings show whichever tab is chosen: it gets the effects too. */
+export function onRecordingTabActivated(tabId: number): Promise<void> {
+  return serial(async () => {
+    await ensureLoaded();
+    if (!recordingNow() || state.mode !== 'desktop' || fxTabs.has(tabId)) return;
+    await applyPageEffects(tabId);
+  });
 }
 
 /* ------------------------------- control bar ----------------------------- */

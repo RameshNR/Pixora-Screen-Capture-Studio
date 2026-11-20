@@ -548,3 +548,33 @@
   border: 1px solid var(--c-border);
   box-shadow: var(--shadow-md);
 }
+
+/* Bar under the video: drag to change the video's height. */
+.playerResize {
+  display: grid;
+  place-items: center;
+  height: 14px;
+  margin: -8px 0 -6px;
+  cursor: row-resize;
+  touch-action: none;
+  border-radius: 7px;
+}
+
+.playerResize span {
+  width: 56px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--c-border-strong, var(--c-border));
+  transition: background 0.15s, width 0.15s;
+}
+
+.playerResize:hover span,
+.playerResize:focus-visible span {
+  width: 84px;
+  background: var(--c-primary);
+}
+
+.playerResize:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}

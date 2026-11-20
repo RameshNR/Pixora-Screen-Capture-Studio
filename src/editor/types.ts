@@ -344,6 +344,10 @@ export interface CursorAnnotation extends Base {
   effectSize: number;
   /** Motion trail (animated-cursor look in a still image). */
   trail?: CursorTrail;
+  /** Click animation length (ms): the preview, and videos when `anim` plays it. */
+  animMs?: number;
+  /** In videos: a still cursor, the click animation once when it appears, or repeated. */
+  anim?: 'off' | 'once' | 'loop';
 }
 
 export interface ImageAnnotation extends Base, Rect {

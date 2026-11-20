@@ -75,6 +75,8 @@ export const DEFAULT_SETTINGS: Settings = {
     cursorEffects: {
       cursor: false, cursorSize: 36, cursorColor: '#FFD84D', style: 'ring', leftColor: '#4F8DF7', rightColor: '#E05252', radius: 26,
       opacity: 0.85, durationMs: 600,
+      clickEffect: 'ring', clickCursor: false, clickDesign: 'arrow', clickCursorColor: '#FFFFFF', clickCursorOutline: '#111827',
+      clickCursorSize: 28, clickTrail: 'none', clickMark: true,
       pointer: false, pointerDesign: 'arrow', pointerSize: 28, pointerColor: '#FFFFFF', pointerOutline: '#111827', smoothing: 0, hideSystemCursor: false,
     },
     zoom: { autoOnClick: false, level: 2, transitionMs: 600, holdMs: 1800, easing: 'ease-in-out' },

@@ -2,6 +2,7 @@ import type { Annotation, EditorDoc, Watermark } from '@/editor/types';
 import { getBounds, renderAnnotation, translate } from '@/editor/tools/annotations';
 import { drawWatermark } from '@/editor/tools/decorations';
 import { isRedaction, redactSource } from '@/editor/tools/layers';
+import { renderCursorFrame } from '@/editor/tools/cursor';
 import { viewScale, type Ctx2D } from '@/editor/tools/common';
 
 /**
@@ -236,7 +237,9 @@ export function drawOverlays(ctx: Ctx2D, base: ImageBitmap | null, overlays: rea
       ctx.shadowColor = 'rgba(255, 220, 90, 0.95)';
       ctx.shadowBlur = size * 0.02 * st.glow * px;
     }
-    if (base || !isRedaction(a)) renderAnnotation(ctx, (base && isRedaction(a) ? redactSource(base, w, h, layers, index) : base ?? null) as ImageBitmap, a);
+    const cursorT = cursorAnimAt(o, t);
+    if (a.type === 'cursor' && cursorT !== null) renderCursorFrame(ctx, a, cursorT, false);
+    else if (base || !isRedaction(a)) renderAnnotation(ctx, (base && isRedaction(a) ? redactSource(base, w, h, layers, index) : base ?? null) as ImageBitmap, a);
     ctx.restore();
   }
   if (watermark) drawWatermark(ctx, { width: w, height: h } as EditorDoc, watermark);
@@ -259,6 +262,18 @@ export async function burnOverlays(canvas: OffscreenCanvas, overlays: readonly V
   drawOverlays(ctx, base, overlays, t, sourceWidth, sourceHeight, watermark);
   ctx.restore();
   base?.close();
+}
+
+/**
+ * Moment (0–1) of a cursor's click animation at time `t` (the cursor tool's "In videos": play once
+ * when it appears, or repeat with a short pause); null for a still cursor.
+ */
+export function cursorAnimAt(o: VideoOverlay, t: number): number | null {
+  const a = o.annotation;
+  if (a.type !== 'cursor' || !a.anim || a.anim === 'off') return null;
+  const dur = Math.max(200, a.animMs ?? 800) / 1000;
+  const local = Math.max(0, t - o.start);
+  return a.anim === 'loop' ? Math.min(1, (local % (dur + 0.45)) / dur) : Math.min(1, local / dur);
 }
 
 /** True when some overlay at time `t` reads the frame (blur / pixelate). */

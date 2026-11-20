@@ -1,0 +1,116 @@
+/* Cursor pickers: the editor's look, also used by the recording settings (theme tokens). */
+.picker {
+  display: grid;
+  gap: 8px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tabs > button {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--c-editor-border, var(--c-border));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c-editor-text-dim, var(--c-text-secondary));
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabs > button.tabOn {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: var(--c-on-primary, #fff);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.grid > button,
+.effects > button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--c-editor-border, var(--c-border));
+  border-radius: var(--r-sm, 6px);
+  background: var(--c-editor-tile, var(--c-bg-elevated));
+  color: var(--c-editor-text, var(--c-text));
+  cursor: pointer;
+}
+
+.grid > button {
+  height: 44px;
+}
+
+.effects {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 6px;
+}
+
+.effects > button {
+  gap: 2px;
+  padding: 4px 3px;
+  font-size: 10.5px;
+}
+
+.effects span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grid > button:hover,
+.effects > button:hover {
+  border-color: var(--c-primary);
+}
+
+.grid > button:focus-visible,
+.effects > button:focus-visible,
+.tabs > button:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
+}
+
+.grid > button.on,
+.effects > button.on {
+  border-color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 16%, var(--c-editor-tile, var(--c-bg-elevated)));
+  box-shadow: 0 0 0 1px var(--c-primary) inset, 0 2px 8px color-mix(in srgb, var(--c-primary) 25%, transparent);
+}
+
+/* The chosen one carries a check badge in its corner. */
+.grid > button.on::after,
+.effects > button.on::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 17px;
+  height: 17px;
+  border: 2px solid var(--c-editor-chrome, var(--c-bg-elevated));
+  border-radius: 50%;
+  background: var(--c-primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 10px no-repeat;
+  pointer-events: none;
+}
+
+.grid,
+.effects {
+  padding-top: 4px;
+  padding-right: 4px;
+}
+
+.grid canvas,
+.effects canvas {
+  display: block;
+  border-radius: 4px;
+}

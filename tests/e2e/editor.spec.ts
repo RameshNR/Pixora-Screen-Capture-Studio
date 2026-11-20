@@ -107,8 +107,7 @@ test.describe('screenshot editor', () => {
     await designs.getByRole('radio', { name: 'Hand (link)' }).click();
     await panelTab(editor, 'Cursor', 'Click & effects');
     await editor.getByRole('radiogroup', { name: 'Click indicator' }).getByRole('radio', { name: 'Right' }).click();
-    await editor.getByRole('button', { name: 'Cursor effect' }).click();
-    await editor.getByRole('menuitemradio', { name: /Spotlight/ }).click();
+    await editor.getByRole('radiogroup', { name: 'Cursor effect' }).getByRole('radio', { name: 'Spotlight', exact: true }).click();
     const layers = async () => {
       await editor.getByRole('tab', { name: /Layers/ }).click();
       const t = await editor.getByRole('complementary', { name: 'Properties' }).locator('li').allInnerTexts();
@@ -123,8 +122,7 @@ test.describe('screenshot editor', () => {
     await panelTab(editor, 'Cursor', 'Design');
     await designs.getByRole('radio', { name: 'Presenter dot' }).click();
     await panelTab(editor, 'Cursor', 'Click & effects');
-    await editor.getByRole('button', { name: 'Cursor effect' }).click();
-    await editor.getByRole('menuitemradio', { name: /Ripple/ }).click();
+    await editor.getByRole('radiogroup', { name: 'Cursor effect' }).getByRole('radio', { name: 'Ripple', exact: true }).click();
     await editor.mouse.click(box.x + box.width / 2 + 70, box.y + box.height / 2 + 30);
     await expect.poll(layers).toMatch(/Cursor.*\|.*Cursor/s);
 

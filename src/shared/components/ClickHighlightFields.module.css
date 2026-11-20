@@ -1,0 +1,157 @@
+/* Click highlight settings: cards, two columns when there is room (Settings), one in the popup. */
+.host {
+  container-type: inline-size;
+}
+
+.studio {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+
+@container (min-width: 720px) {
+  .studio {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'preview effect'
+      'looks settings'
+      'design options';
+    align-items: start;
+  }
+
+  .aPreview { grid-area: preview; align-self: stretch; }
+  .aEffect { grid-area: effect; align-self: stretch; }
+  .aLooks { grid-area: looks; }
+  .aSettings { grid-area: settings; }
+  .aDesign { grid-area: design; }
+  .aOptions { grid-area: options; }
+}
+
+.card {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  background: var(--c-bg-elevated);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 14px rgb(16 24 40 / 0.04);
+}
+
+.stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  color: var(--c-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.cardTitle > svg {
+  color: var(--c-primary);
+}
+
+.subTitle {
+  color: var(--c-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Preview card: animated left / right click, and the try-it bar. */
+.previewCard {
+  justify-items: center;
+  overflow: visible;
+}
+
+.badge {
+  justify-self: start;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.preview {
+  max-width: 100%;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: repeating-conic-gradient(var(--c-bg-muted) 0 25%, var(--c-bg) 0 50%) 0 0 / 16px 16px;
+}
+
+.tryIt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  border: 1px dashed color-mix(in srgb, var(--c-primary) 45%, transparent);
+  border-radius: 10px;
+  background: var(--c-primary-soft);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.tryIt:hover {
+  background: var(--c-primary-soft-strong);
+}
+
+.tryIt:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+.burst {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--c-text);
+  font-size: 13px;
+}
+
+.colour {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) 1fr;
+  align-items: center;
+  gap: 8px 14px;
+  color: var(--c-text);
+  font-size: 13px;
+}
+
+@container (max-width: 420px) {
+  .colour {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dim {
+  opacity: 0.6;
+}
+
+.note {
+  margin: 0;
+  color: var(--c-text-secondary);
+  font-size: 12px;
+}

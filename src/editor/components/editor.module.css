@@ -1367,3 +1367,12 @@
   opacity: 0.45;
   pointer-events: none;
 }
+
+/* Cursor tool: the click animation playing over and over. */
+.cursorAnim {
+  display: block;
+  margin: 0 auto;
+  border: 1px solid var(--c-editor-border);
+  border-radius: 10px;
+  background: repeating-conic-gradient(var(--c-editor-tile) 0 25%, var(--c-editor-field) 0 50%) 0 0 / 14px 14px;
+}

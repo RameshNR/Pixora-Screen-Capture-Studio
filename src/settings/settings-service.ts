@@ -12,6 +12,9 @@ import { setDebugLogging } from '@/shared/utils/logger';
 export function normalizeSettings(raw: unknown): Settings {
   const merged = mergeDeep(DEFAULT_SETTINGS, raw);
   const s = structuredClone(merged);
+  // Settings saved before click effects had their own field keep the effect they had.
+  const storedFx = (raw as { recording?: { cursorEffects?: { clickEffect?: unknown } } } | null)?.recording?.cursorEffects;
+  if (storedFx && storedFx.clickEffect === undefined) s.recording.cursorEffects.clickEffect = s.recording.cursorEffects.style;
   // v2: recordings start on Desktop with Flow Capture (frames of each step) switched on.
   const from = raw && typeof raw === 'object' ? Number((raw as { version?: unknown }).version ?? 1) : DEFAULT_SETTINGS.version;
   if (from < 2) {
@@ -71,11 +74,18 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: normalizeSettings(settings) });
 }
 
-export async function updateSettings(patch: DeepPartial<Settings>): Promise<Settings> {
-  const current = await loadSettings();
-  const next = normalizeSettings(mergeDeep(current, patch));
-  await chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: next });
-  return next;
+/** Changes are saved one after another: two quick changes never read the same old settings (the later save undid the earlier one). */
+let saving: Promise<unknown> = Promise.resolve();
+
+export function updateSettings(patch: DeepPartial<Settings>): Promise<Settings> {
+  const run = saving.then(async () => {
+    const current = await loadSettings();
+    const next = normalizeSettings(mergeDeep(current, patch));
+    await chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: next });
+    return next;
+  });
+  saving = run.catch(() => undefined);
+  return run;
 }
 
 export async function resetSettings(): Promise<Settings> {

@@ -25,6 +25,10 @@ only for something you start:
 - **Flow Capture** asks for all sites, so a flow can follow you to other pages and sites (re-attach the
   tracker after page loads and capture those tabs). Declining keeps Flow Capture working on the
   starting site only.
+- **Recording with click highlights** (or key combinations, cursor halo, styled cursor) asks for all
+  sites, so the highlights come back on each page you open while recording (and in the tab you switch
+  to during a screen or window recording, including embedded frames). Declining keeps them on the
+  first page only. Clicks are only drawn on the page; nothing is stored or sent.
 - **Add image › From a web address** asks for that one site (`https://example.com/*`), so Pixora can
   read the picture you named. The request is sent without cookies; declining just cancels that image.
 

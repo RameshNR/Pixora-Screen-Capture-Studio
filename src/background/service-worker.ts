@@ -5,7 +5,7 @@ import { handleCommand } from './commands';
 import { registerMessageHandler } from './message-handler';
 import { highlightScrollArea } from '@/screenshot/services/full-page-capture';
 import { SCROLL_AREAS_PORT } from '@/shared/messaging/messages';
-import { onTabRemoved, onWindowRemoved, verifyAfterRestart } from './recording-manager';
+import { onRecordingTabActivated, onRecordingTabUpdated, onTabRemoved, onWindowRemoved, verifyAfterRestart } from './recording-manager';
 import { onFlowWindowRemoved, onPermissionsAdded, onTabActivated, onTabCreated, onTabUpdated, verifyFlowAfterRestart } from './flow-manager';
 import { RETENTION_ALARM, SCHEDULE_ALARM, runScheduledRecording, syncScheduleAlarm } from './scheduler';
 
@@ -32,6 +32,8 @@ chrome.windows.onRemoved.addListener((windowId) => {
 // Flow Capture follows the user across page loads and into tabs opened from followed tabs.
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   void onTabUpdated(tabId, info, tab);
+  // Click highlights and other page effects come back on every new page while recording.
+  void onRecordingTabUpdated(tabId, info, tab);
 });
 
 chrome.tabs.onCreated.addListener((tab) => {
@@ -40,6 +42,7 @@ chrome.tabs.onCreated.addListener((tab) => {
 
 chrome.tabs.onActivated.addListener(({ tabId }) => {
   void onTabActivated(tabId);
+  void onRecordingTabActivated(tabId);
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {

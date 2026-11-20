@@ -5,7 +5,7 @@ permalink: /privacy/
 
 # Pixora – Privacy Policy
 
-_Last updated: 18 November 2026_
+_Last updated: 20 November 2026_
 
 Pixora – Screen Capture Studio ("Pixora") is a browser extension for taking screenshots, recording
 the screen, and annotating the results. This policy explains what Pixora handles and where it goes.
@@ -24,6 +24,7 @@ or share data with anyone.
 | Microphone and camera audio / video | Only while you record with them turned on | Inside the recording, on your computer |
 | Annotations, captions, chapters, privacy regions | When you edit a capture | With the capture, on your computer |
 | Flow Capture steps (which control you clicked, page titles, and — only if you allow it — non-sensitive form values) | Only while a Flow Capture runs | With the flow, on your computer. Passwords and fields that look sensitive are always masked |
+| Where you click while recording with click highlights on (left / right / double click and the mouse position) | Only while you record with *Highlight mouse clicks* on | Drawn on the page for a moment so the recording shows it; never stored or sent |
 | Text found by OCR / sensitive-text detection | Only when you ask for it | Processed on your computer by the built-in OCR engine; nothing is sent anywhere |
 | A picture of the browser window's top bar — tabs, address bar and bookmarks bar (optional) | Only when you turn on *Include browser header* and choose the window in Chrome's share dialog | Added to that screenshot, on your computer; the window picture is used once and not kept |
 | Settings and preferences, including your theme | When you change them | Chrome's extension storage on your computer |

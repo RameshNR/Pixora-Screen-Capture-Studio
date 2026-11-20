@@ -11,6 +11,7 @@ import { RadioGroup, Slider, TextField, ToggleSwitch } from '@/shared/components
 import { Button } from '@/shared/components/Button';
 import { ConfirmationDialog } from '@/shared/components/Modal';
 import { ThemePicker } from './ThemePicker';
+import { ClickHighlightFields } from '@/shared/components/ClickHighlightFields';
 import { useToast } from '@/shared/components/Toast';
 import { COUNTDOWN_OPTIONS, MAX_DURATION_OPTIONS, RESOLUTION_LABELS, SCREENSHOT_DELAY_OPTIONS } from '@/shared/constants/media';
 import { buildFilename } from '@/shared/utils/filename';
@@ -267,9 +268,14 @@ export function RecordingSection({ settings, update }: Props) {
       </SettingRow>
       </SettingsSection>
       <SettingsSection title="Clicks, keys & cursor" icon={<MousePointerClick size={22} />} description="Shown in the recording.">
-      <SettingRow label="Highlight mouse clicks" icon={<MousePointerClick size={18} />}>
+      <SettingRow label="Highlight mouse clicks" icon={<MousePointerClick size={18} />} hint="Shows an effect where you click — on every page and tab you visit while recording.">
         <ToggleSwitch label="Highlight clicks" checked={r.highlightClicks} onChange={(highlightClicks) => set({ highlightClicks })} />
       </SettingRow>
+      {r.highlightClicks && (
+        <div style={{ padding: '4px 20px 18px' }}>
+          <ClickHighlightFields fx={r.cursorEffects} onChange={(patch) => set({ cursorEffects: { ...r.cursorEffects, ...patch } })} />
+        </div>
+      )}
       <SettingRow label="Show keyboard shortcuts" icon={<Keyboard size={18} />} hint="Shows key combinations (e.g. Ctrl + C) — never ordinary typing or passwords.">
         <ToggleSwitch label="Keyboard shortcuts" checked={r.highlightKeys} onChange={(highlightKeys) => set({ highlightKeys })} />
       </SettingRow>

@@ -47,6 +47,7 @@ Before every submission:
 > uploads, no tracking.
 >
 > NEW IN 1.1
+> • Click highlights redesigned: smooth animated effects, the cursor with each click (design, colour, motion, left / right / double click), quick looks and a live preview — on every page you visit while recording
 > • Themes for every window: 9 dark and 9 light themes, easy on the eyes (or match your computer)
 > • Optional real browser header — tabs, address bar and bookmarks — in your screenshots
 > • Turn frames of a recording into a step-by-step guide
@@ -142,7 +143,7 @@ product. Don't put personal data (emails, names, accounts) in them.
 | `notifications` | Tell the user a capture was saved or failed, and prompt for scheduled recordings (can be turned off). |
 | `alarms` | Start scheduled recordings and run the automatic clean-up of old captures. |
 | `clipboardWrite` | Copy screenshots and recognised text to the clipboard when the user clicks Copy. |
-| Optional host access `<all_urls>` | Never required. Asked only for something the user starts: (1) a Flow Capture that follows the user to other pages and sites; (2) "Add image › From a web address" — access to that one site only, to read the picture the user asked for. Declining keeps everything else working. |
+| Optional host access `<all_urls>` | Never required. Asked only for something the user starts: (1) a Flow Capture that follows the user to other pages and sites; (2) a recording with click highlights (or key combinations / cursor effects), so the highlights are added again to each page the user opens while recording, including embedded frames; (3) "Add image › From a web address" — access to that one site only, to read the picture the user asked for. Declining keeps everything else working. |
 
 **Remote code:** No, I am not using remote code. (All code, the OCR engine and its language data
 are in the package. `wasm-unsafe-eval` is only for the bundled OCR WebAssembly.)
@@ -180,6 +181,19 @@ Package → **Upload new package** with the new `release/pixora-<version>.zip`, 
 - **Privacy policy** — date current and covers any new kind of data (`docs/PRIVACY.md`, live on
   GitHub Pages).
 - Submit for review. The listing keeps showing the old version until the new one is approved.
+
+### 1.1.2 (over the published 1.0.0)
+
+1.1.0 and 1.1.1 were never published (both submissions cancelled), so 1.1.2 carries everything since 1.0.0:
+
+- Permissions: **unchanged** (only `version` changed in the manifest).
+- Justifications to update: `desktopCapture` (browser header) and **Optional host access** (now
+  also click highlights on the next pages) — use the texts in section 3.
+- Data usage: unchanged (clicks and mouse position were already under *User activity*).
+- Privacy policy: updated 20 November 2026 (click highlights row).
+- Description: section 2 text, with the "NEW IN 1.1" block (first line: click highlights).
+- Screenshots: the five in `store-assets/upload/`.
+- Upload `release/pixora-1.1.2.zip`; cancel the pending 1.1.1 submission first.
 
 ### 1.1.1 (over the published 1.0.0)
 

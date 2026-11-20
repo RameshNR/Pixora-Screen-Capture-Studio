@@ -1,7 +1,7 @@
 {
   "name": "pixora",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Pixora – Screen Capture Studio: premium screenshot & screen recorder Chrome extension (Manifest V3)",
   "type": "module",
   "scripts": {

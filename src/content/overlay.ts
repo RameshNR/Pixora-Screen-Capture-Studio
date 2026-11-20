@@ -9,6 +9,7 @@
  * This file is bundled as a classic IIFE script; only type imports are allowed.
  */
 import { CURSOR_DESIGNS, renderCursor } from '@/editor/tools/cursor';
+import { clickCoversPage, clickReach, playClick, type ClickButton } from '@/shared/components/click-draw';
 import { glideAlpha } from '@/shared/utils/cursor-glide';
 import type { ContentMessage, OverlayMode } from '@/shared/messaging/messages';
 import type { CursorEffects, PixelRect } from '@/shared/types';
@@ -85,6 +86,8 @@ function init(): void {
     .fx.burst { border: 4px dotted currentColor; animation: fxRing var(--d) ease-out forwards; }
     .fx.target { border: 3px solid currentColor; background: radial-gradient(circle, currentColor 0 16%, transparent 17% 52%, currentColor 53% 56%, transparent 57%); animation: fxRipple var(--d) ease-out forwards; }
     .fx.glow { background: radial-gradient(circle, currentColor 0, transparent 70%); animation: fxRing var(--d) ease-out forwards; }
+    .fx.click { border-radius: 0; transform: translate(-50%, -50%); }
+    .fx.click.page { transform: none; left: 0; top: 0; }
     .pointer { position: fixed; left: 0; top: 0; pointer-events: none; z-index: ${Z}; will-change: transform; }
     @keyframes fxRing { from { transform: translate(-50%, -50%) scale(.2); opacity: var(--o) } to { transform: translate(-50%, -50%) scale(1); opacity: 0 } }
     @keyframes fxRipple { from { transform: translate(-50%, -50%) scale(.1); opacity: var(--o) } to { transform: translate(-50%, -50%) scale(1); opacity: 0 } }
@@ -98,6 +101,8 @@ function init(): void {
     .toast { position: fixed; left: 50%; top: 24px; transform: translateX(-50%); padding: 10px 16px; border-radius: 10px; z-index: ${Z};
       background: #202938; color: #fff; font-size: 13px; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
   `;
+
+  const SUB_FRAME = window !== window.top;
 
   function ensureRoot(): ShadowRoot {
     if (root && host?.isConnected) return root;
@@ -411,6 +416,11 @@ function init(): void {
   /* -------------------------------- highlights -------------------------------- */
   function highlights(clicks: boolean, keys: boolean, fx?: CursorEffects, track = false): void {
     cleanupHighlights?.();
+    if (SUB_FRAME) {
+      // Embedded frames only show their own clicks and shortcuts; the top page draws the cursor and reports the mouse.
+      fx = fx ? { ...fx, cursor: false, pointer: false, hideSystemCursor: false } : fx;
+      track = false;
+    }
     const cursorHalo = Boolean(fx?.cursor);
     const styled = Boolean(fx?.pointer);
     if (!clicks && !keys && !cursorHalo && !track && !styled) return;
@@ -523,6 +533,7 @@ function init(): void {
       }
     };
 
+    let lastClick: { at: number; x: number; y: number } | null = null;
     const onClick = (e: PointerEvent) => {
       if (port) port.postMessage({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight, click: e.button === 2 ? 'right' : 'left', page: pageGeometry() });
       if (!clicks) return;
@@ -533,15 +544,23 @@ function init(): void {
         setTimeout(() => dot.remove(), 600);
         return;
       }
-      const dot = el('div', `fx ${fx.style}`, r);
-      const size = fx.radius * 2;
-      dot.style.width = dot.style.height = `${size}px`;
-      dot.style.left = `${e.clientX}px`;
-      dot.style.top = `${e.clientY}px`;
-      dot.style.color = e.button === 2 ? fx.rightColor : fx.leftColor;
-      dot.style.setProperty('--d', `${fx.durationMs}ms`);
-      dot.style.setProperty('--o', String(fx.opacity));
-      setTimeout(() => dot.remove(), fx.durationMs + 50);
+      // The image editor's cursor effect (and cursor, when chosen), animated frame by frame.
+      let button: ClickButton = e.button === 2 ? 'right' : 'left';
+      const now = performance.now();
+      if (button === 'left' && lastClick && now - lastClick.at < 450 && Math.hypot(e.clientX - lastClick.x, e.clientY - lastClick.y) < 12) button = 'double';
+      lastClick = button === 'double' ? null : { at: now, x: e.clientX, y: e.clientY };
+      // The page may have replaced our layer (frameworks re-rendering <html>): always draw into the live one.
+      const live = ensureRoot();
+      if (clickCoversPage(fx)) {
+        const dot = el('canvas', 'fx click page', live);
+        playClick(dot, fx, e.clientX, e.clientY, window.innerWidth, window.innerHeight, button);
+      } else {
+        const reach = clickReach(fx);
+        const dot = el('canvas', 'fx click', live);
+        dot.style.left = `${e.clientX}px`;
+        dot.style.top = `${e.clientY}px`;
+        playClick(dot, fx, reach, reach, reach * 2, reach * 2, button);
+      }
     };
     // Privacy: only shortcuts (with a modifier) and navigation keys are shown, never typed text,
     // and nothing is shown while focus is in a password field.
@@ -634,6 +653,8 @@ function init(): void {
 
   chrome.runtime.onMessage.addListener((msg: ContentMessage, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id || !msg || msg.target !== 'content') return false;
+    // Embedded frames get the overlay only for click highlights: everything else is the top page's.
+    if (SUB_FRAME && msg.type !== 'overlay/effects' && msg.type !== 'overlay/highlights' && msg.type !== 'overlay/teardown') return false;
     switch (msg.type) {
       case 'overlay/select':
         startSelection(msg.mode);

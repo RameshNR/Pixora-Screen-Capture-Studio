@@ -55,7 +55,9 @@ export function RecordingPanel({ settings, updateRec, updateFlow, activeTab, sta
       const started = sendToBackground({ target: 'background', type: 'recording/start', config, tabId: activeTab.tab?.id ?? null });
       // Flow Capture follows every page only with all-sites access: ask in this click (no await
       // before it). Resolves at once when granted before; declining keeps it to the first page.
-      if (config.flow) void requestFlowAccess();
+      // Click highlights (and keys, cursor) follow you to the next page and other tabs only with
+      // access to those pages; same request as Flow Capture (declining keeps them on the first page).
+      if (config.flow || config.highlightClicks || config.highlightKeys || config.cursorEffects.cursor || config.cursorEffects.pointer) void requestFlowAccess();
       await started;
       // Tab modes: close the popup so the page (and the area selector) is usable.
       if (modeUsesTabCapture(rec.mode, rec.areaSource)) window.close();

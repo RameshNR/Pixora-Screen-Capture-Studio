@@ -2,7 +2,7 @@ import { useThemeInk } from '@/shared/hooks/useTheme';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, AppWindow, ArrowUpRight, Baseline, Bold, Brush, CaseUpper, Check, CopyCheck, Droplet, Eraser, EyeOff, Frame as FrameIcon, Grid3x3, Hash, Highlighter,
-  ImagePlus, Italic, LayoutGrid, Link, Monitor, MousePointerClick, Move, MessageSquareText, Palette, PenLine, Pointer, RotateCcw, Ruler, Shapes, SlidersHorizontal, Smile, Sparkles,
+  ImagePlus, Italic, LayoutGrid, Link, Monitor, MousePointerClick, Move, MessageSquareText, Palette, PenLine, Play, Pointer, RotateCcw, Ruler, Shapes, SlidersHorizontal, Smile, Sparkles,
   Spline, Square, Stamp, Strikethrough, Tag, TextCursorInput, Trash2, Type, Underline, Unlink, Wand2, X,
 } from 'lucide-react';
 import type {
@@ -19,7 +19,6 @@ import { renderSticker } from '../tools/shapes';
 import { GRADIENT_PAIRS, TEXT_DECOS, TEXT_GROUPS, TEXT_LOOK_RESET, type TextPreset } from '../tools/text-presets';
 import { renderText, textBounds } from '../tools/text';
 import { drawWatermark, watermarkMovable, WATERMARK_PRESETS } from '../tools/decorations';
-import { CURSOR_GROUPS, CURSOR_TRAILS, cursorGroupOf, type CursorGroup } from '../tools/cursor';
 import type { DeviceFinish, DeviceKind } from '../types';
 import { rememberFrameImage } from '../tools/decorations';
 import { BACKGROUND_DEFAULTS, BORDER_DEFAULTS, DEFAULT_FONT, DEFAULT_TOOL_STYLES, DEFAULT_WATERMARK, EMPTY_FRAME, PALETTE } from '../types';
@@ -37,7 +36,8 @@ import { recipeOf, type BadgeIcon } from '../tools/callout-recipes';
 import type { ShapeKind } from '../tools/shape-lib';
 import { canRotate, rotationOf } from '../tools/annotations';
 import { SHAPE_GROUPS, paintShape, type ShapeLook, type ShapePreset } from '../tools/shape-lib';
-import { CURSOR_CLICKS, CURSOR_DESIGNS, CURSOR_DESIGN_IDS, CURSOR_EFFECTS, CURSOR_LOOKS, renderCursor } from '../tools/cursor';
+import { CURSOR_CLICKS, CURSOR_DESIGNS } from '../tools/cursor';
+import { CursorAnimPreview, CursorDesignGrid, CursorEffectGrid, CursorLooksGrid, CursorMotionGrid } from './CursorPickers';
 import { RotationControl } from './RotationControl';
 import styles from './editor.module.css';
 
@@ -507,22 +507,6 @@ const LOOK_OPTIONS: Array<{ value: ShapeLook; label: string; description: string
   { value: 'glass', label: 'Glass', description: 'Glossy highlight on top' },
 ];
 
-function CursorPreview({ design, color, outline }: { design: CursorDesign; color: string; outline: string }) {
-  const box = CURSOR_DESIGNS[design].box;
-  const size = 28;
-  const k = size / 24;
-  return (
-    <PreviewCanvas
-      width={40}
-      height={40}
-      draw={(ctx) => renderCursor(ctx, {
-        id: 'p', type: 'cursor', x: 20 - (box.x + box.w / 2) * k, y: 20 - (box.y + box.h / 2) * k, size, design, color, outline,
-        click: 'none', clickColor: color, effect: 'none', effectColor: color, effectSize: 1, opacity: 1,
-      })}
-    />
-  );
-}
-
 const CALLOUT_BODY_SHAPES: Array<{ value: ShapeKind; label: string }> = [
   { value: 'rounded', label: 'Rounded rectangle' }, { value: 'rect', label: 'Rectangle' }, { value: 'pill', label: 'Pill' }, { value: 'ellipse', label: 'Circle / oval' },
   { value: 'cloud', label: 'Cloud' }, { value: 'thought', label: 'Thought bubble' }, { value: 'hexagon', label: 'Hexagon' }, { value: 'octagon', label: 'Octagon' },
@@ -616,30 +600,6 @@ function newPart(name: 'Header' | 'Footer', base: TextStyle): TextPart {
     ...base, text: name === 'Header' ? 'Title' : 'Footer note', fontSize: Math.round(base.fontSize * (name === 'Header' ? 1.3 : 0.7)),
     bold: name === 'Header', underline: false, strike: false, sectionBg: undefined, sectionPad: undefined,
   };
-}
-
-/* -------------------------------- cursor groups -------------------------------- */
-
-/** Cursor designs by group (classic, themed, shape, recording, gesture, resize, action, creative). */
-function CursorDesignGrid({ value, onPick }: { value: CursorDesign; onPick: (d: CursorDesign) => void }) {
-  const [group, setGroup] = useState<CursorGroup>(() => cursorGroupOf(value));
-  return (
-    <>
-      <div className={styles.stickerTabs} role="tablist" aria-label="Cursor design groups">
-        {CURSOR_GROUPS.map((g) => (
-          <button key={g.id} type="button" role="tab" aria-selected={group === g.id} className={group === g.id ? styles.stickerTabOn : undefined} onClick={() => setGroup(g.id)}>{g.label}</button>
-        ))}
-      </div>
-      <div className={styles.shapeGrid} role="radiogroup" aria-label="Cursor design">
-        {CURSOR_DESIGN_IDS.filter((d) => cursorGroupOf(d) === group).map((d) => (
-          <button key={d} type="button" role="radio" aria-checked={value === d} aria-label={CURSOR_DESIGNS[d].label} title={CURSOR_DESIGNS[d].label}
-            className={value === d ? styles.presetActive : undefined} onClick={() => onPick(d)}>
-            <CursorPreview design={d} color={CURSOR_DESIGNS[d].fill} outline={CURSOR_DESIGNS[d].outline} />
-          </button>
-        ))}
-      </div>
-    </>
-  );
 }
 
 /* ------------------------- pen & highlighter designs ------------------------- */
@@ -1759,34 +1719,22 @@ export function PropertiesPanel({
             id: 'design', label: 'Design', content: (
               <>
                 <Group title="Quick looks" icon={<Sparkles size={15} />}>
-                  <div className={styles.shapeGrid} role="listbox" aria-label="Cursor quick looks">
-                    {CURSOR_LOOKS.map((l) => (
-                      <button key={l.id} type="button" role="option" aria-selected={false} aria-label={l.label} title={l.label} onClick={() => set({ ...l.patch }, `look-${l.id}`)}>
-                        <PreviewCanvas
-                          width={40}
-                          height={40}
-                          draw={(ctx) => {
-                            const d = l.patch.design ?? 'arrow';
-                            const box = CURSOR_DESIGNS[d].box;
-                            const size = 20;
-                            const k = size / 24;
-                            const fx = l.patch.effect && l.patch.effect !== 'none' ? 0.6 : 1;
-                            renderCursor(ctx, {
-                              id: 'q', type: 'cursor', size, design: d, color: '#FFFFFF', outline: '#111827', click: 'none', clickColor: '#E05252', effect: 'none', effectColor: '#F59E0B', effectSize: 1, opacity: 1,
-                              ...l.patch, x: 20 - (box.x + box.w / 2) * k * fx, y: 20 - (box.y + box.h / 2) * k * fx,
-                            } as never);
-                          }}
-                        />
-                      </button>
-                    ))}
-                  </div>
+                  <CursorLooksGrid onPick={(patch, id) => set({ ...patch }, `look-${id}`)}
+                    isActive={(patch) => Object.entries(patch).every(([k, x]) => (v[k] ?? (k === 'trail' ? 'none' : k === 'effectSize' ? 1 : undefined)) === x)} />
                 </Group>
                 <Group title="Cursor designs" icon={<MousePointerClick size={15} />}>
                   {/* A new design starts with its own colours; change them in the other tab. */}
                   <CursorDesignGrid value={str('design', 'arrow') as CursorDesign} onPick={(d) => set({ design: d, color: CURSOR_DESIGNS[d].fill, outline: CURSOR_DESIGNS[d].outline }, 'design')} />
-                  <Field label="Motion (animated look)">
-                    <Select<CursorTrail> label="Cursor motion" variant="dark" minWidth={170} value={(str('trail', 'none') as CursorTrail)} onChange={(t) => set({ trail: t }, 'trail')} options={CURSOR_TRAILS} />
+                  <Field label="Cursor colour">
+                    <ColorSwatches label="Cursor colour (design)" colors={['#FFFFFF', '#101828', ...PALETTE.filter((c) => c !== '#FFFFFF' && c !== '#101828')]} value={str('color', '#FFFFFF')} onChange={(c) => set({ color: c }, 'color')} />
                   </Field>
+                  <Field label="Outline colour">
+                    <ColorSwatches label="Cursor outline colour (design)" colors={['#000000', '#FFFFFF', ...PALETTE.filter((c) => c !== '#FFFFFF')]} value={str('outline', '#000000')} onChange={(c) => set({ outline: c }, 'outline')} />
+                  </Field>
+                </Group>
+                <Group title="Motion" icon={<Sparkles size={15} />}>
+                  <CursorMotionGrid value={str('trail', 'none') as CursorTrail} color={str('effectColor', '#F59E0B')} onPick={(t) => set({ trail: t }, 'trail')} />
+                  <div className={styles.hint}>Motion plays in the animation (preview, videos and recorded clicks); images show a still frame of it.</div>
                 </Group>
               </>
             ),
@@ -1814,8 +1762,7 @@ export function PropertiesPanel({
                   )}
                 </Group>
                 <Group title="Effect" icon={<Wand2 size={15} />}>
-                  <Select<CursorEffect> label="Cursor effect" variant="dark" value={str('effect', 'ripple') as CursorEffect} minWidth={220} onChange={(e) => set({ effect: e }, 'effect')}
-                    options={CURSOR_EFFECTS.map((e) => ({ value: e.value, label: e.label, description: e.description }))} />
+                  <CursorEffectGrid value={str('effect', 'ripple') as CursorEffect} color={str('effectColor', '#F59E0B')} onPick={(e) => set({ effect: e }, 'effect')} />
                   {str('effect', 'ripple') !== 'none' && (
                     <>
                       <Field label="Effect colour">
@@ -1824,6 +1771,25 @@ export function PropertiesPanel({
                       <Slider tone="dark" label="Effect size" min={0.4} max={3} step={0.05} value={num('effectSize', 1)} format={(x) => `${Math.round(x * 100)}%`} onChange={(x) => set({ effectSize: x }, 'effectSize')} />
                     </>
                   )}
+                </Group>
+                <Group title="Animation" icon={<Play size={15} />}>
+                  <CursorAnimPreview
+                    className={styles.cursorAnim}
+                    width={232}
+                    height={130}
+                    durationMs={num('animMs', 800)}
+                    cursor={{
+                      id: 'preview', type: 'cursor', size: 34, design: str('design', 'arrow') as CursorDesign, color: str('color', '#FFFFFF'), outline: str('outline', '#000000'),
+                      click: str('click', 'left') as CursorClick, clickColor: str('clickColor', '#E05252'), effect: str('effect', 'ripple') as CursorEffect, effectColor: str('effectColor', '#F59E0B'),
+                      effectSize: num('effectSize', 1), opacity: num('opacity', 1), trail: str('trail', 'none') as CursorTrail,
+                    }}
+                  />
+                  <Slider tone="dark" label="Animation duration" min={200} max={3000} step={50} value={num('animMs', 800)} format={(x) => `${(x / 1000).toFixed(2)} s`} onChange={(x) => set({ animMs: x }, 'animMs')} />
+                  <Field label="In videos">
+                    <Select<'off' | 'once' | 'loop'> label="Cursor animation in videos" variant="dark" minWidth={170} value={str('anim', 'off') as 'off' | 'once' | 'loop'} onChange={(x) => set({ anim: x }, 'anim')}
+                      options={[{ value: 'off', label: 'Still' }, { value: 'once', label: 'Play once' }, { value: 'loop', label: 'Repeat' }]} />
+                  </Field>
+                  <div className={styles.hint}>The same animation as recorded clicks (Settings › Recording › Highlight mouse clicks). Click the preview to replay it.</div>
                 </Group>
               </>
             ),

@@ -8,11 +8,20 @@ Screenshots, screen recording and step-by-step guides for Chrome — all on your
 **No account, no uploads, no tracking.**
 
 **[Add Pixora to Chrome — free on the Chrome Web Store](https://chromewebstore.google.com/detail/domfaochimmiimphibbkbhmkbcfeijff)**
-· Version 1.1.1 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
+· Version 1.1.2 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
 
 ![Pixora's popup over a web page: visible part, full page, selected area, Flow Capture and more](images/hero.png)
 
-## What's new in 1.1.1
+## What's new in 1.1.2
+
+- **Click highlights, redesigned** — a live preview you can try, smooth animations for every click
+  effect, the cursor shown with each click (any design, size, colour and motion, with the mouse
+  button pressed), quick looks, and highlights on every page you visit while recording.
+- **Cursor tool** — the same looks, designs, effects and motions in the image editor, with an
+  animated preview; cursors in videos can play their click animation.
+- **Taller video** — drag the bar under the video to make it bigger for drawing.
+
+## New in 1.1.1
 
 - **Video editor** — Undo, Redo, a History window and Reset to original. Annotations keep their size
   when you export at a lower resolution, and the export bar shows the real progress and time left.

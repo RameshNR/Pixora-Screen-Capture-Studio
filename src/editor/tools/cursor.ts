@@ -637,134 +637,181 @@ function rgba(color: string, alpha: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${+(alpha * base).toFixed(3)})`;
 }
 
-function drawEffect(ctx: Ctx2D, a: CursorAnnotation): void {
+/* ------------------------------------------------------------------ animation */
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+/** Progress of the part of an animation running from `a` to `b` (0–1), easing in and out (smooth). */
+const seg = (t: number, a: number, b: number) => {
+  const k = clamp01((t - a) / (b - a));
+  return k * k * (3 - 2 * k);
+};
+const easeOut = (k: number) => 1 - (1 - k) ** 3;
+/** Ease out with a small overshoot (things "pop" into place). */
+const easeBack = (k: number) => {
+  const c = 1.70158;
+  return 1 + (c + 1) * (k - 1) ** 3 + c * (k - 1) ** 2;
+};
+
+/** A ring with a soft wider glow of the same colour under it (richer colour, scales with the drawing). */
+function glowRing(ctx: Ctx2D, x: number, y: number, r: number, c: string, lw: number, alpha = 1): void {
+  if (r <= 0) return;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = rgba(c, 0.22 * alpha);
+  ctx.lineWidth = lw * 2.8;
+  ctx.stroke();
+  ctx.strokeStyle = rgba(c, alpha);
+  ctx.lineWidth = lw;
+  ctx.stroke();
+}
+
+function disc(ctx: Ctx2D, x: number, y: number, r: number, fill: string | CanvasGradient): void {
+  if (r <= 0) return;
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * The effect around the hot spot. `t` (0–1) is the moment of a click animation; without it the
+ * still picture is drawn (image editor, pickers). Each effect moves in its own way.
+ */
+function drawEffect(ctx: Ctx2D, a: CursorAnnotation, t?: number): void {
   const R = effectRadius(a);
   const c = a.effectColor;
   const lw = Math.max(1.5, a.size * 0.06);
+  const anim = t !== undefined;
+  const p = t ?? 1;
+  const { x, y } = a;
   ctx.save();
   switch (a.effect) {
-    case 'ring':
-      ctx.strokeStyle = c;
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R, 0, Math.PI * 2);
-      ctx.stroke();
+    case 'ring': {
+      // Grows out from the click and fades, with a quick flash inside.
+      const k = anim ? easeOut(seg(p, 0, 0.7)) : 1;
+      const r = anim ? R * (0.3 + 0.75 * k) : R;
+      if (anim) disc(ctx, x, y, r * 0.92, rgba(c, 0.28 * (1 - seg(p, 0, 0.4))));
+      glowRing(ctx, x, y, r, c, lw * (anim ? 1.6 - 0.6 * k : 1), anim ? 1 - seg(p, 0.35, 1) : 1);
       break;
+    }
     case 'ripple':
+      // Three rings sent out one after another.
       [0.42, 0.72, 1.02].forEach((f, i) => {
-        ctx.strokeStyle = rgba(c, [0.95, 0.6, 0.3][i]!);
-        ctx.lineWidth = lw * [1.1, 0.9, 0.7][i]!;
-        ctx.beginPath();
-        ctx.arc(a.x, a.y, R * f, 0, Math.PI * 2);
-        ctx.stroke();
+        if (!anim) {
+          glowRing(ctx, x, y, R * f, c, lw * [1.1, 0.9, 0.7][i]!, [0.95, 0.6, 0.3][i]!);
+          return;
+        }
+        const q = seg(p, i * 0.16, i * 0.16 + 0.6);
+        if (q <= 0 || q >= 1) return;
+        glowRing(ctx, x, y, R * (0.15 + 0.95 * easeOut(q)), c, lw * (1.3 - 0.5 * q), (1 - q) * 0.95);
       });
       break;
     case 'glow': {
-      const g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, R * 1.25);
-      g.addColorStop(0, rgba(c, 0.6));
-      g.addColorStop(0.55, rgba(c, 0.3));
+      // Swells in softly, then fades.
+      const env = anim ? (p < 0.18 ? easeOut(p / 0.18) : 1 - seg(p, 0.35, 1)) : 1;
+      const r = R * 1.25 * (anim ? 0.7 + 0.3 * easeOut(seg(p, 0, 0.5)) : 1);
+      if (env <= 0) break;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(c, 0.68 * env));
+      g.addColorStop(0.5, rgba(c, 0.32 * env));
       g.addColorStop(1, rgba(c, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R * 1.25, 0, Math.PI * 2);
-      ctx.fill();
+      disc(ctx, x, y, r, g);
       break;
     }
-    case 'halo':
-      ctx.fillStyle = rgba(c, 0.3);
-      ctx.strokeStyle = c;
-      ctx.lineWidth = lw * 0.8;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+    case 'halo': {
+      // Pops in with a little overshoot.
+      const s2 = anim ? Math.max(0, easeBack(seg(p, 0, 0.4))) : 1;
+      const al = anim ? 1 - seg(p, 0.55, 1) : 1;
+      const r = R * s2;
+      if (r <= 0 || al <= 0) break;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(c, 0.16 * al));
+      g.addColorStop(1, rgba(c, 0.4 * al));
+      disc(ctx, x, y, r, g);
+      glowRing(ctx, x, y, r, c, lw * 0.8, al);
       break;
-    case 'target':
-      // Concentric tinted discs and a bold inner ring.
-      ctx.fillStyle = rgba(c, 0.16);
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = rgba(c, 0.22);
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R * 0.68, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = rgba(c, 0.9);
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R * 0.42, 0, Math.PI * 2);
-      ctx.stroke();
+    }
+    case 'target': {
+      // Tinted discs and a bold centre ring pop in from the inside out.
+      const al = anim ? 1 - seg(p, 0.6, 1) : 1;
+      const pop = (i: number) => (anim ? Math.max(0, easeBack(seg(p, (2 - i) * 0.08, (2 - i) * 0.08 + 0.35))) : 1);
+      disc(ctx, x, y, R * pop(0), rgba(c, 0.16 * al));
+      disc(ctx, x, y, R * 0.68 * pop(1), rgba(c, 0.24 * al));
+      glowRing(ctx, x, y, R * 0.42 * pop(2), c, lw, 0.95 * al);
       break;
-    case 'rays':
-      ctx.strokeStyle = c;
-      ctx.lineWidth = lw;
+    }
+    case 'rays': {
+      // Short rays shoot out above the click.
+      const grow = anim ? easeOut(seg(p, 0, 0.3)) : 1;
+      const shift = anim ? easeOut(seg(p, 0.25, 1)) : 0;
+      ctx.globalAlpha *= anim ? 1 - seg(p, 0.5, 1) : 1;
       ctx.lineCap = 'round';
       for (let i = 0; i < 5; i++) {
-        const t = ((-160 + i * 35) * Math.PI) / 180;
+        const ang = ((-160 + i * 35) * Math.PI) / 180;
+        const from = R * (0.62 + 0.35 * shift);
+        const to = from + R * 0.53 * grow * (1 - 0.6 * shift);
+        ctx.strokeStyle = i % 2 ? shadeOf(c, 0.25) : c;
+        ctx.lineWidth = lw;
         ctx.beginPath();
-        ctx.moveTo(a.x + Math.cos(t) * R * 0.62, a.y + Math.sin(t) * R * 0.62);
-        ctx.lineTo(a.x + Math.cos(t) * R * 1.15, a.y + Math.sin(t) * R * 1.15);
+        ctx.moveTo(x + Math.cos(ang) * from, y + Math.sin(ang) * from);
+        ctx.lineTo(x + Math.cos(ang) * to, y + Math.sin(ang) * to);
         ctx.stroke();
       }
-      break;
-    case 'burst':
-      ctx.strokeStyle = c;
-      ctx.lineWidth = lw;
-      ctx.lineCap = 'round';
-      for (let i = 0; i < 8; i++) {
-        const t = (i / 8) * Math.PI * 2 + Math.PI / 8;
-        ctx.beginPath();
-        ctx.moveTo(a.x + Math.cos(t) * R * 0.75, a.y + Math.sin(t) * R * 0.75);
-        ctx.lineTo(a.x + Math.cos(t) * R * 1.3, a.y + Math.sin(t) * R * 1.3);
-        ctx.stroke();
-      }
-      break;
-    case 'spotlight': {
-      // Dim everything outside a soft circle (annotations are clipped to the image, so the
-      // oversized rectangle never spills into the frame).
-      const r = R * 1.6;
-      const g = ctx.createRadialGradient(a.x, a.y, r * 0.85, a.x, a.y, r);
-      g.addColorStop(0, 'rgba(0,0,0,0)');
-      g.addColorStop(1, 'rgba(0,0,0,0.55)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.beginPath();
-      ctx.rect(a.x - 1e5, a.y - 1e5, 2e5, 2e5);
-      ctx.arc(a.x, a.y, r, 0, Math.PI * 2, true);
-      ctx.fill('evenodd');
-      ctx.strokeStyle = rgba(c, 0.9);
-      ctx.lineWidth = lw * 0.6;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, r * 0.86, 0, Math.PI * 2);
-      ctx.stroke();
       break;
     }
-    case 'pulse':
-      [1, 0.72, 0.46].forEach((f, i) => {
-        ctx.fillStyle = rgba(c, [0.18, 0.28, 0.5][i]!);
+    case 'burst': {
+      // Rays fly outwards all around, long and short in turn.
+      const q = anim ? easeOut(seg(p, 0, 0.75)) : 0;
+      ctx.globalAlpha *= anim ? 1 - seg(p, 0.45, 1) : 1;
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2 + Math.PI / 8;
+        const long = i % 2 === 0;
+        const from = anim ? R * (0.4 + 0.85 * q) : R * 0.75;
+        const len = R * (long ? 0.55 : 0.36) * (anim ? 1 - q * 0.65 : 1);
+        ctx.strokeStyle = long ? c : shadeOf(c, 0.3);
+        ctx.lineWidth = lw * (long ? 1 : 0.85);
         ctx.beginPath();
-        ctx.arc(a.x, a.y, R * f, 0, Math.PI * 2);
-        ctx.fill();
-      });
+        ctx.moveTo(x + Math.cos(ang) * from, y + Math.sin(ang) * from);
+        ctx.lineTo(x + Math.cos(ang) * (from + len), y + Math.sin(ang) * (from + len));
+        ctx.stroke();
+      }
       break;
-    case 'emphasis':
-      ctx.fillStyle = rgba(c, 0.2);
+    }
+    case 'spotlight': {
+      // Dim everything outside a soft circle (annotations are clipped to the image, so the
+      // oversized rectangle never spills into the frame). Animated: the light closes in on the click.
+      const env = anim ? (p < 0.2 ? easeOut(p / 0.2) : 1 - seg(p, 0.7, 1)) : 1;
+      const r = R * 1.6 * (anim ? 1 + 0.6 * (1 - easeOut(seg(p, 0, 0.5))) : 1);
+      const dim = 0.55 * env;
+      const g = ctx.createRadialGradient(x, y, r * 0.85, x, y, r);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, `rgba(0,0,0,${dim})`);
+      disc(ctx, x, y, r, g);
+      ctx.fillStyle = `rgba(0,0,0,${dim})`;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, R, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = c;
-      ctx.lineWidth = lw * 1.3;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R * 0.75, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, R * 0.42, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.rect(x - 1e5, y - 1e5, 2e5, 2e5);
+      ctx.arc(x, y, r, 0, Math.PI * 2, true);
+      ctx.fill('evenodd');
+      glowRing(ctx, x, y, r * 0.86, c, lw * 0.6, 0.9 * env);
       break;
+    }
+    case 'pulse': {
+      // Beats twice like a heart, then fades.
+      const grow = anim ? easeOut(seg(p, 0, 0.3)) * (1 + 0.14 * Math.sin(seg(p, 0.3, 0.9) * Math.PI * 4)) : 1;
+      const al = anim ? 1 - seg(p, 0.7, 1) : 1;
+      [1, 0.72, 0.46].forEach((f, i) => disc(ctx, x, y, R * f * grow, rgba(c, [0.18, 0.28, 0.5][i]! * al)));
+      break;
+    }
+    case 'emphasis': {
+      // Bold double ring: the outer one pops, the inner one follows.
+      const al = anim ? 1 - seg(p, 0.6, 1) : 1;
+      const s1 = anim ? Math.max(0, easeBack(seg(p, 0, 0.35))) : 1;
+      const s2 = anim ? Math.max(0, easeBack(seg(p, 0.1, 0.45))) : 1;
+      disc(ctx, x, y, R * s1, rgba(c, 0.2 * al));
+      glowRing(ctx, x, y, R * 0.75 * s1, c, lw * 1.3, al);
+      glowRing(ctx, x, y, R * 0.42 * s2, c, lw, al);
+      break;
+    }
     case 'none':
       break;
   }
@@ -846,6 +893,116 @@ function drawTrail(ctx: Ctx2D, a: CursorAnnotation, k: number): void {
   ctx.restore();
 }
 
+/** Where the cursor is during a click animation (its motion), relative to the hot spot. */
+function motionAt(a: CursorAnnotation, k: number, t: number): { dx: number; dy: number } {
+  const S = Math.max(1, a.size);
+  const arrive = 1 - easeOut(seg(t, 0, 0.45));
+  switch (a.trail ?? 'none') {
+    case 'trail': return { dx: -S * 0.95 * arrive, dy: S * 0.15 * arrive };
+    case 'dots': return { dx: -S * 0.93 * arrive, dy: S * 1.0 * arrive };
+    case 'ghost': return { dx: -13.5 * k * arrive, dy: -7.5 * k * arrive };
+    case 'bounce': {
+      const q = seg(t, 0, 0.75);
+      return { dx: 0, dy: -Math.abs(Math.sin(q * Math.PI * 3)) * S * 0.35 * (1 - q) };
+    }
+    case 'wave': {
+      const v = 1 - arrive;
+      return { dx: -S * 1.05 * (1 - v), dy: Math.sin(v * Math.PI * 3) * S * 0.1 };
+    }
+    default: return { dx: 0, dy: 0 };
+  }
+}
+
+/** The motion behind the cursor at moment `t` of a click animation. */
+function drawTrailFrame(ctx: Ctx2D, a: CursorAnnotation, k: number, t: number, at: { dx: number; dy: number }): void {
+  const kind = a.trail ?? 'none';
+  if (kind === 'none' || kind === 'ghost') return;
+  const S = Math.max(1, a.size);
+  const c = a.effectColor;
+  ctx.save();
+  ctx.lineCap = 'round';
+  switch (kind) {
+    case 'trail': {
+      // Streaks from where the cursor came from to where it is now.
+      const al = 1 - seg(t, 0.3, 0.8);
+      for (let i = 0; i < 3; i++) {
+        const x0 = a.x - S * 0.95;
+        const y0 = a.y + S * (0.05 + i * 0.22);
+        const x1 = a.x + at.dx + S * 0.05;
+        const y1 = a.y + at.dy + S * (0.18 + i * 0.16);
+        const g = ctx.createLinearGradient(x0, y0, x1, y1);
+        g.addColorStop(0, rgba(c, 0));
+        g.addColorStop(1, rgba(c, (0.85 - i * 0.2) * al));
+        ctx.strokeStyle = g;
+        ctx.lineWidth = S * (0.16 - i * 0.04);
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'dots':
+      // Dots left behind on the way in, from the far end, then fading.
+      for (let i = 0; i < 6; i++) {
+        const shown = seg(t, (5 - i) * 0.06, (5 - i) * 0.06 + 0.05);
+        const al = shown * (1 - seg(t, 0.45, 0.9)) * (0.9 - i * 0.13);
+        if (al <= 0) continue;
+        disc(ctx, a.x - S * (0.18 + i * 0.15), a.y + S * (0.75 + i * 0.05), S * (0.06 - i * 0.007), rgba(c, al));
+      }
+      break;
+    case 'bounce':
+    case 'signal': {
+      // Signal arcs sent out one after another (bounce: on each landing, with the dotted path).
+      ctx.lineWidth = Math.max(1.5, S * 0.06);
+      for (let j = 0; j < 3; j++) {
+        const q = seg(t, j * 0.15, j * 0.15 + 0.55);
+        if (q <= 0 || q >= 1) continue;
+        ctx.strokeStyle = rgba(c, 1 - q);
+        ctx.beginPath();
+        ctx.arc(a.x + 15 * k, a.y, S * (0.16 + 0.4 * q), -Math.PI * 0.5, -Math.PI * 0.05);
+        ctx.stroke();
+      }
+      if (kind === 'bounce') {
+        ctx.strokeStyle = rgba(c, 1 - seg(t, 0, 0.6));
+        ctx.beginPath();
+        ctx.moveTo(a.x - S * 0.5, a.y + S * 0.6);
+        ctx.quadraticCurveTo(a.x - S * 0.3, a.y - S * 0.3, a.x - S * 0.05, a.y + S * 0.05);
+        ctx.setLineDash([S * 0.06, S * 0.08]);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'wave': {
+      // The wavy path drawn as the cursor travels along it.
+      const v = clamp01(1 + at.dx / (S * 1.05));
+      ctx.strokeStyle = rgba(c, 1 - seg(t, 0.5, 0.9));
+      ctx.lineWidth = Math.max(1.5, S * 0.07);
+      ctx.beginPath();
+      const n = Math.max(1, Math.round(30 * v));
+      for (let i = 0; i <= n; i++) {
+        const u = (i / 30);
+        const px = a.x - S * 1.05 + u * S * 1.05;
+        const py = a.y + S * 0.12 + Math.sin(u * Math.PI * 3) * S * 0.1;
+        if (i) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
+      }
+      ctx.stroke();
+      break;
+    }
+    case 'loading':
+      // Dots spinning round.
+      for (let i = 0; i < 8; i++) {
+        const ang = -Math.PI * 0.95 + (i / 8) * Math.PI * 1.2 + t * Math.PI * 2.4;
+        disc(ctx, a.x - S * 0.3 + Math.cos(ang) * S * 0.42, a.y - S * 0.15 + Math.sin(ang) * S * 0.42, S * 0.055, rgba(c, (0.25 + (i / 8) * 0.75) * (1 - seg(t, 0.75, 1))));
+      }
+      break;
+    default:
+      break;
+  }
+  ctx.restore();
+}
+
 const EMOJI_FONT = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
 
 /** The pointer itself, in units around the hot spot. */
@@ -887,7 +1044,7 @@ function drawDesign(ctx: Ctx2D, def: DesignDef, a: CursorAnnotation, k: number):
 }
 
 /** Small mouse with the pressed button coloured, and click marks at the hot spot. */
-function drawClick(ctx: Ctx2D, a: CursorAnnotation, k: number): void {
+function drawClick(ctx: Ctx2D, a: CursorAnnotation, k: number, t?: number): void {
   const m = mouseBox(a.design);
   const lw = 1.3;
   ctx.save();
@@ -896,14 +1053,17 @@ function drawClick(ctx: Ctx2D, a: CursorAnnotation, k: number): void {
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   // Click marks: three short strokes above-left of the hot spot.
-  ctx.strokeStyle = a.clickColor;
+  ctx.strokeStyle = t === undefined ? a.clickColor : rgba(a.clickColor, 1 - seg(t, 0.35, 0.75));
   ctx.lineWidth = 1.6;
   const reach = marksReach(a.design);
+  // Animated: the marks spring out from the hot spot.
+  const out = t === undefined ? 0 : (easeBack(seg(t, 0, 0.3)) - 1) * 2.5;
   for (const deg of [200, 235, 270]) {
-    const t = (deg * Math.PI) / 180;
+    const ang = (deg * Math.PI) / 180;
+    const from = reach.from + out;
     ctx.beginPath();
-    ctx.moveTo(Math.cos(t) * reach.from, Math.sin(t) * reach.from);
-    ctx.lineTo(Math.cos(t) * (reach.from + reach.len), Math.sin(t) * (reach.from + reach.len));
+    ctx.moveTo(Math.cos(ang) * from, Math.sin(ang) * from);
+    ctx.lineTo(Math.cos(ang) * (from + reach.len), Math.sin(ang) * (from + reach.len));
     ctx.stroke();
   }
   // Mouse body.
@@ -935,6 +1095,52 @@ function drawClick(ctx: Ctx2D, a: CursorAnnotation, k: number): void {
     ctx.textBaseline = 'middle';
     ctx.fillText('2×', m.x + m.w / 2, m.y + m.h * 0.72);
   }
+  ctx.restore();
+}
+
+/** Only the effect around the hot spot (no cursor): recordings draw it at each click. */
+export function renderCursorEffect(ctx: Ctx2D, a: CursorAnnotation, t?: number): void {
+  if (a.effect === 'none') return;
+  ctx.save();
+  ctx.globalAlpha *= a.opacity;
+  drawEffect(ctx, a, t);
+  ctx.restore();
+}
+
+/**
+ * One moment (`t` 0–1) of the cursor's click animation: the effect plays, the cursor is pressed
+ * and moves in its motion (trail, ghost, bounce, wave …). `fadeOut` fades everything at the end
+ * (recorded clicks); without it the cursor stays (video overlays).
+ */
+export function renderCursorFrame(ctx: Ctx2D, a: CursorAnnotation, t: number, fadeOut = true): void {
+  const def = CURSOR_DESIGNS[a.design] ?? CURSOR_DESIGNS.arrow;
+  const k = unit(a);
+  const at = motionAt(a, k, t);
+  // Pressed: a quick squeeze once the cursor has arrived.
+  const pressAt = a.trail && a.trail !== 'none' && a.trail !== 'loading' && a.trail !== 'signal' ? 0.42 : 0;
+  const press = 1 - 0.13 * Math.sin(Math.PI * seg(t, pressAt, pressAt + 0.2));
+  ctx.save();
+  ctx.globalAlpha *= a.opacity * (fadeOut ? 1 - seg(t, 0.82, 1) : 1);
+  if (a.effect !== 'none') drawEffect(ctx, a, clamp01((t - pressAt) / (1 - pressAt)));
+  drawTrailFrame(ctx, a, k, t, at);
+  if (a.click !== 'none') drawClick(ctx, { ...a, x: a.x + at.dx, y: a.y + at.dy }, k, clamp01((t - pressAt) / (1 - pressAt)));
+  if (a.trail === 'ghost') {
+    // Copies trailing behind on the way in.
+    [0.15, 0.3, 0.48].forEach((op, i) => {
+      const lag = motionAt(a, k, Math.max(0, t - (3 - i) * 0.06));
+      const al = op * (1 - seg(t, 0.4, 0.75));
+      if (al <= 0) return;
+      ctx.save();
+      ctx.globalAlpha *= al;
+      ctx.translate(a.x + lag.dx, a.y + lag.dy);
+      ctx.scale(k, k);
+      drawDesign(ctx, def, a, k);
+      ctx.restore();
+    });
+  }
+  ctx.translate(a.x + at.dx, a.y + at.dy);
+  ctx.scale(k * press, k * press);
+  drawDesign(ctx, def, a, k);
   ctx.restore();
 }
 

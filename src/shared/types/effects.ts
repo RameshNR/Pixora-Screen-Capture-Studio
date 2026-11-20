@@ -1,5 +1,6 @@
 import type { CameraShape } from './settings';
 import type { RelativeRect } from './capture';
+import type { CursorDesign, CursorEffect, CursorTrail } from '@/editor/types';
 
 /** Webcam bubble appearance. Position is the bubble centre as a fraction of the video frame. */
 export interface CameraStyle {
@@ -16,8 +17,8 @@ export interface CameraStyle {
 
 export type ClickStyle = 'ring' | 'ripple' | 'pulse' | 'burst' | 'target' | 'glow';
 
-/** Pointer designs drawn into recordings (same set as the screenshot editor's cursor tool). */
-export type PointerDesign = 'arrow' | 'modern' | 'pointer' | 'hand' | 'ibeam' | 'crosshair' | 'dot' | 'touch';
+/** Pointer designs drawn into recordings: every design of the screenshot editor's cursor tool. */
+export type PointerDesign = CursorDesign;
 
 /** Mouse cursor and click effects drawn over the recorded page. */
 export interface CursorEffects {
@@ -32,6 +33,20 @@ export interface CursorEffects {
   radius: number;
   opacity: number;
   durationMs: number;
+  /** Click effect: any of the image editor's cursor effects (falls back to `style`). */
+  clickEffect?: CursorEffect;
+  /** Show the cursor (with its left / right click mark) at each click. */
+  clickCursor?: boolean;
+  /** Cursor design shown with the clicks (falls back to `pointerDesign`), and its colours. */
+  clickDesign?: CursorDesign;
+  clickCursorColor?: string;
+  clickCursorOutline?: string;
+  /** Size of that cursor (px). */
+  clickCursorSize?: number;
+  /** Motion of that cursor at each click (trail, ghost, bounce, wave …), as in the image editor. */
+  clickTrail?: CursorTrail;
+  /** Show the small mouse with the pressed button (left, right or double click) next to the cursor. */
+  clickMark?: boolean;
   /** Draw a styled cursor into the recorded page (Chrome never records the cursor in tab recordings). */
   pointer?: boolean;
   pointerDesign?: PointerDesign;

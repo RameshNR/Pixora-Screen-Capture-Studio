@@ -1,5 +1,20 @@
 # Pixora – Release notes
 
+## 1.1.2 — click highlights, cursor animations and a taller video (November 2026)
+
+### New
+- **Highlight mouse clicks, redesigned** (Settings › Recording): a live preview with *Try it*, and cards for Click effect, Quick looks, Effect settings, Click colours, Cursor design and other options — in two columns.
+- **Real animations for every click effect**: Click ring, Ripple, Glow, Halo, Burst, Spotlight, Target, Click rays, Pulse and Emphasis each move in their own way, smoothly, with richer colours.
+- **Show the cursor with each click**: any of the image editor's cursor designs, its size and colours, a motion (Trail, Dotted trail, Ghost, Bounce, Wavy, Loading, Signal) and the mouse button pressed — left, right or double click.
+- **Quick looks** set the cursor, motion and effect in one click, and the one in use is highlighted.
+- **Click highlights on every page** you visit while recording, also after a link opens a new page and in the tab you switch to during a screen or window recording.
+- **Image editor Cursor tool**: the same quick looks, designs, effects and motions as the recording settings, an animated preview with its duration, and *In videos* — still, play once or repeat (played and exported by the video editor).
+- **Taller video in the video editor**: drag the bar under the video to make it bigger for drawing and marking.
+
+### Fixed
+- Click effects no longer go missing on busy or slowly loading pages, on pages that re-draw themselves, or inside embedded frames.
+- Settings changed quickly one after another are all kept.
+
 ## 1.1.1 — video editor and annotation improvements (November 2026)
 
 ### New
