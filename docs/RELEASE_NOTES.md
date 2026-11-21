@@ -23,7 +23,7 @@
 - Choosing *Outside area* takes off looks that can't show there (a face, text lines, a fade, frosted glass) instead of leaving them stuck.
 - A design adds to the shape in use: e.g. text lines or a face inside a cloud or wave.
 - **Border and corners moved to Adjust** (no longer mixed into the designs): border style (none, solid, dashed, dotted, glow), any colour, thickness; corner radius; and opacity for blur and pixelate (a mask's opacity is its colour's). Designs never add or change a border.
-- The small × buttons sit in the middle of their circles.
+- The small × buttons sit in the middle of their circles (other icon buttons are unchanged).
 - Sliders move smoothly while dragged (e.g. Effect size, Effect opacity and Animation duration in Highlight mouse clicks).
 - **Blur, Pixelate and Solid mask designs, one part at a time**: instead of mixed design categories, the look is picked in separate parts — Blur: Effect, Strength, Shape, Edges, Colour, Glass; Pixelate: Pattern, Block size, Blocks, Shape, Edges, Colour; Mask: Colour, Shape, Inside the mask. Each part shows its choice in its header, exactly one choice is selected, and a choice never changes another part. Strength, opacity, corners and border are fine-tuned under Adjust.
 

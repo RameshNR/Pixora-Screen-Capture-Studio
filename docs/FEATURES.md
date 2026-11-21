@@ -907,3 +907,7 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - Outside the area, inside-only parts (Edges, Glass, Inside the mask) say "Not outside the area" and only their first choice can be picked (`choiceAvailable`).
 - Adjust keeps the fine settings only: strength / block size slider, opacity (not masks), corner radius, border style / colour / thickness, Reset look. The old mixed design sheets (`*_GROUPS`) stay in code but are not shown.
 - Tests: tests/unit/round83.test.ts, tests/e2e/round79.spec.ts, tests/e2e/round80.spec.ts (helpers in tests/e2e/redact-helpers.ts), tests/e2e/editor.spec.ts.
+
+### Round 84 – Icons stay next to their text
+- A global rule added in Round 81 (`button > svg:only-child { display: block; margin: auto }`) matched every button with an icon and plain text, pushing the icon away from its text (popup tabs, *Try it*, …). It is removed; the small × centres itself with its own styles. Store screenshots retaken.
+- Tests: tests/e2e/round84.spec.ts (no button's icon has a wide margin; the Record tab's icon is next to its label).
