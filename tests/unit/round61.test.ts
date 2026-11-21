@@ -70,9 +70,9 @@ describe('movable callout text', () => {
 describe('Shift keeps equal sides while resizing', () => {
   const box = (type: 'rect' | 'ellipse'): Annotation => ({ id: 'r', type, x: 100, y: 100, w: 200, h: 100, stroke: '#000', fill: 'transparent', width: 2, opacity: 1 }) as Annotation;
 
-  it.each(['rect', 'ellipse'] as const)('%s: a corner makes it square and the opposite corner stays', (type) => {
+  it.each(['rect', 'ellipse'] as const)('%s: a corner makes it square (up to the pointer, never past it) and the opposite corner stays', (type) => {
     const r = resizeBy(box(type), 'se', 40, 10, true) as Annotation & { x: number; y: number; w: number; h: number };
-    expect(r).toMatchObject({ x: 100, y: 100, w: 240, h: 240 });
+    expect(r).toMatchObject({ x: 100, y: 100, w: 110, h: 110 });
   });
 
   it('dragging the top left corner keeps the bottom right corner', () => {

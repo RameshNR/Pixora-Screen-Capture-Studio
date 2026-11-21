@@ -7,8 +7,10 @@ import { workAreaCrop } from '@/recording/services/display-service';
  * "Entire Screen & App Window" screenshot: Chrome's picker → one full-resolution frame.
  * Runs in an extension page (needs DOM + desktopCapture).
  */
-export async function captureDesktopFrame(opts: { excludeTaskbar?: boolean; source?: 'screen' | 'window'; beforeGrab?: () => Promise<void> } = {}): Promise<{ blob: Blob; width: number; height: number; label: string }> {
+export async function captureDesktopFrame(opts: { excludeTaskbar?: boolean; source?: 'screen' | 'window'; beforeGrab?: () => Promise<void>; onChosen?: () => void } = {}): Promise<{ blob: Blob; width: number; height: number; label: string }> {
   const choice = await chooseDesktopMedia(false, opts.source);
+  // The screen / window is chosen: starting it takes a moment before the countdown (say so).
+  opts.onChosen?.();
   const stream = await getDesktopStream(choice, { box: SCREENSHOT_CEILING, fps: 5 }, false);
   return frameFromStream(stream, opts);
 }

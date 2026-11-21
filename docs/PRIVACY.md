@@ -5,7 +5,7 @@ permalink: /privacy/
 
 # Pixora – Privacy Policy
 
-_Last updated: 20 November 2026_
+_Last updated: 21 November 2026_
 
 Pixora – Screen Capture Studio ("Pixora") is a browser extension for taking screenshots, recording
 the screen, and annotating the results. This policy explains what Pixora handles and where it goes.
@@ -47,10 +47,14 @@ PDF, Word document or QR code and sharing that.
 
 ## Website access
 
-Pixora reads a web page only when you invoke it on that page (toolbar button or keyboard shortcut),
-to capture it. Access to other sites is never required. Chrome asks you for it — and you can
-decline — only when you start something that needs it: a Flow Capture that follows you across pages
-and sites, or adding a picture from a web address (access to that one site, to read the picture).
+Pixora reads a web page only when you invoke it on that page (toolbar button, keyboard shortcut or
+Pixora's entry in the right-click menu), to capture it. The right-click menu itself reads nothing
+from the page; *Annotate this image* only passes the address of the picture you right-clicked to
+Pixora's editor, which downloads it when you click *Open from URL*. Access to other sites is never
+required. Chrome asks you for it — and you can decline — only when you start something that needs
+it: a Flow Capture that follows you across pages and sites, a recording with click highlights that
+follow you to the next pages, or adding a picture from a web address (access to that one site, to
+read the picture).
 
 ## Keeping and deleting data
 

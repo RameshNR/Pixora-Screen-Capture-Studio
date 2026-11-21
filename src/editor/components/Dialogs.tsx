@@ -4,6 +4,7 @@ import { Modal } from '@/shared/components/Modal';
 import { Button, IconButton } from '@/shared/components/Button';
 import { ProgressIndicator } from '@/shared/components/Progress';
 import styles from './editor.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 export function ResizeDialog({
   open, width, height, onClose, onApply,
@@ -151,9 +152,9 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
             <dl className={styles.shortcutList}>
               {g.items.map(([k, label]) => (
                 <div key={k + label} className={styles.shortcutRow}>
-                  <dt>{label}</dt>
+                  <dt>{formatKeys(label)}</dt>
                   <dd>
-                    <kbd className={styles.kbd}>{k}</kbd>
+                    <kbd className={styles.kbd}>{formatKeys(k)}</kbd>
                   </dd>
                 </div>
               ))}

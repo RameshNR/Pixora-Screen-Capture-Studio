@@ -53,10 +53,18 @@ describe('pen and highlighter designs', () => {
 
 describe('blur, pixelate and mask designs', () => {
   it('covers every section of the blur, pixelate and mask sheets', () => {
-    expect(BLUR_GROUPS.flatMap((g) => g.items).length).toBeGreaterThanOrEqual(36);
-    expect(PIXEL_GROUPS.flatMap((g) => g.items).length).toBeGreaterThanOrEqual(36);
-    expect(MASK_GROUPS.flatMap((g) => g.items).length).toBeGreaterThanOrEqual(44);
-    expect(BLUR_GROUPS.map((g) => g.id)).toEqual(expect.arrayContaining(['motion', 'gradient', 'focus', 'glass', 'privacy']));
+    expect(BLUR_GROUPS.flatMap((g) => g.items).length).toBeGreaterThanOrEqual(33);
+    expect(PIXEL_GROUPS.flatMap((g) => g.items).length).toBeGreaterThanOrEqual(26);
+    expect(MASK_GROUPS.flatMap((g) => g.items).length).toBeGreaterThanOrEqual(36);
+    // Border and corners are set under Adjust, never by a design.
+    for (const groups of [BLUR_GROUPS, PIXEL_GROUPS, MASK_GROUPS]) {
+      expect(groups.map((g) => g.id)).not.toEqual(expect.arrayContaining(['border']));
+      for (const p of groups.flatMap((g) => g.items)) expect((p.patch as Record<string, unknown>).border, p.id).toBeUndefined();
+    }
+    expect(MASK_GROUPS.map((g) => g.id)).not.toContain('corner');
+    expect(BLUR_GROUPS.map((g) => g.id)).toEqual(expect.arrayContaining(['motion', 'gradient', 'glass', 'privacy']));
+    // "Focus (blur everything else)" is the Apply to › Everything else choice now, for every design.
+    expect(BLUR_GROUPS.map((g) => g.id)).not.toContain('focus');
     expect(MASK_GROUPS.find((g) => g.id === 'use')!.items.map((i) => i.patch.maskPattern)).toEqual(['person', 'card', 'id', 'address']);
   });
 

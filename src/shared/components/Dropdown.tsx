@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import styles from './Dropdown.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 export interface MenuItem {
   id: string;
@@ -111,7 +112,7 @@ export function Menu({ items, anchor, onClose, minWidth = 180, ariaLabel }: Menu
             {item.icon && <span className={styles.icon}>{item.icon}</span>}
             <span className={styles.text}>
               <span>{item.label}</span>
-              {item.description && <span className={styles.desc}>{item.description}</span>}
+              {item.description && <span className={styles.desc}>{typeof item.description === 'string' ? formatKeys(item.description) : item.description}</span>}
             </span>
             {item.checked && <Check size={15} className={styles.check} />}
           </button>

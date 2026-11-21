@@ -313,7 +313,7 @@ function resizeLocal(o: Annotation, handle: Handle, dx: number, dy: number, squa
   }
   if (square && SQUARE_TYPES.has(o.type)) {
     // Equal sides, with the opposite corner or side staying where it is.
-    const size = Math.max(2, handle.length === 2 ? Math.max(Math.abs(w), Math.abs(h)) : handle === 'e' || handle === 'w' ? Math.abs(w) : Math.abs(h));
+    const size = Math.max(2, handle.length === 2 ? Math.min(Math.abs(w), Math.abs(h)) : handle === 'e' || handle === 'w' ? Math.abs(w) : Math.abs(h));
     const place = (from: number, len: number, low: boolean, high: boolean, raw: number) => {
       if (low) return raw >= 0 ? from + len - size : from + len;
       if (high) return raw >= 0 ? from : from - size;

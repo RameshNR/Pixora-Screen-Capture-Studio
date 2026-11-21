@@ -1338,7 +1338,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         if (mod && k === 'c' && !e.shiftKey) { e.preventDefault(); act.copy(); return; }
         if (mod && k === 'x') { e.preventDefault(); act.copy(); act.remove(); return; }
         if (mod && k === 'd') { e.preventDefault(); act.duplicate(); return; }
-        if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); act.remove(); return; }
+        // ⌘⌫ deletes on a Mac too.
+        if ((!mod || (e.metaKey && e.key === 'Backspace')) && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); act.remove(); return; }
         if (e.key === 'Escape') { setMultiIds([]); return; }
         if (!mod && e.key.startsWith('Arrow')) {
           e.preventDefault();
@@ -1363,6 +1364,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       if (mod && k === '-') { e.preventDefault(); workspace.current?.setZoomAt(nextZoom(zoom, -1)); return; }
       if (mod && k === '0') { e.preventDefault(); workspace.current?.fit(); return; }
       if (mod && k === '1') { e.preventDefault(); workspace.current?.setZoomAt(1); return; }
+      if (e.metaKey && !e.ctrlKey && e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
       if (mod || e.altKey) return;
       if (e.key === '?' || e.key === 'F1') { e.preventDefault(); setShortcutsOpen(true); return; }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
@@ -1533,6 +1535,15 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
               <PropertiesPanel
                 tool={tool}
                 docSize={{ w: doc.width, h: doc.height }}
+                media={videoMode ? 'video' : 'image'}
+                onCoverAll={(kind) => {
+                  const s = toolStyles[kind] as unknown as Record<string, unknown>;
+                  const look = Object.fromEntries(Object.entries(s).filter(([k, x]) => x !== undefined && !['intensity', 'color', 'invert', 'opacity'].includes(k)));
+                  addAnnotations([{
+                    ...look, id: annotationId(), type: kind, x: 0, y: 0, w: doc.width, h: doc.height, opacity: 1,
+                    intensity: kind === 'mask' ? 0 : (s.intensity as number), ...(kind === 'mask' ? { color: s.color as string } : {}),
+                  } as Annotation], `${kind === 'blur' ? 'Blur' : kind === 'pixelate' ? 'Pixelate' : 'Mask'} the whole ${videoMode ? 'video' : 'image'}`);
+                }}
                 selected={selected}
                 toolStyles={toolStyles}
                 onChange={onStyleChange}

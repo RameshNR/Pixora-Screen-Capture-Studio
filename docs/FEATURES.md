@@ -855,3 +855,55 @@ Reported on a booking site (a fixed header with a menu, the page content scrolli
 - **Smoother**: every step of the animations eases in and out.
 - **The preview keeps one size** whatever the effect size (big effects are drawn as big as fit; the cursor keeps its size).
 - Tests: tests/e2e/round73.spec.ts, tests/e2e/round76.spec.ts.
+
+### Round 77 – Right-click menu, Mac keyboard, countdown on the icon
+- **Right-click menu** on web pages (http, https, files): *Pixora – Screen Capture Studio* › Capture visible part / full page / selected area / after delay / and extract text / screen or app window…; Record this tab / an area of this tab / screen or app window… / camera only; Annotate a local or clipboard image; Create a collage; Recent captures; Settings. New permission `contextMenus` (no warning). A menu click grants activeTab for that page like the toolbar icon; recordings needing the camera or microphone open the permission page first. (`src/background/context-menu.ts`)
+- **Mac keyboard**: `src/shared/utils/keys.ts` writes shortcuts the Mac way on a Mac (tooltips, menus, the shortcuts list, toasts, hints): ⌘ for Ctrl, ⌥ for Alt, ⇧ for Shift, ⇧⌘Z for redo. ⌘⌫ deletes in the editor. The key overlay in recordings shows ⌃⌥⇧⌘ and Option letters by their key (Option+Shift+D types "Î"). The popup's capture hints come from `chrome.commands.getAll()` (the shortcuts really set; none when removed).
+- **Screen & app window screenshot countdown** is on the toolbar icon (like Visible Part after Delay), not a separate window; all toolbar countdowns (also the recording countdown, now with its seconds) use the recording red `#EF5350`.
+- Tests: tests/unit/round77.test.ts, tests/unit/round77-shortcuts.test.tsx, tests/e2e/round77.spec.ts.
+
+### Round 78 – Picture from a web address, "Getting ready…", menu fixes
+- **Annotate an image › Open from URL**: a web address field on the import screen (`ImportScreen.tsx`) using the same safe download as *Insert image › From a web address* (http/https/data images only, Chrome asks once for that one site, max 50 MB, no SVG). Pasting a picture address (Ctrl+V or *Paste from clipboard*) fills the field. `editor.html?import=1&url=…` pre-fills it.
+- **Right-click a picture › Pixora › Annotate this image** (image context only) opens the import screen with its address filled in (one click downloads it; the click is needed for Chrome's site permission).
+- **Right-click › Pixora › Settings** opens `options.html#general`; *Recent captures* opens `#history`.
+- **Screen & app window screenshot**: from the moment the screen / window is chosen until the countdown starts, the page shows *Getting ready…* and the toolbar icon shows "…" in the recording red (`captureDesktopFrame({ onChosen })`).
+- Tests: tests/unit/round77.test.ts, tests/e2e/round77.spec.ts.
+
+### Round 79 – Blur, Pixelate and Solid mask: Apply to, designs that replace
+- **Apply to** (above the Designs / Adjust tabs, `RedactScopeField`): *This area* · *Outside area* · *Whole image* / *Whole video*, with a hint line. `redactScope` / `scopePatch` (`tools/blur.ts`): Everything else = `invert`; Whole = the area covers the picture; back to This area from Whole gives a centred half-size area. With nothing selected, Everything else is remembered for the next area and Whole adds one covering the picture (`onCoverAll`).
+- **Masks: Everything else** fills the picture except the area's shape (even-odd), border on the area.
+- **Designs replace only their own part** (`LOOK_PARTS`, `designPatch`): style (mode, pattern, soft, fade, glass) · shape (shape, radius, mask content look) · colour treatment (tone, tint) · border · colour · strength. Designs never change where the effect applies (the old "Focus (blur others)", "Depth blur" focus and "Pixelate others" designs are now *Apply to › Everything else*; *Depth blur* is a soft bokeh). The design in use is highlighted (`designActive`; a changed strength still counts).
+- Design names wrap instead of being cut; *Place the mask* (Top, Bottom, Center) is a 3-column row of full labels (whole picture is *Apply to › Whole image*). The Adjust tab's "Focus" switch is gone (it is *Apply to*).
+- Tests: tests/unit/round79.test.ts, tests/unit/round23.test.ts, tests/e2e/round79.spec.ts.
+
+### Round 80 – Apply to tiles, In use, what works where, Circle vs Oval, Shift squares
+- **Apply to** is three tiles with small pictures (area filled / around the area / everything) and a one-line hint (`ScopeIcon`, `.scopeTiles`). "Everything else" is called *Outside area*.
+- **Bug fixed**: Outside area with bokeh designs (Depth, Bokeh, Lens) blurred the area too — the bokeh lights left a see-through gradient as the paint, so cutting the clear area removed nothing. The cut now uses an opaque paint; frosted glass is not drawn on a clear area.
+- **In use** (`lookInUse`): the look's parts (style, pattern, soft, fade, glass, mask look, shape / corners, colour treatment, border) as chips with a remove (×) button each.
+- **What works where** (`designAvailable`): outside the area, fades and glass (blur / pixelate) and content looks (mask) are greyed out with the reason; Adjust's Fade, Frosted glass and Mask look are switched off there with a note.
+- **Circle / Square vs Oval** (`designSize`, `designInUse`): Circle and Square make the selected area square (same centre); Oval makes a square area 1.5× wider; each is highlighted only for its proportions.
+- **Shift** while drawing a box or resizing it from a corner: the square uses the shorter side, so it ends at the pointer instead of growing past it.
+- **Place the mask**: a content mask (face, card, ID, address…) keeps its size and moves to the top / bottom / centre; solid masks still become full-width bands. Hidden for *Whole image*.
+- Tests: tests/unit/round79.test.ts, tests/unit/round61.test.ts, tests/e2e/round79.spec.ts, tests/e2e/round80.spec.ts.
+
+### Round 81 – Border & corners under Adjust, designs add to the shape, move without resizing
+- **Designs are the effect and shape only** (`designsOnly`): the Border / outline, Corners and Selection-marks categories are gone, and no design sets a border.
+- **Adjust**: border style None / Solid / Dashed / Dotted / Glow, any colour, *Border thickness* (`borderWidth`, `borderOf`; old 'white' / 'color' borders read as solid); corner radius also for Rounded; *Blur / Pixelate opacity* (masks use their colour's opacity). New areas take the chosen opacity.
+- **A design adds to the shape**: the mask's content look is its own part again and is drawn clipped inside the shape (text lines in a cloud…); a mask's border is drawn on the shape whatever is inside.
+- **Outside area** takes off what can't show there (`outsideClears`: mask content look; fade and glass).
+- **Move the mask to** Top / Centre / Bottom keeps the size (only moves; Top / Bottom keep x, Centre centres).
+- Circle / Square design pictures are drawn square. Small × buttons centred (`button > svg` on the centre line; chip button without padding).
+- Tests: tests/unit/round79.test.ts, tests/unit/round23.test.ts, tests/e2e/round79.spec.ts, tests/e2e/round80.spec.ts, tests/e2e/editor.spec.ts.
+
+### Round 82 – Smooth sliders
+- Sliders (Settings › Highlight mouse clicks › Effect settings, and everywhere else) follow the pointer smoothly: the dragged value is shown for the whole drag (older saved values arriving late no longer pull the thumb back), saves go out at most once per frame, and the last value is saved on release (`Slider` in `FormControls.tsx`). Keyboard changes are saved at once.
+- Tests: tests/unit/round82-slider.test.tsx.
+
+### Round 83 – The look, one part at a time
+- The Designs tab of Blur / Pixelate / Solid mask is a set of collapsible parts (`BLUR_SECTIONS`, `PIXEL_SECTIONS`, `MASK_SECTIONS` in `tools/blur.ts`): each part changes only its own field(s), its header shows the current choice (`sectionChoice`; a slider strength shows "Custom · Npx"), and exactly one choice is selected per part — fixes several glass designs lighting up together. Previews show each choice with the rest of the look as it is now.
+  - Blur: Effect (Normal, Motion ↔ ↕ ⤡, Zoom, Spin, Noise, Bokeh) · Strength (Light, Medium, Heavy, Strong) · Shape · Edges (Sharp, Soft edges, Fade top / bottom / left / right, Tilt-shift) · Colour (Original, Dim, Grayscale, Black & white, Tint + tint colour) · Glass (None, Frosted glass).
+  - Pixelate: Pattern · Block size · Blocks (sharp / soft) · Shape · Edges · Colour.
+  - Mask: Colour · Shape · Inside the mask (Solid, Text lines, Blocks, Password, Rows, Grid, Mixed, Face, Card, ID, Address).
+- Outside the area, inside-only parts (Edges, Glass, Inside the mask) say "Not outside the area" and only their first choice can be picked (`choiceAvailable`).
+- Adjust keeps the fine settings only: strength / block size slider, opacity (not masks), corner radius, border style / colour / thickness, Reset look. The old mixed design sheets (`*_GROUPS`) stay in code but are not shown.
+- Tests: tests/unit/round83.test.ts, tests/e2e/round79.spec.ts, tests/e2e/round80.spec.ts (helpers in tests/e2e/redact-helpers.ts), tests/e2e/editor.spec.ts.

@@ -11,6 +11,7 @@ import { Tooltip } from '@/shared/components/Tooltip';
 import { AddImageMenu, type AddedImage } from '@/shared/components/AddImageMenu';
 import { Spinner } from '@/shared/components/Progress';
 import styles from './editor.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 interface Props {
   /** Inside the Flow Editor: its header shows the logo and the Copy / Download buttons. */
@@ -203,10 +204,10 @@ export function EditorToolbar(p: Props) {
         </button>
         {!p.hideBrand && (
           <>
-            <Button size="sm" className={styles.darkBtn} icon={<Copy size={15} />} onClick={p.onCopy} disabled={p.busy} title="Copy image (Ctrl+C)">
+            <Button size="sm" className={styles.darkBtn} icon={<Copy size={15} />} onClick={p.onCopy} disabled={p.busy} title={formatKeys('Copy image (Ctrl+C)')}>
               Copy
             </Button>
-            <Button size="sm" variant="primary" className={styles.primaryBtn} icon={<Download size={15} />} onClick={p.onDownload} loading={p.downloading} disabled={p.busy} title="Download (Ctrl+S)">
+            <Button size="sm" variant="primary" className={styles.primaryBtn} icon={<Download size={15} />} onClick={p.onDownload} loading={p.downloading} disabled={p.busy} title={formatKeys('Download (Ctrl+S)')}>
               Download
             </Button>
             {p.onExport && (

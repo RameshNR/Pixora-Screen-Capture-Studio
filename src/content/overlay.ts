@@ -9,6 +9,7 @@
  * This file is bundled as a classic IIFE script; only type imports are allowed.
  */
 import { CURSOR_DESIGNS, renderCursor } from '@/editor/tools/cursor';
+import { describeKeys } from '@/shared/utils/keys';
 import { clickCoversPage, clickReach, playClick, type ClickButton } from '@/shared/components/click-draw';
 import { glideAlpha } from '@/shared/utils/cursor-glide';
 import type { ContentMessage, OverlayMode } from '@/shared/messaging/messages';
@@ -569,13 +570,12 @@ function init(): void {
       if (!keys) return;
       const active = document.activeElement as HTMLInputElement | null;
       if (active?.type === 'password') return;
-      const mods = [e.ctrlKey && 'Ctrl', e.metaKey && '⌘', e.altKey && 'Alt', e.shiftKey && 'Shift'].filter(Boolean) as string[];
       const isMod = ['Control', 'Meta', 'Alt', 'Shift'].includes(e.key);
       const hasRealMod = e.ctrlKey || e.metaKey || e.altKey;
       if (isMod || (!hasRealMod && !SPECIAL.has(e.key))) return;
-      const keyName = e.key.length === 1 ? e.key.toUpperCase() : e.key.replace('Arrow', '');
       if (!keyEl) keyEl = el('div', 'keys', r);
-      keyEl.textContent = [...mods, keyName].join(' + ');
+      // Mac: ⌘⇧Z (Option letters by their key, not the character they type); others: Ctrl + Shift + Z.
+      keyEl.textContent = describeKeys(e);
       keyEl.style.opacity = '1';
       if (keyTimer) clearTimeout(keyTimer);
       keyTimer = setTimeout(() => { if (keyEl) keyEl.style.opacity = '0'; }, 1200);

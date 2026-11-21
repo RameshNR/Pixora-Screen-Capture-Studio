@@ -13,12 +13,13 @@ import { sendToBackground } from '@/shared/messaging/client';
 import { getFlow, storeFlowImage } from '@/flow/flow-store';
 import styles from './pages.module.css';
 import { TopBar } from './TopBar';
-import { COUNTDOWN_CHANNEL } from '@/progress/ProgressApp';
+import { COUNT_COLOR, clearBadge, countdownOnBadge, setBadge } from '@/background/badge';
 import { AppError } from '@/shared/utils/errors';
 
 /**
- * Before the picture: back to the tab you were on (not this Pixora page) and a countdown window
- * with the seconds left; it closes itself just before the picture is taken. Cancel stops.
+ * Before the picture: back to the tab you were on (not this Pixora page), and the seconds left on
+ * Pixora's toolbar icon, in the recording red — like Visible Part after Delay (no extra window in
+ * the way of the picture). Closing this Pixora tab cancels.
  */
 async function countdown(seconds: number, me: chrome.tabs.Tab | undefined): Promise<void> {
   if (me?.windowId !== undefined) {
@@ -26,26 +27,13 @@ async function countdown(seconds: number, me: chrome.tabs.Tab | undefined): Prom
     const previous = tabs.filter((t) => t.id !== me.id).sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0];
     if (previous?.id !== undefined) await chrome.tabs.update(previous.id, { active: true }).catch(() => undefined);
   }
-  const channel = new BroadcastChannel(COUNTDOWN_CHANNEL);
-  const result = new Promise<'done' | 'cancel'>((resolve) => {
-    channel.onmessage = (e: MessageEvent<{ type?: string }>) => resolve(e.data?.type === 'cancel' ? 'cancel' : 'done');
-  });
-  const width = 240;
-  const win = await chrome.windows.create({
-    url: chrome.runtime.getURL(`progress.html?mode=countdown&s=${seconds}`), type: 'popup', width, height: 210, focused: true,
-    left: Math.max(0, screen.availWidth - width - 24), top: 24,
-  }).catch(() => null);
-  // Without the window (blocked), still wait the seconds.
-  const outcome = win ? await result : await new Promise<'done'>((r) => setTimeout(() => r('done'), seconds * 1000));
-  channel.close();
+  const outcome = await countdownOnBadge(seconds);
   if (outcome === 'cancel') throw new AppError('cancelled', 'Screenshot cancelled');
-  // Let the closed countdown window disappear from the screen before the picture.
-  await new Promise((r) => setTimeout(r, 400));
 }
 
 /** "Entire Screen & App Window" screenshot flow. */
 export function DesktopScreenshot() {
-  const [status, setStatus] = useState<'picking' | 'saving' | 'cancelled' | 'error'>('picking');
+  const [status, setStatus] = useState<'picking' | 'preparing' | 'saving' | 'cancelled' | 'error'>('picking');
   const [error, setError] = useState<AppErrorInfo | null>(null);
   const started = useRef(false);
 
@@ -61,6 +49,12 @@ export function DesktopScreenshot() {
       const shot = await captureDesktopFrame({
         excludeTaskbar: settings.screenshot.excludeTaskbar,
         source,
+        onChosen: () => {
+          // Loading… until the countdown starts (here and on the toolbar icon).
+          setStatus('preparing');
+          void setBadge('…', COUNT_COLOR);
+          void chrome.action.setTitle({ title: 'Pixora – getting ready…' }).catch(() => undefined);
+        },
         beforeGrab: () => countdown(Math.max(3, settings.screenshot.desktopDelaySeconds ?? 3), me),
       });
       // Back to Pixora for the editor.
@@ -94,6 +88,7 @@ export function DesktopScreenshot() {
       location.replace(chrome.runtime.getURL(`editor.html?${params.toString()}`));
     } catch (err) {
       const info = errorInfoOf(err);
+      void clearBadge();
       if (new URLSearchParams(location.search).get('flow')) void sendToBackground({ target: 'background', type: 'flow/page-image', item: null }).catch(() => undefined);
       if (info.code === 'permission-denied-screen' || info.code === 'cancelled') setStatus('cancelled');
       else {
@@ -121,6 +116,13 @@ export function DesktopScreenshot() {
             <>
               <h1 className={styles.h1}>Choose a screen or window</h1>
               <p className={styles.lead}>Select your entire screen, an application window or a tab in Chrome’s dialog. The screenshot opens in the editor.</p>
+              <Spinner size={22} />
+            </>
+          )}
+          {status === 'preparing' && (
+            <>
+              <h1 className={styles.h1}>Getting ready…</h1>
+              <p className={styles.lead} role="status">Starting the capture. The countdown starts in a moment on Pixora’s toolbar icon, then the picture is taken.</p>
               <Spinner size={22} />
             </>
           )}

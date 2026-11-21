@@ -240,16 +240,15 @@ test.describe('screenshot editor', () => {
     // Blur with a design (focus) and a mask placed over the header.
     await editor.keyboard.press('Escape');
     await editor.keyboard.press('b');
-    await editor.getByRole('tablist', { name: 'Blur design categories' }).getByRole('tab', { name: 'Motion' }).click();
-    await editor.getByRole('listbox', { name: 'Blur designs' }).getByRole('option', { name: 'Horizontal' }).click();
+    await editor.getByRole('listbox', { name: 'Blur effect' }).getByRole('option', { name: 'Motion ↔' }).click();
     await drag(cx + 30, cy - 70, cx + 120, cy - 20);
     await expect.poll(layers).toMatch(/Blur/);
     await editor.keyboard.press('Escape');
     await editor.keyboard.press('m');
-    await editor.getByRole('tablist', { name: 'Mask design categories' }).getByRole('tab', { name: 'Text & content' }).click();
-    await editor.getByRole('listbox', { name: 'Mask designs' }).getByRole('option', { name: 'Password mask' }).click();
+    await editor.getByRole('region', { name: 'Inside the mask', exact: true }).locator('button[aria-expanded]').click();
+    await editor.getByRole('listbox', { name: 'Mask inside the mask' }).getByRole('option', { name: 'Password' }).click();
     await drag(cx + 30, cy + 10, cx + 130, cy + 50);
-    await editor.getByRole('button', { name: 'Top (header)' }).click();
+    await editor.getByRole('button', { name: 'Move to the top' }).click();
     await expect(editor.getByText(/Region: \d+ × \d+ px/)).toBeVisible();
 
     // Marker with a label beside it.

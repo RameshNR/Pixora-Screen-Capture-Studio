@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, type
 import { AlertTriangle, CheckCircle2, Info, Loader2, X, XCircle } from 'lucide-react';
 import type { AppErrorInfo } from '../types';
 import styles from './Toast.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 type ToastKind = 'success' | 'error' | 'info' | 'warning' | 'progress';
 
@@ -80,8 +81,8 @@ export function ToastProvider({ children, position = 'bottom' }: { children: Rea
           <div key={t.id} className={`${styles.toast} ${styles[t.kind]}`} role={t.kind === 'error' ? 'alert' : 'status'}>
             <span className={styles.icon}>{ICONS[t.kind]}</span>
             <div className={styles.content}>
-              <div className={styles.title}>{t.title}</div>
-              {t.message && <div className={styles.message}>{t.message}</div>}
+              <div className={styles.title}>{typeof t.title === 'string' ? formatKeys(t.title) : t.title}</div>
+              {t.message && <div className={styles.message}>{typeof t.message === 'string' ? formatKeys(t.message) : t.message}</div>}
               {t.action && (
                 <button type="button" className={styles.action} onClick={() => { t.action?.onClick(); dismiss(t.id); }}>
                   {t.action.label}

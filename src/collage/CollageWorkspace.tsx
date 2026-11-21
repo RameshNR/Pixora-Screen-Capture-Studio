@@ -23,6 +23,7 @@ import { contentBox, exportCollage, exportScale, formatBytes, LAYOUT_WIDTH, OUTP
 import styles from './collage.module.css';
 import { IMAGE_ACCEPT, isSupportedImage, UNSUPPORTED_IMAGE_MESSAGE } from '@/shared/utils/image-types';
 import { AddImageMenu } from '@/shared/components/AddImageMenu';
+import { formatKeys } from '@/shared/utils/keys';
 
 export const MAX_IMAGES = 30;
 const LINE_COLORS = ['#FFFFFF', '#202938', '#000000', '#E05252', '#F59E0B', '#24A36A', '#4F8DF7', '#7C5CF6'];
@@ -533,7 +534,7 @@ export function CollageWorkspace({ seeds, onCancel, onDone, doneLabel = 'Edit co
                   );
                 })}
               </ol>
-              <div className={styles.hint}>Click a step to go back to it. Ctrl+Z / Ctrl+Y undo and redo.</div>
+              <div className={styles.hint}>{formatKeys('Click a step to go back to it. Ctrl+Z / Ctrl+Y undo and redo.')}</div>
               </Card>
             </section>
           )}

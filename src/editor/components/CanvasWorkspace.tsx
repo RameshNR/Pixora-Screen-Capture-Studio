@@ -36,7 +36,7 @@ const ROTATE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
 
 /** The look fields of a blur / pixelate / mask style (unset ones are left out). */
 function lookOf(s: RedactLook): RedactLook {
-  return Object.fromEntries(Object.entries(s).filter(([k, v]) => v !== undefined && k !== 'intensity' && k !== 'color')) as RedactLook;
+  return Object.fromEntries(Object.entries(s).filter(([k, v]) => v !== undefined && k !== 'intensity' && k !== 'color' && k !== 'opacity')) as RedactLook;
 }
 
 export interface TextEditState {
@@ -356,11 +356,11 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
           ...(shape ? { shape } : {}), ...(s.look && s.look !== 'flat' ? { look: s.look } : {}) };
       }
       case 'blur':
-        return { ...lookOf(toolStyles.blur), id, type: 'blur', ...r, intensity: toolStyles.blur.intensity, opacity: 1 };
+        return { ...lookOf(toolStyles.blur), id, type: 'blur', ...r, intensity: toolStyles.blur.intensity, opacity: toolStyles.blur.opacity ?? 1 };
       case 'pixelate':
-        return { ...lookOf(toolStyles.pixelate), id, type: 'pixelate', ...r, intensity: toolStyles.pixelate.intensity, opacity: 1 };
+        return { ...lookOf(toolStyles.pixelate), id, type: 'pixelate', ...r, intensity: toolStyles.pixelate.intensity, opacity: toolStyles.pixelate.opacity ?? 1 };
       case 'mask':
-        return { ...lookOf(toolStyles.mask), id, type: 'mask', ...r, intensity: 0, color: toolStyles.mask.color, opacity: 1 };
+        return { ...lookOf(toolStyles.mask), id, type: 'mask', ...r, intensity: 0, color: toolStyles.mask.color, opacity: toolStyles.mask.opacity ?? 1 };
       case 'arrow': {
         const s = toolStyles.line;
         const base = { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
@@ -693,7 +693,8 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
         } else {
           let end = p;
           if (e.shiftKey && (tool === 'rect' || tool === 'ellipse' || tool === 'blur' || tool === 'pixelate' || tool === 'mask' || tool === 'callout')) {
-            const size = Math.max(Math.abs(p.x - d.start.x), Math.abs(p.y - d.start.y));
+            // Shift: a square that never goes past the pointer (the shorter side of the drag).
+            const size = Math.min(Math.abs(p.x - d.start.x), Math.abs(p.y - d.start.y));
             end = { x: d.start.x + Math.sign(p.x - d.start.x || 1) * size, y: d.start.y + Math.sign(p.y - d.start.y || 1) * size };
           } else if (e.shiftKey && tool === 'arrow') {
             end = snap45(d.start, p);

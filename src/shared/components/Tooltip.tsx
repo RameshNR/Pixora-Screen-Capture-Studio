@@ -1,6 +1,7 @@
 import { cloneElement, isValidElement, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './Tooltip.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 interface TooltipProps {
   content: ReactNode;
@@ -62,7 +63,7 @@ export function Tooltip({ content, side = 'bottom', children, delay = 350 }: Too
       {pos && content
         ? createPortal(
             <div role="tooltip" id={id} className={`${styles.tooltip} ${styles[side]}`} style={{ left: pos.x, top: pos.y }}>
-              {content}
+              {typeof content === 'string' ? formatKeys(content) : content}
             </div>,
             document.body,
           )

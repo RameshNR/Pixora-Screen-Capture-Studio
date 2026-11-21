@@ -18,6 +18,7 @@ site access is described below).
 | `notifications` | Capture saved / errors / scheduled-recording prompts (can be turned off in Settings) |
 | `alarms` | Scheduled recordings and periodic retention clean-up |
 | `clipboardWrite` | Copying screenshots and extracted text |
+| `contextMenus` | The *Pixora* entry in the right-click menu of web pages (captures, recordings, Pixora's pages, *Annotate this image* on a picture). No permission warning; it reads nothing from the page (only a right-clicked picture's address, to fill it in for the editor). |
 
 **Optional:** `<all_urls>` (`optional_host_permissions`) is never required. Parts of it are requested
 only for something you start:

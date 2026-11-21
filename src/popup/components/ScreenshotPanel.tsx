@@ -15,6 +15,7 @@ import { SCREENSHOT_DELAY_OPTIONS } from '@/shared/constants/media';
 import type { ActiveTabInfo } from '../hooks/useActiveTab';
 import { ActionRow, CaptureModeCard, FeatureRow, SectionLabel } from './CaptureModeCard';
 import styles from '../styles/popup.module.css';
+import { useShortcuts } from '@/shared/hooks/useShortcuts';
 
 interface Props {
   settings: Settings;
@@ -24,6 +25,7 @@ interface Props {
 
 export function ScreenshotPanel({ settings, update, activeTab }: Props) {
   const toast = useToast();
+  const keys = useShortcuts();
   const [busy, setBusy] = useState<string | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customDelay, setCustomDelay] = useState(String(settings.screenshot.delaySeconds));
@@ -135,9 +137,9 @@ export function ScreenshotPanel({ settings, update, activeTab }: Props) {
       )}
       {flowActive && flow && <FlowRunning state={flow} />}
       <div className={styles.cards3}>
-        <CaptureModeCard icon={<AppWindow size={18} />} label="Visible Part" hint="Alt+Shift+V" disabled={blocked || busy !== null} onClick={() => void capture('visible')} />
-        <CaptureModeCard icon={<ScrollText size={18} />} label="Full Page" hint="Alt+Shift+F" disabled={blocked || busy !== null} onClick={() => void capture('full')} />
-        <CaptureModeCard icon={<Crop size={18} />} label="Selected Area" hint="Alt+Shift+A" disabled={blocked || busy !== null} onClick={() => void capture('area')} />
+        <CaptureModeCard icon={<AppWindow size={18} />} label="Visible Part" hint={keys['capture-visible'] || undefined} disabled={blocked || busy !== null} onClick={() => void capture('visible')} />
+        <CaptureModeCard icon={<ScrollText size={18} />} label="Full Page" hint={keys['capture-full'] || undefined} disabled={blocked || busy !== null} onClick={() => void capture('full')} />
+        <CaptureModeCard icon={<Crop size={18} />} label="Selected Area" hint={keys['capture-area'] || undefined} disabled={blocked || busy !== null} onClick={() => void capture('area')} />
       </div>
 
       <FeatureRow

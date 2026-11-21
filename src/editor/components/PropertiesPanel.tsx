@@ -1,7 +1,7 @@
 import { useThemeInk } from '@/shared/hooks/useTheme';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, AppWindow, ArrowUpRight, Baseline, Bold, Brush, CaseUpper, Check, CopyCheck, Droplet, Eraser, EyeOff, Frame as FrameIcon, Grid3x3, Hash, Highlighter,
+  AlignCenter, AlignLeft, AlignRight, AppWindow, ArrowUpRight, Baseline, Bold, Brush, CaseUpper, Check, ChevronDown, CopyCheck, Droplet, Eraser, EyeOff, Frame as FrameIcon, Grid3x3, Hash, Highlighter,
   ImagePlus, Italic, LayoutGrid, Link, Monitor, MousePointerClick, Move, MessageSquareText, Palette, PenLine, Play, Pointer, RotateCcw, Ruler, Shapes, SlidersHorizontal, Smile, Sparkles,
   Spline, Square, Stamp, Strikethrough, Tag, TextCursorInput, Trash2, Type, Underline, Unlink, Wand2, X,
 } from 'lucide-react';
@@ -10,11 +10,11 @@ import type {
   TextStyle, Tool, ToolStyles, Watermark, WatermarkPosition,
 } from '../types';
 import type {
-  BlurMode, CursorTrail, EditorDoc, MarkerLabelStyle, MaskPattern, PixelPattern, RedactAnnotation, RedactBorder, RedactFade, RedactTone, StickerAnnotation, TextAnnotation, WatermarkStyle,
+  CursorTrail, EditorDoc, MarkerLabelStyle, RedactAnnotation, StickerAnnotation, TextAnnotation, WatermarkStyle,
 } from '../types';
 import { renderStroke } from '../tools/pen';
 import { HIGHLIGHT_GROUPS, PEN_GROUPS, type StrokePreset } from '../tools/pen-styles';
-import { BLUR_GROUPS, CLEAR_LOOK, MASK_GROUPS, MASK_REGIONS, PIXEL_GROUPS, renderRedact } from '../tools/blur';
+import { BLUR_SECTIONS, CLEAR_LOOK, MASK_SECTIONS, PIXEL_SECTIONS, borderOf, choiceAvailable, outsideClears, redactScope, renderRedact, scopePatch, sectionChoice, sectionPatch, type RedactScope } from '../tools/blur';
 import { renderSticker } from '../tools/shapes';
 import { GRADIENT_PAIRS, TEXT_DECOS, TEXT_GROUPS, TEXT_LOOK_RESET, type TextPreset } from '../tools/text-presets';
 import { renderText, textBounds } from '../tools/text';
@@ -78,6 +78,7 @@ import { STICKER_GROUPS, STICKERS, sameSticker, type StickerDef } from '../tools
 export { STICKER_GROUPS, STICKERS };
 
 import { LINE_PRESETS, PREMIUM_LINES, type LinePatch, type PremiumLine } from '../tools/line-presets';
+import { formatKeys } from '@/shared/utils/keys';
 
 const HEAD_OPTIONS: Array<{ value: HeadStyle; label: string }> = [
   { value: 'none', label: 'None' },
@@ -173,8 +174,12 @@ interface Props {
   sourceTitle: string;
   /** Flow Editor: save the frame on this image now / give every image of the flow this frame. */
   frameApply?: FrameApply;
-  /** Image size (one-click mask placements). */
+  /** Image size (one-click mask placements, whole picture). */
   docSize?: { w: number; h: number };
+  /** Blur / pixelate / mask the whole picture with nothing selected: adds one covering it. */
+  onCoverAll?: (kind: 'blur' | 'pixelate' | 'mask') => void;
+  /** What is being edited (the words "whole image" / "whole video"). */
+  media?: 'image' | 'video';
 }
 
 export interface FrameApply {
@@ -694,7 +699,7 @@ function previewScene(): OffscreenCanvas | null {
   return c;
 }
 
-function RedactPreview({ type, patch, intensity, color }: { type: RedactAnnotation['type']; patch: Partial<RedactAnnotation>; intensity: number; color: string }) {
+function RedactPreview({ type, patch, intensity, color, square }: { type: RedactAnnotation['type']; patch: Partial<RedactAnnotation>; intensity: number; color: string; square?: boolean }) {
   return (
     <PreviewCanvas
       width={56}
@@ -705,52 +710,167 @@ function RedactPreview({ type, patch, intensity, color }: { type: RedactAnnotati
         ctx.save();
         ctx.scale(56 / 120, 38 / 80);
         ctx.drawImage(scene, 0, 0);
-        renderRedact(ctx, scene, { id: 'p', type, x: 22, y: 14, w: 76, h: 52, intensity: Math.max(2, (patch.intensity ?? intensity) * 0.8), opacity: 1, color, ...patch } as RedactAnnotation);
+        const r = square ? { x: 34, y: 14, w: 52, h: 52 } : { x: 22, y: 14, w: 76, h: 52 };
+        renderRedact(ctx, scene, { id: 'p', type, ...r, intensity: Math.max(2, (patch.intensity ?? intensity) * 0.8), opacity: 1, color, ...patch } as RedactAnnotation);
         ctx.restore();
       }}
     />
   );
 }
 
-const REDACT_SHAPES: Array<{ value: ShapeKind | ''; label: string }> = [
-  { value: '', label: 'Rectangle' }, { value: 'rounded', label: 'Rounded' }, { value: 'pill', label: 'Pill' }, { value: 'ellipse', label: 'Circle / oval' },
-  { value: 'cloud', label: 'Cloud' }, { value: 'star', label: 'Star' }, { value: 'heart', label: 'Heart' }, { value: 'hexagon', label: 'Hexagon' },
-  { value: 'octagon', label: 'Polygon' }, { value: 'triangle', label: 'Triangle' }, { value: 'diamond', label: 'Diamond' }, { value: 'flower', label: 'Flower' },
-  { value: 'burst', label: 'Badge' }, { value: 'slant', label: 'Slanted' }, { value: 'parallelogram', label: 'Parallelogram' }, { value: 'trapezoid', label: 'Trapezoid' }, { value: 'wavy', label: 'Wave' },
-];
+
+/** Where the effect applies now: the selected area's, or what the next area will get. */
+function scopeOf(v: Record<string, unknown>, selected: boolean, docSize?: { w: number; h: number }): RedactScope {
+  if (selected && docSize && typeof v.w === 'number') return redactScope(v as unknown as RedactAnnotation, docSize.w, docSize.h);
+  return v.invert ? 'outside' : 'area';
+}
+
+/** Small pictures of the three choices: the effect (filled) in the area, around it, or everywhere. */
+function ScopeIcon({ scope }: { scope: RedactScope }) {
+  return (
+    <svg width="34" height="24" viewBox="0 0 34 24" aria-hidden="true">
+      {scope === 'outside' ? (
+        <path d="M2 2h30v20H2z M11 7v10h12V7z" fill="currentColor" fillRule="evenodd" opacity="0.9" />
+      ) : (
+        <rect x="2" y="2" width="30" height="20" rx="2" fill={scope === 'whole' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" opacity={scope === 'whole' ? 0.9 : 0.55} />
+      )}
+      {scope === 'area' && <rect x="11" y="7" width="12" height="10" rx="1.5" fill="currentColor" />}
+      {scope === 'outside' && <rect x="11" y="7" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="2 1.5" />}
+    </svg>
+  );
+}
+
+/** Where the blur / pixelate / mask applies: only in the area, everything except it, or the whole picture. */
+function RedactScopeField({ kind, v, selected, set, docSize, onCoverAll, media }: {
+  kind: 'blur' | 'pixelate' | 'mask'; v: Record<string, unknown>; selected: Annotation | null; set: (patch: Record<string, unknown>, key: string) => void;
+  docSize?: { w: number; h: number }; onCoverAll?: (kind: 'blur' | 'pixelate' | 'mask') => void; media: 'image' | 'video';
+}) {
+  const area = selected && (selected.type === 'blur' || selected.type === 'pixelate' || selected.type === 'mask') ? selected : null;
+  const W = docSize?.w ?? 0;
+  const H = docSize?.h ?? 0;
+  const scope: RedactScope = area && W ? redactScope(area, W, H) : v.invert ? 'outside' : 'area';
+  const verb = kind === 'blur' ? 'Blurs' : kind === 'pixelate' ? 'Pixelates' : 'Covers';
+  const hint = scope === 'whole'
+    ? `${verb} the whole ${media}.`
+    : scope === 'outside'
+      ? `${verb} everything around the area; the area stays clear.`
+      : `${verb} only inside the area${area ? '' : ' you draw'}.`;
+  const choose = (next: RedactScope) => {
+    if (next === scope) return;
+    // Outside the area, looks that only work inside it (fades, glass, a face or text lines) are taken off.
+    const clears = next === 'outside' ? outsideClears(kind === 'pixelate' ? 'pixelate' : kind, (area ?? v) as Partial<RedactAnnotation>) : {};
+    if (area && W) set({ ...(scopePatch(area, next, W, H) as Record<string, unknown>), ...clears }, `scope-${next}`);
+    else if (next === 'whole') onCoverAll?.(kind);
+    else set({ invert: next === 'outside' ? true : undefined, ...clears }, `scope-${next}`);
+  };
+  const options: Array<{ value: RedactScope; label: string; title: string; disabled?: boolean }> = [
+    { value: 'area', label: 'This area', title: 'Only inside the area' },
+    { value: 'outside', label: 'Outside area', title: 'Everything around the area (the area stays clear)' },
+    { value: 'whole', label: `Whole ${media}`, title: `The whole ${media}`, disabled: !area && !onCoverAll },
+  ];
+  return (
+    <section className={styles.scopeField} aria-label="Apply to">
+      <span className={styles.scopeLabel}>Apply to</span>
+      <div className={styles.scopeTiles} role="radiogroup" aria-label="Apply to">
+        {options.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={scope === o.value} title={o.title} disabled={o.disabled}
+            className={scope === o.value ? styles.scopeOn : undefined} onClick={() => choose(o.value)}>
+            <ScopeIcon scope={o.value} />
+            <span>{o.label}</span>
+          </button>
+        ))}
+      </div>
+      <p className={styles.scopeHint} role="status">{hint}</p>
+    </section>
+  );
+}
 
 /** Blur / pixelate / mask design sheet plus every look setting. */
 function RedactDesigns({ kind, v, set, selected, docSize, part }: { kind: 'blur' | 'pixelate' | 'mask'; v: Record<string, unknown>; set: (patch: Record<string, unknown>, key: string) => void; selected: boolean; docSize?: { w: number; h: number }; part: 'designs' | 'adjust' }) {
-  const groups = kind === 'blur' ? BLUR_GROUPS : kind === 'pixelate' ? PIXEL_GROUPS : MASK_GROUPS;
-  const [group, setGroup] = useState(groups[0]!.id);
-  const items = groups.find((g) => g.id === group)?.items ?? [];
+  const sections = kind === 'blur' ? BLUR_SECTIONS : kind === 'pixelate' ? PIXEL_SECTIONS : MASK_SECTIONS;
   const name = kind === 'blur' ? 'Blur' : kind === 'pixelate' ? 'Pixelate' : 'Mask';
+  // One part of the look open at a time; the others show what is chosen in their header.
+  const [open, setOpen] = useState<string | null>(kind === 'mask' ? 'colour' : sections[0]!.id);
   const s = (k: string, d = '') => (typeof v[k] === 'string' ? (v[k] as string) : d);
   const intensity = typeof v.intensity === 'number' ? (v.intensity as number) : 12;
   const color = s('color', '#000000');
+  const scope = scopeOf(v, selected, docSize);
+  const border = borderOf({ ...(v as Partial<RedactAnnotation>), w: typeof v.w === 'number' ? (v.w as number) : 200, h: typeof v.h === 'number' ? (v.h as number) : 120 } as RedactAnnotation);
+  const outside = scope === 'outside';
+  const look = v as Partial<RedactAnnotation>;
+  // The previews show each choice with the rest of the look as it is now.
+  const { x: _x, y: _y, w: _w, h: _h, invert: _i, opacity: _o, border: _b, borderColor: _bc, borderWidth: _bw, id: _id, type: _t, ...lookNow } = look as Record<string, unknown>;
+  /** Top / centre / bottom: moves the mask there; its size stays as it is. */
+  const place = (id: string) => {
+    if (!docSize || typeof v.w !== 'number' || typeof v.h !== 'number' || typeof v.x !== 'number') return;
+    const { w: W, h: H } = docSize;
+    const w = Math.min(W, v.w as number);
+    const h = Math.min(H, v.h as number);
+    const margin = Math.round(Math.min(W, H) * 0.03);
+    const y = id === 'top' ? margin : id === 'bottom' ? H - h - margin : Math.round((H - h) / 2);
+    const x = id === 'middle' ? Math.round((W - w) / 2) : Math.max(0, Math.min(W - w, v.x as number));
+    set({ x, y }, `place-${id}`);
+  };
+  const head = (id: string, label: string, value: ReactNode) => (
+    <button type="button" className={styles.lookHead} aria-expanded={open === id} aria-controls={`look-${kind}-${id}`} onClick={() => setOpen(open === id ? null : id)}>
+      <span className={styles.lookName}>{label}</span>
+      <span className={styles.lookValue}>{value}</span>
+      <ChevronDown size={15} className={open === id ? styles.lookChevOpen : undefined} aria-hidden />
+    </button>
+  );
   if (part === 'designs') return (
     <>
-      <div>
-        <div className={styles.stickerTabs} role="tablist" aria-label={`${name} design categories`}>
-          {groups.map((g) => (
-            <button key={g.id} type="button" role="tab" aria-selected={group === g.id} className={group === g.id ? styles.stickerTabOn : undefined} onClick={() => setGroup(g.id)}>{g.label}</button>
-          ))}
-        </div>
-        <div className={styles.presetGrid4} role="listbox" aria-label={`${name} designs`}>
-          {items.map((p) => (
-            <button key={p.id} type="button" role="option" aria-selected={false} aria-label={p.label} title={p.label} onClick={() => set({ ...p.patch }, `look-${p.id}`)}>
-              <RedactPreview type={kind} patch={p.patch} intensity={intensity} color={color} />
-              <span>{p.label}</span>
-            </button>
-          ))}
-        </div>
+      <div className={styles.lookSections}>
+        {kind === 'mask' && (
+          <section className={styles.lookSection} aria-label="Colour">
+            {head('colour', 'Colour', <span className={styles.lookDot} style={{ background: color }} />)}
+            {open === 'colour' && (
+              <div id={`look-${kind}-colour`} className={styles.lookBody}>
+                <ColorSwatches label="Mask colour" colors={['#000000', '#FFFFFF', '#6B7280', '#202938', '#E05252', '#4F8DF7', '#169A1E', '#FFE500', '#8B3FD9', '#F59E0B']} value={color} onChange={(c) => set({ color: c }, 'color')} />
+              </div>
+            )}
+          </section>
+        )}
+        {sections.map((sec) => {
+          const choice = sectionChoice(sec, look);
+          const custom = sec.fields[0] === 'intensity' ? `Custom · ${intensity}px` : 'Custom';
+          const blocked = outside && sec.insideOnly;
+          return (
+            <section key={sec.id} className={styles.lookSection} aria-label={sec.label}>
+              {head(sec.id, sec.label, blocked ? 'Not outside the area' : choice?.label ?? custom)}
+              {open === sec.id && (
+                <div id={`look-${kind}-${sec.id}`} className={styles.lookBody}>
+                  <div className={`${styles.presetGrid4} ${styles.redactGrid}`} role="listbox" aria-label={`${name} ${sec.label.toLowerCase()}`}>
+                    {sec.options.map((o) => {
+                      const on = choice?.id === o.id;
+                      const ok = choiceAvailable(sec, o, scope);
+                      return (
+                        <button key={o.id} type="button" role="option" aria-selected={on} aria-label={o.label} disabled={!ok}
+                          title={ok ? o.label : `${o.label}: only inside an area (outside it the area stays clear)`}
+                          className={on ? styles.presetActive : undefined}
+                          onClick={() => set(sectionPatch(o, selected && typeof v.w === 'number' ? (look as RedactAnnotation) : undefined) as Record<string, unknown>, `look-${sec.id}`)}>
+                          <RedactPreview type={kind} patch={{ ...(lookNow as Partial<RedactAnnotation>), ...o.patch }} intensity={intensity} color={color} square={o.size === 'square'} />
+                          <span>{o.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {sec.id === 'colour' && s('tone') === 'tint' && (
+                    <ColorSwatches label="Tint colour" colors={['#7C3AED', '#6D28D9', '#2563EB', '#0EA5E9', '#16A34A', '#E05252', '#F59E0B', '#EC4899']} value={s('tint', '#7C3AED')} onChange={(c) => set({ tint: c }, 'tint')} />
+                  )}
+                  {blocked && <div className={styles.hint}>These work only inside an area. Choose “This area” above to use them.</div>}
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
-      {kind === 'mask' && selected && docSize && (
-        <Field label="Place mask">
-          <div className={styles.presetGrid4}>
-            {MASK_REGIONS.map((r) => (
-              <button key={r.id} type="button" title={r.label} aria-label={r.label} onClick={() => set({ ...r.rect(docSize.w, docSize.h) }, `place-${r.id}`)}>
-                <span>{r.label}</span>
+      {kind === 'mask' && selected && docSize && scope !== 'whole' && (
+        <Field label="Move the mask to">
+          <div className={styles.placeGrid}>
+            {([['top', 'Top'], ['middle', 'Centre'], ['bottom', 'Bottom']] as const).map(([id, label]) => (
+              <button key={id} type="button" title={`Move the mask to the ${label.toLowerCase()} (same size)`} aria-label={`Move to the ${label.toLowerCase()}`} onClick={() => place(id)}>
+                {label}
               </button>
             ))}
           </div>
@@ -761,84 +881,24 @@ function RedactDesigns({ kind, v, set, selected, docSize, part }: { kind: 'blur'
   return (
     <>
       {kind !== 'mask' && (
-        <Slider tone="dark" label={kind === 'blur' ? 'Blur intensity' : 'Block size'} min={2} max={200} value={intensity} format={(x) => `${x}px`} onChange={(x) => set({ intensity: x }, 'intensity')} />
+        <Slider tone="dark" label={kind === 'blur' ? 'Blur strength' : 'Block size'} min={2} max={200} value={intensity} format={(x) => `${x}px`} onChange={(x) => set({ intensity: x }, 'intensity')} />
       )}
-      {kind === 'mask' && (
-        <>
-          <Field label="Mask colour">
-            <ColorSwatches label="Mask colour" colors={['#000000', '#FFFFFF', '#6B7280', '#202938', '#E05252', '#4F8DF7', '#169A1E', '#FFE500', '#8B3FD9', '#F59E0B']} value={color} onChange={(c) => set({ color: c }, 'color')} />
-          </Field>
-          <Field label="Mask look">
-            <Select<MaskPattern> label="Mask look" variant="dark" minWidth={200} value={(s('maskPattern', 'solid') as MaskPattern)} onChange={(m) => set({ maskPattern: m }, 'maskPattern')}
-              options={[
-                { value: 'solid', label: 'Solid block' }, { value: 'lines', label: 'Text lines' }, { value: 'multi', label: 'Multi-block' }, { value: 'dots', label: 'Password dots' },
-                { value: 'rows', label: 'Rows' }, { value: 'grid', label: 'Grid cells' }, { value: 'mixed', label: 'Mixed shapes' }, { value: 'person', label: 'Person (face)' },
-                { value: 'card', label: 'Card info' }, { value: 'id', label: 'ID document' }, { value: 'address', label: 'Address' },
-              ]} />
-          </Field>
-        </>
-      )}
-      <div className={styles.row}>
-        <Field label="Shape">
-          <Select<ShapeKind | ''> label={`${name} shape`} variant="dark" minWidth={170} value={(s('shape') as ShapeKind) || ''} onChange={(sh) => set({ shape: sh || undefined }, 'shape')} options={REDACT_SHAPES} />
-        </Field>
-        {kind === 'blur' && (
-          <Field label="Style">
-            <Select<BlurMode> label="Blur style" variant="dark" minWidth={170} value={(s('mode', 'gaussian') as BlurMode)} onChange={(m) => set({ mode: m === 'gaussian' ? undefined : m }, 'mode')}
-              options={[{ value: 'gaussian', label: 'Gaussian' }, { value: 'motion-h', label: 'Motion ↔' }, { value: 'motion-v', label: 'Motion ↕' }, { value: 'motion-d', label: 'Motion ⤡' }, { value: 'zoom', label: 'Zoom / radial' }, { value: 'spin', label: 'Spin' }, { value: 'noise', label: 'Noise' }, { value: 'bokeh', label: 'Bokeh / lens' }]} />
-          </Field>
-        )}
-        {kind === 'pixelate' && (
-          <Field label="Pattern">
-            <Select<PixelPattern> label="Pixel pattern" variant="dark" minWidth={170} value={(s('pattern', 'square') as PixelPattern)} onChange={(m) => set({ pattern: m === 'square' ? undefined : m }, 'pattern')}
-              options={[{ value: 'square', label: 'Square blocks' }, { value: 'wide', label: 'Rectangular' }, { value: 'mixed', label: 'Mixed blocks' }, { value: 'mosaic', label: 'Mosaic tiles' }, { value: 'dir-h', label: 'Directional ↔' }, { value: 'dir-v', label: 'Directional ↕' }, { value: 'dir-d', label: 'Directional ⤡' }, { value: 'radial', label: 'Radial' }]} />
-          </Field>
-        )}
-      </div>
-      {(!s('shape') || s('shape') === 'rect') && (
-        <Slider tone="dark" label="Region corner radius" min={0} max={400} value={typeof v.radius === 'number' ? (v.radius as number) : 0} format={(x) => `${x}px`} onChange={(x) => set({ radius: x || undefined }, 'radius')} />
-      )}
-      {kind !== 'mask' && (
-        <>
-          <div className={styles.row}>
-            <Field label="Fade">
-              <Select<RedactFade> label="Fade" variant="dark" minWidth={160} value={(s('fade', 'none') as RedactFade)} onChange={(f) => set({ fade: f === 'none' ? undefined : f }, 'fade')}
-                options={[{ value: 'none', label: 'None' }, { value: 'top', label: 'Top fade' }, { value: 'bottom', label: 'Bottom fade' }, { value: 'left', label: 'Left fade' }, { value: 'right', label: 'Right fade' }, { value: 'edges', label: 'Soft edges' }, { value: 'tilt', label: 'Tilt-shift' }]} />
-            </Field>
-            <Field label="Colour">
-              <Select<RedactTone> label="Colour treatment" variant="dark" minWidth={160} value={(s('tone', 'none') as RedactTone)} onChange={(t) => set({ tone: t === 'none' ? undefined : t }, 'tone')}
-                options={[{ value: 'none', label: 'Original' }, { value: 'dim', label: 'Dim' }, { value: 'gray', label: 'Grayscale' }, { value: 'mono', label: 'Black & white' }, { value: 'tint', label: 'Brand tint' }]} />
-            </Field>
-          </div>
-          {s('tone') === 'tint' && (
-            <Field label="Tint colour">
-              <ColorSwatches label="Tint colour" colors={['#7C3AED', '#6D28D9', '#2563EB', '#0EA5E9', '#16A34A', '#E05252', '#F59E0B', '#EC4899']} value={s('tint', '#7C3AED')} onChange={(c) => set({ tint: c }, 'tint')} />
-            </Field>
-          )}
-          <div className={styles.toggleLine}>
-            <span>{kind === 'blur' ? 'Focus: blur everything else' : 'Focus: pixelate everything else'}</span>
-            <ToggleSwitch size="sm" label="Focus (effect outside the region)" checked={Boolean(v.invert)} onChange={(on) => set({ invert: on || undefined }, 'invert')} />
-          </div>
-          {kind === 'pixelate' && (
-            <div className={styles.toggleLine}>
-              <span>Soft pixelate (+ blur)</span>
-              <ToggleSwitch size="sm" label="Soft pixelate" checked={Boolean(v.soft)} onChange={(on) => set({ soft: on || undefined }, 'soft')} />
-            </div>
-          )}
-          {kind === 'blur' && (
-            <div className={styles.toggleLine}>
-              <span>Frosted glass</span>
-              <ToggleSwitch size="sm" label="Frosted glass" checked={Boolean(v.glass)} onChange={(on) => set({ glass: on || undefined }, 'glass')} />
-            </div>
-          )}
-        </>
+      {kind !== 'mask' && <Slider tone="dark" label={`${name} opacity`} min={0.05} max={1} step={0.05} value={typeof v.opacity === 'number' ? (v.opacity as number) : 1} format={(x) => `${Math.round(x * 100)}%`} onChange={(x) => set({ opacity: x }, 'opacity')} />}
+      {(!s('shape') || s('shape') === 'rect' || s('shape') === 'rounded') && (
+        <Slider tone="dark" label="Corner radius" min={0} max={400} value={typeof v.radius === 'number' ? (v.radius as number) : 0} format={(x) => `${x}px`} onChange={(x) => set({ radius: x || undefined }, 'radius')} />
       )}
       <Field label="Border">
-        <RadioGroup<RedactBorder> label={`${name} border`} tone="dark" size="sm" value={(s('border', 'none') as RedactBorder)} onChange={(b) => set({ border: b === 'none' ? undefined : b }, 'border')}
-          options={[{ value: 'none', label: 'None' }, { value: 'white', label: 'White' }, { value: 'color', label: 'Colour' }, { value: 'dashed', label: 'Dashed' }, { value: 'glow', label: 'Glow' }]} />
+        <RadioGroup<'none' | 'solid' | 'dashed' | 'dotted' | 'glow'> label={`${name} border`} tone="dark" size="sm" value={border.style}
+          onChange={(b) => set(b === 'none' ? { border: undefined } : { border: b, borderColor: border.color }, 'border')}
+          options={[{ value: 'none', label: 'None' }, { value: 'solid', label: 'Solid' }, { value: 'dashed', label: 'Dashed' }, { value: 'dotted', label: 'Dotted' }, { value: 'glow', label: 'Glow' }]} />
       </Field>
-      {(s('border') === 'color' || s('border') === 'glow') && (
-        <ColorSwatches label="Border colour" colors={['#7C3AED', '#A855F7', '#2563EB', '#16A34A', '#E05252', '#F59E0B', '#FFFFFF', '#111827']} value={s('borderColor', '#7C3AED')} onChange={(c) => set({ borderColor: c }, 'borderColor')} />
+      {border.style !== 'none' && (
+        <>
+          <Field label="Border colour">
+            <ColorSwatches label="Border colour" colors={['#FFFFFF', '#111827', '#7C3AED', '#A855F7', '#2563EB', '#16A34A', '#E05252', '#F59E0B']} value={border.color} onChange={(c) => set({ borderColor: c, ...(s('border') === 'white' ? { border: 'solid' } : {}) }, 'borderColor')} />
+          </Field>
+          <Slider tone="dark" label="Border thickness" min={1} max={60} value={border.width} format={(x) => `${x}px`} onChange={(x) => set({ borderWidth: x }, 'borderWidth')} />
+        </>
       )}
       <Button size="sm" variant="secondary" onClick={() => set({ ...CLEAR_LOOK }, 'look-reset')}>Reset look</Button>
     </>
@@ -1021,7 +1081,7 @@ function TextSettings({ v, set, selected }: { v: Record<string, unknown>; set: (
           <Group title="Text content" icon={<TextCursorInput size={15} />}>
             {partKey === 'body' ? (
               selected ? <AutoTextarea label="Edit text" value={str('text')} placeholder="Enter your text here…" onChange={(t) => set({ text: t }, 'text')} />
-                : <div className={styles.hint}>Click on the image to add text. Click a selected text again, press Enter, or type here to change it. Ctrl+Enter finishes.</div>
+                : <div className={styles.hint}>{formatKeys('Click on the image to add text. Click a selected text again, press Enter, or type here to change it. Ctrl+Enter finishes.')}</div>
             ) : (
               <TextField tone="dark" value={part!.text} placeholder={`${prefix} text`} onChange={(e) => set({ [partKey]: { ...part!, text: e.target.value } }, `${partKey}-text`)} aria-label={`${prefix} text`} />
             )}
@@ -1224,7 +1284,7 @@ async function readLogo(file: File): Promise<string> {
 }
 
 export function PropertiesPanel({
-  tool, selected, toolStyles, onChange, onOpacity, onRotation, onDelete, crop, cut, watermark, onWatermark, frame, onFrame, lastFrame, lastWatermark, sourceUrl, sourceTitle, frameApply, docSize,
+  tool, selected, toolStyles, onChange, onOpacity, onRotation, onDelete, crop, cut, watermark, onWatermark, frame, onFrame, lastFrame, lastWatermark, sourceUrl, sourceTitle, frameApply, docSize, onCoverAll, media = 'image',
 }: Props) {
   if (crop) return <CropSection crop={crop} />;
   if (cut) return <CutSection cut={cut} />;
@@ -1612,6 +1672,8 @@ export function PropertiesPanel({
   } else if (kind === 'blur' || kind === 'pixelate' || kind === 'mask') {
     const name = kind === 'blur' ? 'Blur' : kind === 'pixelate' ? 'Pixelate' : 'Mask';
     body = (
+      <>
+      <RedactScopeField kind={kind} v={v} selected={selected} set={set} docSize={docSize} onCoverAll={onCoverAll} media={media} />
       <PanelTabs
         key={kind}
         id={kind}
@@ -1633,6 +1695,7 @@ export function PropertiesPanel({
           },
         ]}
       />
+      </>
     );
   } else if (kind === 'marker') {
     body = (
@@ -1840,7 +1903,7 @@ export function PropertiesPanel({
         <div className={styles.hint}>Drag the corner handles to resize and the round handle on top to rotate (Shift snaps to 15°).</div>
       )}
       {tool === 'select' && !selected && <div className={styles.hint}>Click an annotation to select it. Drag to move, use the handles to resize or rotate, press Delete to remove. Press ? for all keyboard shortcuts.</div>}
-      {tool === 'hand' && <div className={styles.hint}>Drag to pan. Hold Space with any tool to pan temporarily; Ctrl + scroll zooms.</div>}
+      {tool === 'hand' && <div className={styles.hint}>{formatKeys('Drag to pan. Hold Space with any tool to pan temporarily; Ctrl + scroll zooms.')}</div>}
       {(resetButton || kind === 'marker') && (
         <div className={styles.textActions}>
           {resetButton || <span />}
@@ -1929,7 +1992,7 @@ function CutSection({ cut }: { cut: CutProps }) {
           Cut out & join
         </Button>
       </div>
-      <div className={styles.hint}>Enter applies, Esc cancels. One Ctrl+Z brings the part back.</div>
+      <div className={styles.hint}>{formatKeys('Enter applies, Esc cancels. One Ctrl+Z brings the part back.')}</div>
     </Section>
   );
 }

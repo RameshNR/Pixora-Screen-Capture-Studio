@@ -4,6 +4,7 @@
  * page's own DOM or styles. When "interact" is on, the layer lets every click through to the page.
  */
 import type { AnnotateAction, AnnotateTool } from '@/shared/messaging/messages';
+import { formatKeys } from '@/shared/utils/keys';
 
 interface Style {
   color: string;
@@ -115,7 +116,7 @@ export class AnnotateLayer {
 
   private updateHint(): void {
     this.hint.textContent = this.drawing
-      ? `Drawing · ${this.tool} — P A L R O T E tools · Ctrl+Z undo · Esc to use the page`
+      ? formatKeys(`Drawing · ${this.tool} — P A L R O T E tools · Ctrl+Z undo · Esc to use the page`)
       : '';
     this.hint.style.display = this.drawing && this.visible ? 'block' : 'none';
     this.canvas.style.cursor = this.drawing ? (this.tool === 'text' ? 'text' : this.tool === 'eraser' ? 'cell' : 'crosshair') : 'default';

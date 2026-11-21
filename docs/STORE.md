@@ -47,6 +47,10 @@ Before every submission:
 > uploads, no tracking.
 >
 > NEW IN 1.1
+> • Right-click any page: Pixora's captures and recordings are in the right-click menu (and "Annotate this image" on pictures)
+> • Blur, pixelate and mask: apply to an area, everything outside it or the whole picture, with each part of the look (effect, shape, edges, colour, border) set on its own
+> • Better on a Mac: shortcuts shown as ⌘ ⌥ ⇧, ⇧⌘Z redo, ⌘⌫ delete
+> • Open a picture from a web address in the editor; screen and window screenshots count down on the toolbar icon
 > • Click highlights redesigned: smooth animated effects, the cursor with each click (design, colour, motion, left / right / double click), quick looks and a live preview — on every page you visit while recording
 > • Themes for every window: 9 dark and 9 light themes, easy on the eyes (or match your computer)
 > • Optional real browser header — tabs, address bar and bookmarks — in your screenshots
@@ -91,29 +95,31 @@ Before every submission:
 ### Images to upload (not in the release zip)
 
 The originals are in `store-assets/`. The store needs exact sizes and no transparency, so upload the
-copies in **`store-assets/upload/`**, made by `python scripts/store-images.py` (needs Pillow; it scales
-screenshots onto a 1280×800 background, scales the promo tiles, removes transparency and also writes
-the README pictures in `docs/images/`). Re-run it after replacing an original.
+copies in **`store-assets/upload/`**, made by `python scripts/store-images.py` (needs Pillow; it keeps
+the screenshots as they are — Pixora's own page only, no backdrop or frame — at 1280×800, scales the
+promo tiles, removes transparency and also writes the README pictures in `docs/images/`).
+
+The screenshots themselves are taken from the real extension, headless, in the light **Purple
+Lavender** theme: `STORE_SHOTS=1 npx playwright test store-shots` (after `npm run build`), then
+`python scripts/store-images.py`.
 
 **Upload these 5 screenshots, in this order** (the store allows at most 5):
-`screenshot-1-capture`, `screenshot-2-editor`, `screenshot-3-recording`, `screenshot-4-flow`,
-`screenshot-5-themes`. (`screenshot-6-collage` is kept as a spare — swap it in if you prefer.)
+`screenshot-1-editor`, `screenshot-2-video`, `screenshot-3-clicks`, `screenshot-4-captures`,
+`screenshot-5-themes`.
 
-The originals are taken from the real extension on a made-up demo page ("Northwind Travel Desk"),
-so they show no real website, account or browser profile; the same pictures are on the website
-(`docs/images/`).
+The demo content is a made-up page ("Lumen Travel Desk — not a real company"), so the pictures show
+no real website, account or browser profile; the same pictures are on the website (`docs/images/`).
 
 Originals:
 
 | File | Size | Required | What it should show |
 | --- | --- | --- | --- |
 | `store-assets/icon-128.png` | 128×128 | yes | Copy of `public/icons/icon-128.png` |
-| `store-assets/screenshot-1-capture.png` | 1280×800 | yes (at least 1) | A web page with Pixora's popup open (Screenshot tab) |
-| `store-assets/screenshot-2-editor.png` | 1280×800 | recommended | Screenshot editor with arrows, a callout, numbered steps and a blur |
-| `store-assets/screenshot-3-recording.png` | 1280×800 | recommended | Video editor: timeline with annotation tracks, Annotate rail |
-| `store-assets/screenshot-4-flow.png` | 1280×800 | recommended | Flow Editor with several steps |
-| `store-assets/screenshot-5-themes.png` | 1280×800 | recommended | Settings › General › Theme (Dark / System / Light, theme cards) |
-| `store-assets/screenshot-6-collage.png` | 1280×800 | recommended | Collage of several captures |
+| `store-assets/screenshot-1-editor.png` | 1280×800 | yes (at least 1) | Image editor: a capture with a highlight box, an arrow, a blur and a numbered step |
+| `store-assets/screenshot-2-video.png` | 1280×800 | recommended | Video editor: player with annotations, timeline, Annotate rail, recording details |
+| `store-assets/screenshot-3-clicks.png` | 1280×800 | recommended | Settings › Recording › Highlight mouse clicks (preview, effects, quick looks) |
+| `store-assets/screenshot-4-captures.png` | 1280×800 | recommended | Recent captures (screenshots and a video, stored on the device) |
+| `store-assets/screenshot-5-themes.png` | 1280×800 | recommended | Settings › General › Theme (light themes, Purple Lavender selected) |
 | `store-assets/promo-small.png` | 440×280 | yes | Logo, name and a short line, e.g. “Capture · Annotate · Record” |
 | `store-assets/promo-marquee.png` | 1400×560 | optional | Wide banner (used if the store features the item) |
 
@@ -143,6 +149,7 @@ product. Don't put personal data (emails, names, accounts) in them.
 | `notifications` | Tell the user a capture was saved or failed, and prompt for scheduled recordings (can be turned off). |
 | `alarms` | Start scheduled recordings and run the automatic clean-up of old captures. |
 | `clipboardWrite` | Copy screenshots and recognised text to the clipboard when the user clicks Copy. |
+| `contextMenus` | Adds a "Pixora – Screen Capture Studio" entry to the right-click menu of web pages, so the user can annotate a picture they right-clicked, start a capture (visible part, full page, selected area, delayed, with text, screen or window) or a recording (tab, area, screen or window, camera) and open Pixora's pages from there. The menu reads nothing from the page; a click only grants access to that tab, like the toolbar icon. |
 | Optional host access `<all_urls>` | Never required. Asked only for something the user starts: (1) a Flow Capture that follows the user to other pages and sites; (2) a recording with click highlights (or key combinations / cursor effects), so the highlights are added again to each page the user opens while recording, including embedded frames; (3) "Add image › From a web address" — access to that one site only, to read the picture the user asked for. Declining keeps everything else working. |
 
 **Remote code:** No, I am not using remote code. (All code, the OCR engine and its language data
@@ -181,6 +188,21 @@ Package → **Upload new package** with the new `release/pixora-<version>.zip`, 
 - **Privacy policy** — date current and covers any new kind of data (`docs/PRIVACY.md`, live on
   GitHub Pages).
 - Submit for review. The listing keeps showing the old version until the new one is approved.
+
+### 1.1.3 (over the published 1.0.0)
+
+1.1.0, 1.1.1 and 1.1.2 were never published (cancel the pending 1.1.2 review first), so 1.1.3
+carries everything since 1.0.0:
+
+- Permissions: **adds `contextMenus`** (right-click menu). Chrome shows no warning for it, so
+  existing users are not asked again. Everything else is unchanged.
+- Justifications to update: **`contextMenus`** (new), `desktopCapture` (browser header) and
+  **Optional host access** (click highlights on the next pages) — use the texts in section 3.
+- Data usage: unchanged (Website content, User activity, Web history).
+- Privacy policy: updated 21 November 2026 (right-click menu; it reads nothing from the page).
+- Description: section 2 text, with the "NEW IN 1.1" block.
+- Screenshots: the five in `store-assets/upload/` (Purple Lavender, Pixora's pages only).
+- Upload `release/pixora-1.1.3.zip`.
 
 ### 1.1.2 (over the published 1.0.0)
 

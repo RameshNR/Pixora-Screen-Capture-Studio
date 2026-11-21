@@ -14,6 +14,7 @@ import type { SensitiveMatch } from '@/screenshot/services/sensitive-detect';
 import type { TrimRange, VideoPlayerHandle } from './VideoPlayer';
 import { RegionPicker } from './RegionPicker';
 import styles from './VideoTools.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 /** "m:ss.mmm" with millisecond precision. */
 export function formatPrecise(seconds: number): string {
@@ -276,7 +277,7 @@ export function ChaptersPanel({ markers, onChange, time, duration, onSeek, onExp
         <IconButton size="sm" label="Next chapter (Page Down)" icon={<ChevronRight size={16} />} disabled={currentIdx >= sorted.length - 1} onClick={() => { const n = sorted[currentIdx + 1]; if (n) onSeek(n.timeMs / 1000); }} />
       </div>
       {sorted.length === 0 ? (
-        <p className={styles.hint}>No chapters yet. Add markers while recording (M in the control bar, Alt+Shift+M in the page) or here with M. They appear on the timeline.</p>
+        <p className={styles.hint}>{formatKeys('No chapters yet. Add markers while recording (M in the control bar, Alt+Shift+M in the page) or here with M. They appear on the timeline.')}</p>
       ) : (
         <ol className={styles.chapters} aria-label="Chapters">
           {sorted.map((m, i) => (

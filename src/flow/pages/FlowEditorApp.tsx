@@ -29,6 +29,7 @@ import { ownFrame } from '../own-frame';
 import { CompareDialog } from '@/shared/components/CompareDialog';
 import { AddImageMenu, type AddedImage } from '@/shared/components/AddImageMenu';
 import styles from './flow.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 interface Loaded {
   record: CaptureRecord;
@@ -841,8 +842,8 @@ export function FlowEditorApp() {
                     </div>
                   );
                 })()}
-                <Button size="sm" className={styles.darkBtn} icon={<Copy size={14} />} title="Copy image (Ctrl+C)" onClick={() => editorActions.current?.copy()}>Copy</Button>
-                <Button size="sm" variant="primary" icon={<Download size={14} />} title="Download (Ctrl+S)" onClick={() => editorActions.current?.download()}>Download</Button>
+                <Button size="sm" className={styles.darkBtn} icon={<Copy size={14} />} title={formatKeys('Copy image (Ctrl+C)')} onClick={() => editorActions.current?.copy()}>Copy</Button>
+                <Button size="sm" variant="primary" icon={<Download size={14} />} title={formatKeys('Download (Ctrl+S)')} onClick={() => editorActions.current?.download()}>Download</Button>
               </div>
               <div className={styles.editorFrame}>
                 <EmbeddedEditor

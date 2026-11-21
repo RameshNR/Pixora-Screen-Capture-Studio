@@ -2,6 +2,7 @@ import { loadSettings, subscribeSettings } from '@/settings/settings-service';
 import { applyRetention } from '@/history/history-service';
 import { logger } from '@/shared/utils/logger';
 import { handleCommand } from './commands';
+import { isMenuAction, runMenuAction, setupContextMenu } from './context-menu';
 import { registerMessageHandler } from './message-handler';
 import { highlightScrollArea } from '@/screenshot/services/full-page-capture';
 import { SCROLL_AREAS_PORT } from '@/shared/messaging/messages';
@@ -60,7 +61,13 @@ chrome.notifications.onClicked.addListener((notificationId) => {
   void chrome.notifications.clear(notificationId);
 });
 
+// Right-click menu on web pages (captures, recordings, Pixora's pages).
+chrome.contextMenus?.onClicked.addListener((info, tab) => {
+  if (isMenuAction(info.menuItemId)) void runMenuAction(info.menuItemId, tab, info);
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
+  void setupContextMenu();
   void chrome.alarms.create(RETENTION_ALARM, { periodInMinutes: 360 });
   void syncScheduleAlarm();
   if (details.reason === 'install') {
@@ -74,6 +81,7 @@ chrome.permissions.onAdded.addListener((perms) => {
 
 chrome.runtime.onStartup.addListener(() => {
   void syncScheduleAlarm();
+  void setupContextMenu();
 });
 
 subscribeSettings(() => {

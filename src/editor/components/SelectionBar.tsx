@@ -7,6 +7,7 @@ import {
 import type { Rect } from '../types';
 import type { MenuItem } from '@/shared/components/Dropdown';
 import styles from './SelectionBar.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 export type LayerMove = 'forward' | 'backward' | 'front' | 'back';
 export type AlignTo = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
@@ -222,7 +223,7 @@ function HoldBtn({ label, onStep, children }: { label: string; onStep: () => voi
 
 function Btn({ label, onClick, children, pressed, haspopup }: { label: string; onClick: () => void; children: ReactNode; pressed?: boolean; haspopup?: boolean }) {
   return (
-    <button type="button" className={`${styles.btn} ${pressed ? styles.btnOn : ''}`} aria-label={label} title={label} aria-pressed={haspopup ? undefined : pressed}
+    <button type="button" className={`${styles.btn} ${pressed ? styles.btnOn : ''}`} aria-label={label} title={formatKeys(label)} aria-pressed={haspopup ? undefined : pressed}
       aria-haspopup={haspopup ? 'menu' : undefined} aria-expanded={haspopup ? !!pressed : undefined} onClick={onClick}>
       {children}
     </button>
@@ -234,7 +235,7 @@ function Item({ icon, label, kbd, onClick, disabled, submenu, open }: { icon: Re
     <button type="button" role="menuitem" className={styles.item} disabled={disabled} onClick={onClick} aria-haspopup={submenu ? 'menu' : undefined} aria-expanded={submenu ? !!open : undefined}>
       <span className={styles.itemIcon}>{icon}</span>
       <span className={styles.itemLabel}>{label}</span>
-      {kbd && <kbd className={styles.kbd}>{kbd}</kbd>}
+      {kbd && <kbd className={styles.kbd}>{formatKeys(kbd)}</kbd>}
       {submenu && <ChevronRight size={15} className={`${styles.chev} ${open ? styles.chevOpen : ''}`} />}
     </button>
   );

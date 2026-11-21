@@ -6,7 +6,7 @@ import { AppError, toAppError, isStorageUnavailable } from '@/shared/utils/error
 import { buildFilename } from '@/shared/utils/filename';
 import { logger } from '@/shared/utils/logger';
 import { generateImageThumbnail } from '@/recording/services/thumbnail';
-import { clearBadge, notify, setBadge } from '@/background/badge';
+import { clearBadge, countdownOnBadge, notify, setBadge } from '@/background/badge';
 import { downloadCaptureFromBackground } from '@/background/download-manager';
 import { injectOverlay, sendOverlay } from '@/background/overlay';
 import { captureArea } from './area-capture';
@@ -127,15 +127,6 @@ async function openPopupIn(windowId: number): Promise<void> {
   } catch {
     /* already open, window not focused, or not supported */
   }
-}
-
-async function countdownOnBadge(seconds: number): Promise<void> {
-  // Badge updates are extension API calls, which also keep the service worker alive during the wait.
-  for (let s = Math.round(seconds); s > 0; s--) {
-    await setBadge(String(s), '#4F8DF7');
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  await clearBadge();
 }
 
 async function finishScreenshot(raw: RawCapture, settings: Settings, sourceTab: chrome.tabs.Tab, ocr: boolean): Promise<void> {

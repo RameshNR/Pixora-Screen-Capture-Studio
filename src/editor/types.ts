@@ -228,7 +228,8 @@ export type BlurMode = 'gaussian' | 'motion-h' | 'motion-v' | 'motion-d' | 'zoom
 export type PixelPattern = 'square' | 'wide' | 'mixed' | 'mosaic' | 'dir-h' | 'dir-v' | 'dir-d' | 'radial';
 export type RedactFade = 'none' | 'top' | 'bottom' | 'left' | 'right' | 'edges' | 'tilt';
 export type RedactTone = 'none' | 'dim' | 'gray' | 'mono' | 'tint';
-export type RedactBorder = 'none' | 'white' | 'color' | 'dashed' | 'glow';
+/** Border of a blur / pixelate / mask area. ('white' and 'color' are older names for a solid line.) */
+export type RedactBorder = 'none' | 'solid' | 'dashed' | 'dotted' | 'glow' | 'white' | 'color';
 export type MaskPattern = 'solid' | 'lines' | 'multi' | 'dots' | 'rows' | 'grid' | 'mixed' | 'person' | 'card' | 'id' | 'address';
 
 export interface RedactAnnotation extends Base, Rect {
@@ -259,6 +260,8 @@ export interface RedactAnnotation extends Base, Rect {
   glass?: boolean;
   border?: RedactBorder;
   borderColor?: string;
+  /** Border thickness in image pixels (default: a little of the area's size). */
+  borderWidth?: number;
   /** Solid masks: what the mask looks like (solid block, text lines, password dots, ID card…). */
   maskPattern?: MaskPattern;
 }
@@ -523,7 +526,7 @@ export interface ToolStyles {
 }
 
 /** Look of a blur / pixelate / mask region (everything except its position and strength). */
-export type RedactLook = Partial<Pick<RedactAnnotation, 'shape' | 'radius' | 'mode' | 'pattern' | 'soft' | 'fade' | 'invert' | 'tone' | 'tint' | 'glass' | 'border' | 'borderColor' | 'maskPattern'>>;
+export type RedactLook = Partial<Pick<RedactAnnotation, 'shape' | 'radius' | 'mode' | 'pattern' | 'soft' | 'fade' | 'invert' | 'tone' | 'tint' | 'glass' | 'border' | 'borderColor' | 'borderWidth' | 'maskPattern' | 'opacity'>>;
 
 export const DEFAULT_FONT = 'Inter Variable, Inter, Segoe UI, sans-serif';
 

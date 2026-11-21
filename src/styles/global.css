@@ -78,3 +78,14 @@ a:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Icons inside buttons sit on the centre line (not on the text baseline, which pushed them off centre). */
+button > svg {
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+button > svg:only-child {
+  display: block;
+  margin: auto;
+}

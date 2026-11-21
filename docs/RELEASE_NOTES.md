@@ -1,5 +1,32 @@
 # Pixora – Release notes
 
+## 1.1.3 — right-click menu, Mac keyboard, blur / pixelate / mask redesigned (November 2026)
+
+### New
+- **Right-click menu**: right-click any web page › *Pixora – Screen Capture Studio* to capture the visible part, the full page, a selected area, after a delay, with text, or a screen / app window; to record this tab, an area, a screen or window, or the camera; or to open the image editor, a collage, Recent captures and Settings.
+- **Better on a Mac**: every shortcut is shown the Mac way (⌘Z, ⇧⌘Z, ⌥⇧V), ⇧⌘Z redoes everywhere, ⌘⌫ deletes in the editor, keys shown in recordings read ⌘⇧ and Option letters correctly, and the popup shows the shortcuts actually set in Chrome.
+- **Screen & app window screenshots** count down on Pixora's toolbar icon (like *Visible Part after Delay*) instead of a separate countdown window, with *Getting ready…* (page and icon) from the moment you pick the screen or window until the countdown starts.
+- **Annotate an image from a web address**: paste a picture's address on the *Annotate an image* screen (or paste it with Ctrl+V); right-click a picture on a website › Pixora › *Annotate this image* fills it in. Chrome asks once to read from that site.
+- Right-click › Pixora › *Settings* opens the General settings (Recent captures has its own item).
+- Countdowns on the toolbar icon (delayed and screen / window screenshots, and before a recording, now with the seconds) use the recording red.
+- **Blur, Pixelate and Solid mask: Apply to** — three tiles: *This area*, *Outside area* (the area stays clear) or *Whole image* (*Whole video* in the video editor), with a line saying what it does. Works with every design, and with nothing selected *Whole image* adds one covering the picture. Masks can now cover everything except the area too.
+
+### Fixed
+- Blur / Pixelate / Solid mask designs no longer pile up: a design replaces only its own part of the look (style, shape, colour treatment, border or colour), so e.g. *Zoom blur* after *Depth blur* blurs only the area, and *Cloud* after *Text redaction* really shows a cloud. The design in use is highlighted.
+- Design names and the *Place the mask* buttons are no longer cut off.
+- **In use**: the parts of the look in use (style, shape, colour, border…) are listed above the designs, each removed with one click (e.g. take a border off without looking for it).
+- Designs that can't work where the effect applies are greyed out with the reason (fades and frosted glass outside the area; text lines, face, card… for a mask outside the area); so are the matching settings under Adjust.
+- *Circle* makes the area round and *Square* square (and their pictures show it); *Oval* makes it longer — they are no longer the same.
+- Outside area with *Depth blur*, *Bokeh blur* or *Lens blur* no longer blurs the area too.
+- Shift while drawing or resizing a box makes a square up to the pointer, instead of jumping bigger than the drag.
+- *Move the mask to* Top / Centre / Bottom only moves the mask; its size stays.
+- Choosing *Outside area* takes off looks that can't show there (a face, text lines, a fade, frosted glass) instead of leaving them stuck.
+- A design adds to the shape in use: e.g. text lines or a face inside a cloud or wave.
+- **Border and corners moved to Adjust** (no longer mixed into the designs): border style (none, solid, dashed, dotted, glow), any colour, thickness; corner radius; and opacity for blur and pixelate (a mask's opacity is its colour's). Designs never add or change a border.
+- The small × buttons sit in the middle of their circles.
+- Sliders move smoothly while dragged (e.g. Effect size, Effect opacity and Animation duration in Highlight mouse clicks).
+- **Blur, Pixelate and Solid mask designs, one part at a time**: instead of mixed design categories, the look is picked in separate parts — Blur: Effect, Strength, Shape, Edges, Colour, Glass; Pixelate: Pattern, Block size, Blocks, Shape, Edges, Colour; Mask: Colour, Shape, Inside the mask. Each part shows its choice in its header, exactly one choice is selected, and a choice never changes another part. Strength, opacity, corners and border are fine-tuned under Adjust.
+
 ## 1.1.2 — click highlights, cursor animations and a taller video (November 2026)
 
 ### New

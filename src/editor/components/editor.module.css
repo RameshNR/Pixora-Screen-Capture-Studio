@@ -1376,3 +1376,258 @@
   border-radius: 10px;
   background: repeating-conic-gradient(var(--c-editor-tile) 0 25%, var(--c-editor-field) 0 50%) 0 0 / 14px 14px;
 }
+
+/* "Annotate an image": a picture from a web address. */
+.urlRow {
+  display: flex;
+  gap: 8px;
+  width: min(520px, 100%);
+}
+
+.urlField {
+  flex: 1;
+  min-width: 0;
+}
+
+.urlNote,
+.urlError {
+  margin: -6px 0 0;
+  max-width: 520px;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--c-text-secondary);
+}
+
+.urlError {
+  color: var(--c-danger, #dc2626);
+}
+
+@media (max-width: 520px) {
+  .urlRow {
+    flex-direction: column;
+  }
+}
+
+/* ----------------------- blur / pixelate / mask: apply to ----------------------- */
+.scopeField {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.scopeLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-editor-text);
+  opacity: 0.7;
+}
+
+.scopeTiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.scopeTiles > button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px 4px 7px;
+  border: 1px solid var(--c-editor-border);
+  border-radius: var(--r-md);
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.scopeTiles > button svg {
+  color: var(--c-editor-text);
+  opacity: 0.75;
+}
+
+.scopeTiles > button:hover:not(:disabled) {
+  border-color: var(--c-primary);
+}
+
+.scopeTiles > button.scopeOn {
+  border-color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 18%, var(--c-editor-tile));
+  box-shadow: 0 0 0 1px var(--c-primary) inset;
+}
+
+.scopeTiles > button.scopeOn svg {
+  color: var(--c-primary);
+  opacity: 1;
+}
+
+.scopeTiles > button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.scopeHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--c-editor-text);
+  opacity: 0.7;
+}
+
+/* What the look is made of now, each removable in one click. */
+.inUse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 10px;
+}
+
+.inUseLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-right: 2px;
+}
+
+.inUseChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 3px 2px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--c-primary) 45%, var(--c-editor-border));
+  background: color-mix(in srgb, var(--c-primary) 12%, var(--c-editor-tile));
+  color: var(--c-editor-text);
+  font-size: 11.5px;
+}
+
+.inUseChip > button {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  line-height: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.inUseChip > button:hover {
+  background: color-mix(in srgb, var(--c-danger, #dc2626) 22%, transparent);
+}
+
+.presetGrid4.redactGrid > button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+/* Design names wrap instead of being cut off. */
+.presetGrid4.redactGrid > button {
+  white-space: normal;
+  align-content: start;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.presetGrid4.redactGrid > button span {
+  overflow-wrap: anywhere;
+}
+
+.placeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.placeGrid > button {
+  padding: 7px 6px;
+  border: 1px solid var(--c-editor-border);
+  border-radius: var(--r-sm);
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  font-size: 11.5px;
+  line-height: 1.2;
+  white-space: normal;
+  cursor: pointer;
+}
+
+.placeGrid > button:hover {
+  border-color: var(--c-primary);
+  background: var(--c-editor-hover);
+}
+
+/* ------------- blur / pixelate / mask: the look, one part at a time ------------- */
+.lookSections {
+  display: grid;
+  gap: 6px;
+}
+
+.lookSection {
+  border: 1px solid var(--c-editor-border);
+  border-radius: var(--r-md);
+  background: var(--c-editor-tile);
+  overflow: hidden;
+}
+
+.lookHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lookHead:hover {
+  background: var(--c-editor-hover);
+}
+
+.lookName {
+  font-weight: 650;
+}
+
+.lookValue {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.lookHead > svg {
+  transition: transform 0.15s;
+  opacity: 0.7;
+}
+
+.lookHead > svg.lookChevOpen {
+  transform: rotate(180deg);
+}
+
+.lookDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--c-editor-border);
+}
+
+.lookBody {
+  display: grid;
+  gap: 8px;
+  padding: 2px 10px 10px;
+}

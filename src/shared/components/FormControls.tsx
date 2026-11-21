@@ -70,15 +70,40 @@ interface SliderProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onCha
 }
 
 export function Slider({ value: stored, onChange, min, max, step = 1, format, label, tone = 'light', hideLabel = false, ...rest }: SliderProps) {
-  // While dragging, the thumb follows the pointer even when the new value is saved asynchronously
-  // (settings): the dragged value is shown until the stored value catches up.
+  // While dragging, the thumb follows the pointer and never jumps back to an older saved value
+  // (settings are saved asynchronously, one after another): the dragged value is shown for the
+  // whole drag, saves go out at most once per frame, and the last value is always saved.
   const [draft, setDraft] = useState<number | null>(null);
   const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragging = useRef(false);
+  const pending = useRef<number | null>(null);
+  const frame = useRef<number | null>(null);
+  const latest = useRef(onChange);
+  latest.current = onChange;
+  const flush = () => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    if (pending.current === null) return;
+    const v = pending.current;
+    pending.current = null;
+    latest.current(v);
+  };
+  const release = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    flush();
+    if (settle.current) clearTimeout(settle.current);
+    // The saved value takes over once it has caught up (or a moment after the drag ends).
+    settle.current = setTimeout(() => setDraft(null), 800);
+  };
   useEffect(() => {
-    if (draft !== null && stored === draft) setDraft(null);
+    if (draft !== null && !dragging.current && pending.current === null && stored === draft) setDraft(null);
   }, [stored, draft]);
   useEffect(() => () => {
     if (settle.current) clearTimeout(settle.current);
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    // A value still waiting when the slider goes away is saved.
+    if (pending.current !== null) latest.current(pending.current);
   }, []);
   const value = draft ?? stored;
   const pct = ((value - min) / (max - min)) * 100;
@@ -99,15 +124,28 @@ export function Slider({ value: stored, onChange, min, max, step = 1, format, la
         value={value}
         aria-label={label}
         style={{ '--pct': `${pct}%` } as React.CSSProperties}
+        {...rest}
+        onPointerDown={(e) => {
+          dragging.current = true;
+          if (settle.current) clearTimeout(settle.current);
+          window.addEventListener('pointerup', release, { once: true });
+          window.addEventListener('pointercancel', release, { once: true });
+          (rest.onPointerDown as ((ev: React.PointerEvent<HTMLInputElement>) => void) | undefined)?.(e);
+        }}
         onChange={(e) => {
           const v = Number(e.target.value);
           setDraft(v);
-          if (settle.current) clearTimeout(settle.current);
-          // Never stuck on a draft: the stored value wins a moment after the last change.
-          settle.current = setTimeout(() => setDraft(null), 1500);
-          onChange(v);
+          pending.current = v;
+          if (dragging.current) {
+            // One save per frame while dragging.
+            if (frame.current === null) frame.current = requestAnimationFrame(() => { frame.current = null; flush(); });
+          } else {
+            // Keyboard / click: saved at once.
+            flush();
+            if (settle.current) clearTimeout(settle.current);
+            settle.current = setTimeout(() => setDraft(null), 1500);
+          }
         }}
-        {...rest}
       />
     </div>
   );

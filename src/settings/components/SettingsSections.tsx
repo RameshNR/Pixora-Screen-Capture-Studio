@@ -24,6 +24,7 @@ import { CaptureOnPicker } from '@/flow/components/CaptureOnPicker';
 import { resetSettings } from '../settings-service';
 import { repairDatabase, storageHealthy } from '@/shared/storage/idb';
 import { canPickFolder, folderPermission, getSaveFolder, pickSaveFolder } from '@/shared/utils/save-folder';
+import { formatKeys } from '@/shared/utils/keys';
 
 type Update = (patch: DeepPartial<Settings>) => Promise<void>;
 
@@ -276,7 +277,7 @@ export function RecordingSection({ settings, update }: Props) {
           <ClickHighlightFields fx={r.cursorEffects} onChange={(patch) => set({ cursorEffects: { ...r.cursorEffects, ...patch } })} />
         </div>
       )}
-      <SettingRow label="Show keyboard shortcuts" icon={<Keyboard size={18} />} hint="Shows key combinations (e.g. Ctrl + C) — never ordinary typing or passwords.">
+      <SettingRow label="Show keyboard shortcuts" icon={<Keyboard size={18} />} hint={formatKeys('Shows key combinations (e.g. Ctrl+C) — never ordinary typing or passwords.')}>
         <ToggleSwitch label="Keyboard shortcuts" checked={r.highlightKeys} onChange={(highlightKeys) => set({ highlightKeys })} />
       </SettingRow>
       <SettingRow label="Mouse cursor" icon={<MousePointer2 size={18} />} hint="Desktop recordings always include the cursor. Chrome never draws it in tab recordings — enable click highlights instead.">
@@ -497,7 +498,7 @@ export function ShortcutsSection() {
       <SettingsSection title="In the screenshot editor" icon={<PenTool size={22} />}>
       <SettingRow label="Editor shortcuts" icon={<PenTool size={18} />} stacked>
         <span style={{ color: 'var(--c-text-secondary)', fontSize: 12, lineHeight: 1.7 }}>
-          Ctrl+Z undo · Ctrl+Y redo · Ctrl+C copy · Ctrl+S save · Delete remove selection · Esc cancel · V select · P pen · G highlighter · R rectangle · O ellipse · A arrow · L line · T text · B blur · X pixelate · N marker · E eraser · C crop · Space pan · Ctrl+scroll zoom
+          {formatKeys('Ctrl+Z undo · Ctrl+Y redo · Ctrl+C copy · Ctrl+S save · Delete remove selection · Esc cancel · V select · P pen · G highlighter · R rectangle · O ellipse · A arrow · L line · T text · B blur · X pixelate · N marker · E eraser · C crop · Space pan · Ctrl + scroll zoom')}
         </span>
       </SettingRow>
       </SettingsSection>

@@ -8,9 +8,9 @@ visible part, a full page or a selected area, the whole screen or a window; a co
 tab, desktop and camera recording up to 4K with a video editor; and **Flow Capture**, which turns a
 task you click through into a guide with a picture of every step.
 
-![Pixora popup and screenshot editor](docs/images/hero.png)
+![Pixora: recent captures](docs/images/hero.png)
 
-**Version 1.1.2** · Chrome 116 or newer · [Release notes](docs/RELEASE_NOTES.md) · [Privacy policy](docs/PRIVACY.md)
+**Version 1.1.3** · Chrome 116 or newer · [Release notes](docs/RELEASE_NOTES.md) · [Privacy policy](docs/PRIVACY.md)
 
 ---
 

@@ -60,7 +60,7 @@ export function installChromeMock() {
       sendMessage: vi.fn(async () => ({ ok: true, data: null })),
       onMessage: makeEvent(),
       getURL: (p: string) => `chrome-extension://test-extension-id/${p}`,
-      getManifest: () => ({ version: '1.1.2' }),
+      getManifest: () => ({ version: '1.1.3' }),
       getContexts: vi.fn(async () => []),
       ContextType: { OFFSCREEN_DOCUMENT: 'OFFSCREEN_DOCUMENT' },
       lastError: undefined,
@@ -104,6 +104,11 @@ export function installChromeMock() {
     downloads: { download: vi.fn(async () => 1), onChanged: makeEvent(), onErased: makeEvent(), search: vi.fn(async () => []), show: vi.fn() },
     alarms: { create: vi.fn(async () => undefined), clear: vi.fn(async () => true), onAlarm: makeEvent() },
     commands: { getAll: vi.fn(async () => []), onCommand: makeEvent() },
+    contextMenus: {
+      create: vi.fn((_props: object, cb?: () => void) => { cb?.(); return 'id'; }),
+      removeAll: vi.fn(async () => undefined),
+      onClicked: makeEvent(),
+    },
     desktopCapture: { chooseDesktopMedia: vi.fn(), DesktopCaptureSourceType: { SCREEN: 'screen', WINDOW: 'window', TAB: 'tab', AUDIO: 'audio' } },
   };
   (globalThis as unknown as { chrome: typeof chromeMock }).chrome = chromeMock;

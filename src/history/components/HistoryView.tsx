@@ -16,6 +16,7 @@ import { extensionForMime, replaceExtension, stripExtension } from '@/shared/uti
 import { formatBytes, formatDateTime, formatDuration, formatResolution } from '@/shared/utils/format';
 import { deleteCapture, getCaptureBlob, listCaptures, updateCapture, type HistoryFilter, type HistorySort } from '../history-service';
 import styles from './history.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 export function openCapture(c: CaptureRecord): void {
   const page = c.kind === 'video' ? 'video.html' : c.kind === 'flow' ? 'flow.html' : 'editor.html';
@@ -228,7 +229,7 @@ export function HistoryView({ settings }: { settings: Settings }) {
             <Inbox size={30} />
           </span>
           <h3>{filter === 'all' ? 'No captures yet' : filter === 'video' ? 'No recordings yet' : 'No screenshots yet'}</h3>
-          <p>Click the Pixora icon in the toolbar (or press Alt+Shift+V) to take your first screenshot or start a recording.</p>
+          <p>{formatKeys('Click the Pixora icon in the toolbar (or press Alt+Shift+V) to take your first screenshot or start a recording.')}</p>
         </div>
       ) : (
         <ul className={styles.grid}>

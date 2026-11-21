@@ -8,11 +8,21 @@ Screenshots, screen recording and step-by-step guides for Chrome — all on your
 **No account, no uploads, no tracking.**
 
 **[Add Pixora to Chrome — free on the Chrome Web Store](https://chromewebstore.google.com/detail/domfaochimmiimphibbkbhmkbcfeijff)**
-· Version 1.1.2 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
+· Version 1.1.3 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
 
-![Pixora's popup over a web page: visible part, full page, selected area, Flow Capture and more](images/hero.png)
+![Recent captures: screenshots and a recording, stored privately on this device](images/hero.png)
 
-## What's new in 1.1.2
+## What's new in 1.1.3
+
+- **Right-click menu** — every capture and recording from the right-click menu of any page, and
+  *Annotate this image* on pictures.
+- **Blur, pixelate and mask** — apply to an area, everything outside it or the whole picture; pick
+  each part of the look (effect, strength, shape, edges, colour, glass, border) on its own.
+- **Better on a Mac** — shortcuts shown as ⌘ ⌥ ⇧, ⇧⌘Z redo, ⌘⌫ delete, Option keys shown right.
+- **Pictures from a web address** in the editor; screen and window screenshots count down on the
+  toolbar icon; smoother sliders.
+
+## New in 1.1.2
 
 - **Click highlights, redesigned** — a live preview you can try, smooth animations for every click
   effect, the cursor shown with each click (any design, size, colour and motion, with the mouse

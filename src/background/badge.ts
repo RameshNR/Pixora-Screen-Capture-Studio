@@ -7,6 +7,25 @@ export async function setBadge(text: string, color = '#4F8DF7'): Promise<void> {
   await chrome.action.setBadgeText({ text }).catch(() => undefined);
 }
 
+/** Countdowns (delayed and screen / window screenshots, recordings) count on the toolbar icon in the recording red. */
+export const COUNT_COLOR = '#EF5350';
+
+/**
+ * Counts the seconds down on the toolbar icon (like a delayed Visible Part), then clears it.
+ * Resolves 'cancel' as soon as `cancelled()` says so. (Each badge update is an extension API call,
+ * which also keeps the service worker alive during the wait.)
+ */
+export async function countdownOnBadge(seconds: number, cancelled: () => boolean = () => false): Promise<'done' | 'cancel'> {
+  for (let s = Math.round(seconds); s > 0; s--) {
+    if (cancelled()) break;
+    await setBadge(String(s), COUNT_COLOR);
+    await chrome.action.setTitle({ title: `Pixora – capturing in ${s}…` }).catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  await clearBadge();
+  return cancelled() ? 'cancel' : 'done';
+}
+
 export async function clearBadge(): Promise<void> {
   await chrome.action.setBadgeText({ text: '' }).catch(() => undefined);
   await chrome.action.setTitle({ title: '' }).catch(() => undefined);
@@ -36,6 +55,13 @@ function longTime(ms: number): string {
 let ticker: ReturnType<typeof setInterval> | null = null;
 let current: RecordingState | null = null;
 
+let countTicker: ReturnType<typeof setInterval> | null = null;
+
+function stopCountTicker(): void {
+  if (countTicker) clearInterval(countTicker);
+  countTicker = null;
+}
+
 function stopTicker(): void {
   if (ticker) clearInterval(ticker);
   ticker = null;
@@ -54,6 +80,7 @@ async function paintTime(state: RecordingState): Promise<void> {
  */
 export async function badgeForRecording(state: RecordingState): Promise<void> {
   current = state;
+  stopCountTicker();
   switch (state.status) {
     case 'recording':
       if (!ticker) ticker = setInterval(() => current && void paintTime(current), 1000);
@@ -61,7 +88,20 @@ export async function badgeForRecording(state: RecordingState): Promise<void> {
     case 'paused':
       stopTicker();
       return paintTime(state);
-    case 'countdown':
+    case 'countdown': {
+      stopTicker();
+      // The seconds left before the recording starts, in the recording red.
+      const endsAt = state.countdownEndsAt;
+      if (!endsAt) return setBadge('…', COUNT_COLOR);
+      const paint = () => {
+        const left = Math.ceil((endsAt - Date.now()) / 1000);
+        if (current?.status !== 'countdown' || left <= 0) return stopCountTicker();
+        void setBadge(String(left), COUNT_COLOR);
+      };
+      countTicker = setInterval(paint, 250);
+      paint();
+      return;
+    }
     case 'preparing':
     case 'selecting':
       stopTicker();

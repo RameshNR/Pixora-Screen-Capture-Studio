@@ -12,6 +12,7 @@ import { useNow, useRecordingState } from '@/shared/hooks/useRecordingState';
 import { elapsedMs, remainingMs } from '../services/recording-state';
 import { formatDuration, formatMediaTime } from '@/shared/utils/format';
 import styles from './controlbar.module.css';
+import { formatKeys } from '@/shared/utils/keys';
 
 function send(command: RecordingCommand) {
   void sendToBackground({ target: 'background', type: 'recording/command', command });
@@ -200,7 +201,7 @@ function MarkersPanel({ now, onAdd }: { now: number; onAdd: () => void }) {
       action={<button type="button" className={styles.smallBtn} onClick={onAdd}><Flag size={13} /> Add at {formatMediaTime(elapsedMs(state, now) / 1000)}</button>}
     >
       {state.markers.length === 0 ? (
-        <p className={styles.hint}>Press M here, Alt+Shift+M in the recorded page, or your “Add marker” shortcut. Markers become chapters on the result page.</p>
+        <p className={styles.hint}>{formatKeys('Press M here, Alt+Shift+M in the recorded page, or your “Add marker” shortcut. Markers become chapters on the result page.')}</p>
       ) : (
         <ul className={styles.markerList}>
           {state.markers.map((m) => (
@@ -329,7 +330,7 @@ function DrawPanel({ annotating, annotate }: { annotating: boolean; annotate: (a
           <IconButton tone="dark" size="sm" label="Clear all (Delete)" icon={<Trash2 size={15} />} onClick={() => annotate({ kind: 'clear' })} />
           <IconButton tone="dark" size="sm" label={visible ? 'Hide drawings (H)' : 'Show drawings (H)'} icon={visible ? <EyeOff size={15} /> : <Eye size={15} />} onClick={() => { setVisible(!visible); annotate({ kind: 'visible', visible: !visible }); }} />
         </div>
-        <p className={styles.hint}>Draws on the page you are recording. Esc lets clicks through to the page; Alt+Shift+D switches drawing back on.</p>
+        <p className={styles.hint}>{formatKeys('Draws on the page you are recording. Esc lets clicks through to the page; Alt+Shift+D switches drawing back on.')}</p>
       </Section>
       <Section title="Style">
         <div className={styles.swatches}>
