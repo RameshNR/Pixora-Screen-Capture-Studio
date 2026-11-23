@@ -4,7 +4,7 @@ import type {
 } from './settings';
 import type { RelativeRect } from './capture';
 import type { AppErrorInfo } from './errors';
-import type { CameraStyle, CursorEffects, LiveEffect, LiveEffectsState, Marker, SpotlightSettings, ZoomSettings } from './effects';
+import type { CameraBackground, CameraStyle, CursorEffects, LiveEffect, LiveEffectsState, Marker, SpotlightSettings, ZoomSettings } from './effects';
 
 export interface MicConfig {
   enabled: boolean;
@@ -21,6 +21,10 @@ export interface CameraConfig {
   position: CornerPosition;
   size: CameraSize;
   shape: CameraShape;
+  /** Background blurred / removed / replaced (none when absent). */
+  background?: CameraBackground;
+  /** Camera Only: a removed background becomes a plain colour (a video has no see-through parts). */
+  opaque?: boolean;
 }
 
 /** Fully-resolved configuration for one recording session. */

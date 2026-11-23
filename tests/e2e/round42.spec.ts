@@ -113,14 +113,20 @@ test('screenshot editor: the picture re-fits once after a resize (no flicker)', 
   await editor.goto(`chrome-extension://${extensionId}/editor.html?import=1`);
   const png = Buffer.from(await editor.evaluate(async () => { const c = new OffscreenCanvas(1600, 900); const x = c.getContext('2d')!; x.fillStyle = '#dde'; x.fillRect(0, 0, 1600, 900); return Array.from(new Uint8Array(await (await c.convertToBlob()).arrayBuffer())); }));
   await editor.locator('input[type="file"]').first().setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: png });
-  const zoom = editor.getByRole('textbox', { name: 'Zoom level' });
   await expect(editor.getByRole('img', { name: 'Screenshot canvas' })).toBeVisible();
   await editor.setViewportSize({ width: 1024, height: 700 });
   await editor.waitForTimeout(600);
   // Watch the zoom for a while: it settles on one value (it used to flip back and forth).
   const seen = new Set<string>();
   for (let i = 0; i < 12; i++) {
-    seen.add(await zoom.inputValue());
+    // The picture's drawn width (the zoom box may be tucked into the settings popup on a narrow window).
+    seen.add(String(await editor.evaluate(() => {
+      const c = document.querySelector('canvas[aria-label="Screenshot canvas"]') as HTMLCanvasElement;
+      const row = c.getContext('2d')!.getImageData(0, Math.floor(c.height / 2), c.width, 1).data;
+      let a = -1, b = -1;
+      for (let i = 0; i < c.width; i++) { const r = row[i * 4]!, g = row[i * 4 + 1]!, bl = row[i * 4 + 2]!; if (r === 0xdd && g === 0xdd && bl === 0xee) { if (a < 0) a = i; b = i; } }
+      return b - a;
+    })));
     await editor.waitForTimeout(100);
   }
   expect(seen.size).toBe(1);

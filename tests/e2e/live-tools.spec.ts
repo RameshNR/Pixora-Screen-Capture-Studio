@@ -110,7 +110,7 @@ test.describe('live recording tools', () => {
     await expect(start).toHaveValue('0:00.500');
     await expect(result.getByLabel('Selected duration')).not.toContainText('0:00.000');
     await expect(result.getByRole('button', { name: 'Export trimmed' })).toBeEnabled();
-    await result.getByRole('button', { name: 'Reset' }).click();
+    await result.getByRole('button', { name: 'Reset', exact: true }).click();
 
     // Chapters: add, rename, persisted.
     await result.getByRole('tab', { name: /Chapters/ }).click();

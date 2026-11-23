@@ -25,3 +25,12 @@ if (!lang) {
   cpSync(lang, resolve(out, 'eng.traineddata.gz'));
 }
 console.log('OCR assets copied to dist/ocr');
+
+// Camera background (MediaPipe selfie segmenter, Apache-2.0): the engine runs from the package too.
+// The model is in public/models. Only the SIMD build is needed (Chrome 116+ always has WebAssembly SIMD).
+const mp = resolve(root, 'dist/mediapipe');
+rmSync(mp, { recursive: true, force: true });
+mkdirSync(mp, { recursive: true });
+for (const f of ['vision_wasm_internal.js', 'vision_wasm_internal.wasm']) cpSync(nm(`@mediapipe/tasks-vision/wasm/${f}`), resolve(mp, f));
+console.log('Camera background engine copied to dist/mediapipe');
+

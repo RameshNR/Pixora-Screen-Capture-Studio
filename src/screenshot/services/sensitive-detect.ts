@@ -1,4 +1,5 @@
 import { AppError } from '@/shared/utils/errors';
+import { quietOcr } from './ocr-service';
 
 export interface OcrWord {
   text: string;
@@ -299,6 +300,7 @@ export async function detectSensitive(image: Blob, onProgress?: (p: number, stat
       cacheMethod: 'none',
       logger: (m: { status: string; progress: number }) => onProgress?.(m.progress, m.status),
     });
+    await quietOcr(worker as never);
     const prepared = await prepareForOcr(image);
     const read = async (): Promise<OcrWord[][]> => {
       const { data } = await worker!.recognize(prepared.blob, {}, { blocks: true });

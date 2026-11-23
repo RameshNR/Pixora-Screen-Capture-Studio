@@ -48,6 +48,13 @@ export function normalizeSettings(raw: unknown): Settings {
   if (from < 9 || !(s.general.theme === 'system' || isThemeId(s.general.theme))) {
     s.general.theme = resolveStoredTheme(s.general.theme as string);
   }
+  // v10: the camera bubble's corner positions sit at the edge (the same small margin on both
+  // sides) instead of 12 % / 82 % centres, which left a size-dependent gap on one side.
+  if (from < 10 && s.recording.cameraStyle) {
+    const snap = (v: number) => ([0.12, 0.15, 0.18].includes(v) ? 0 : [0.82, 0.85, 0.88].includes(v) ? 1 : v);
+    s.recording.cameraStyle.x = snap(s.recording.cameraStyle.x);
+    s.recording.cameraStyle.y = snap(s.recording.cameraStyle.y);
+  }
   s.version = DEFAULT_SETTINGS.version;
   s.screenshot.quality = Math.min(1, Math.max(0.1, s.screenshot.quality));
   s.screenshot.delaySeconds = Math.min(300, Math.max(0, Math.round(s.screenshot.delaySeconds)));

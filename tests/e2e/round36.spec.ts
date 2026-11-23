@@ -18,7 +18,7 @@ test('compare fits the screen with no scrollbars; image cards have the flow opti
   await expect(editor.getByRole('img', { name: 'Screenshot canvas' })).toBeVisible();
 
   // ---- Compare: full screen stays inside the window; at Fit the panes show no scrollbars.
-  await editor.getByRole('button', { name: 'Compare with original' }).first().click();
+  await editor.getByRole('button', { name: 'View original' }).first().click();
   const cmp = editor.getByRole('dialog', { name: 'Original screenshot' });
   await expect(cmp.getByRole('img', { name: 'Screenshot: Original' })).toBeVisible();
   await cmp.getByRole('button', { name: 'Full screen' }).click();

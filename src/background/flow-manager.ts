@@ -562,7 +562,9 @@ async function autoShot(tab: chrome.tabs.Tab, step: FlowStep, doc: FlowDoc, pre?
     const canvas = new OffscreenCanvas(bmp.width, bmp.height);
     canvas.getContext('2d')!.drawImage(bmp, 0, 0);
     bmp.close();
-    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    // While a video is recorded too, a quick JPEG keeps the computer responsive (a full-screen PNG
+    // takes far longer to encode, on every click).
+    const blob = await canvas.convertToBlob(state.withRecording ? { type: 'image/jpeg', quality: 0.92 } : { type: 'image/png' });
     const item = await storeFlowImage(state.flowId!, doc.items.length + 1, {
       digest,
       blob, width: canvas.width, height: canvas.height, mode: 'visible', auto: true, url: step.url, pageTitle: step.pageTitle, description: step.title,

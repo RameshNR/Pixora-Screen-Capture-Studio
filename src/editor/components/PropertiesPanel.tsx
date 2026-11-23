@@ -1,7 +1,7 @@
 import { useThemeInk } from '@/shared/hooks/useTheme';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, AppWindow, ArrowUpRight, Baseline, Bold, Brush, CaseUpper, Check, ChevronDown, CopyCheck, Droplet, Eraser, EyeOff, Frame as FrameIcon, Grid3x3, Hash, Highlighter,
+  AlignCenter, AlignLeft, AlignRight, AppWindow, ArrowUpRight, Baseline, Bold, Brush, CaseUpper, Check, ChevronDown, CopyCheck, Droplet, EyeOff, Frame as FrameIcon, Grid3x3, Hash, Highlighter,
   ImagePlus, Italic, LayoutGrid, Link, Monitor, MousePointerClick, Move, MessageSquareText, Palette, PenLine, Play, Pointer, RotateCcw, Ruler, Shapes, SlidersHorizontal, Smile, Sparkles,
   Spline, Square, Stamp, Strikethrough, Tag, TextCursorInput, Trash2, Type, Underline, Unlink, Wand2, X,
 } from 'lucide-react';
@@ -56,6 +56,9 @@ export function styleKindFor(t: Tool | Annotation['type']): StyleKind | null {
     case 'sticker':
     case 'cursor':
     case 'eraser':
+    case 'eraseImage':
+    case 'removeObject':
+    case 'removeBg':
       return t;
     case 'rect':
     case 'ellipse':
@@ -71,7 +74,7 @@ export function styleKindFor(t: Tool | Annotation['type']): StyleKind | null {
 const TITLES: Partial<Record<Tool | Annotation['type'], string>> = {
   pen: 'Pen', highlighter: 'Highlighter', rect: 'Shapes', ellipse: 'Shapes', arrow: 'Line & arrow', line: 'Line', text: 'Text',
   callout: 'Callout', blur: 'Blur', pixelate: 'Pixelate', mask: 'Solid mask', marker: 'Numbered marker', sticker: 'Sticker', cursor: 'Cursor & click', image: 'Image',
-  eraser: 'Eraser', select: 'Select', hand: 'Pan', crop: 'Crop', cut: 'Cut out & join', watermark: 'Watermark', frame: 'Border & frame',
+  eraser: 'Eraser', eraseImage: 'Erase image', removeObject: 'Remove object', removeBg: 'Remove background', filters: 'Filters', select: 'Select', hand: 'Pan', crop: 'Crop', cut: 'Cut out & join', watermark: 'Watermark', frame: 'Border & frame',
 };
 
 import { STICKER_GROUPS, STICKERS, sameSticker, type StickerDef } from '../tools/sticker-lib';
@@ -79,6 +82,9 @@ export { STICKER_GROUPS, STICKERS };
 
 import { LINE_PRESETS, PREMIUM_LINES, type LinePatch, type PremiumLine } from '../tools/line-presets';
 import { formatKeys } from '@/shared/utils/keys';
+import { NumberStepper } from './NumberStepper';
+import { EraseImageIcon, EraserIcon } from './ToolIcons';
+import { SmartEraseFields } from './RetouchPanels';
 
 const HEAD_OPTIONS: Array<{ value: HeadStyle; label: string }> = [
   { value: 'none', label: 'None' },
@@ -306,7 +312,7 @@ function TextEffectFields({ v, set, name = '' }: { v: Partial<TextStyle>; set: (
 }
 
 /** A titled, collapsible group of settings (keeps long panels readable). */
-function Group({ title, children, open = true, action, disabled, icon }: { title: string; children: ReactNode; open?: boolean; action?: ReactNode; disabled?: boolean; icon?: ReactNode }) {
+export function Group({ title, children, open = true, action, disabled, icon }: { title: string; children: ReactNode; open?: boolean; action?: ReactNode; disabled?: boolean; icon?: ReactNode }) {
   return (
     <details className={`${styles.setGroup} ${disabled ? styles.setGroupDisabled : ''}`} open={open}>
       <summary className={styles.setGroupTitle}>
@@ -1862,9 +1868,19 @@ export function PropertiesPanel({
     );
   } else if (kind === 'eraser') {
     body = (
-      <Group title="Eraser" icon={<Eraser size={15} />}>
+      <Group title="Eraser" icon={<EraserIcon size={15} />}>
         <Slider tone="dark" label="Eraser size" min={4} max={600} value={num('size', 24)} format={(x) => `${x}px`} onChange={(x) => set({ size: x }, 'size')} />
-        <div className={styles.hint}>Click or drag across annotations to remove them; the circle shows what the eraser touches. Press [ and ] to change the size. The screenshot itself is never erased.</div>
+        <div className={styles.hint}>Click or drag across annotations to remove them; the circle shows what the eraser touches. Press [ and ] to change the size. The screenshot itself is never erased (use Erase image for that).</div>
+      </Group>
+    );
+  } else if (kind === 'eraseImage') {
+    body = (
+      <Group title="Erase image" icon={<EraseImageIcon size={15} />}>
+        <Slider tone="dark" label="Brush size" min={4} max={600} value={num('size', 40)} format={(x) => `${x}px`} onChange={(x) => set({ size: x }, 'size')} />
+        <span className={styles.label}>Erase to</span>
+        <RadioGroup<'white' | 'transparent' | 'smart'> label="Erase to" tone="dark" size="sm" value={str('fill', 'white') as 'white' | 'transparent' | 'smart'} onChange={(fill) => set({ fill }, 'fill')}
+          options={[{ value: 'smart', label: 'Background', title: 'Smart eraser: rebuild matching background (sand, sky, walls…)' }, { value: 'white', label: 'White' }, { value: 'transparent', label: 'See-through' }]} />
+        {str('fill', 'white') === 'smart' ? <SmartEraseFields style={toolStyles.eraseImage} onChange={(patch) => set(patch, Object.keys(patch)[0] ?? 'smart')} /> : <div className={styles.hint}>Paint over the screenshot to erase that part of it (annotations stay). See-through shows in PNG downloads; JPEG makes it white. Ctrl+drag erases in a straight line (Shift: at 45° steps). Press [ and ] to change the size; Ctrl+Z undoes a stroke.</div>}
       </Group>
     );
   }
@@ -1960,10 +1976,10 @@ function CutSection({ cut }: { cut: CutProps }) {
       </div>
       <div className={styles.row}>
         <Field label={rows ? 'From top (px)' : 'From left (px)'}>
-          <input className={styles.numberField} type="number" min={0} max={len} value={lo} aria-label="Remove from" onChange={(e) => { const n = num(e.target.value); cut.onChange({ ...band, from: n, to: Math.max(n, hi) }); }} />
+          <NumberStepper min={0} max={len} value={lo} ariaLabel="Remove from" onChange={(v) => { const n = num(String(v)); cut.onChange({ ...band, from: n, to: Math.max(n, hi) }); }} />
         </Field>
         <Field label="to (px)">
-          <input className={styles.numberField} type="number" min={0} max={len} value={hi} aria-label="Remove to" onChange={(e) => { const n = num(e.target.value); cut.onChange({ ...band, from: Math.min(n, lo), to: n }); }} />
+          <NumberStepper min={0} max={len} value={hi} ariaLabel="Remove to" onChange={(v) => { const n = num(String(v)); cut.onChange({ ...band, from: Math.min(n, lo), to: n }); }} />
         </Field>
       </div>
       <Field label="Join">
@@ -2012,18 +2028,18 @@ function CropSection({ crop }: { crop: CropProps }) {
       </Field>
       <div className={styles.row}>
         <Field label="Width">
-          <input className={styles.numberField} type="number" min={1} max={crop.maxW} value={Math.round(crop.rect.w)} onChange={(e) => crop.onRect({ ...crop.rect, w: Math.min(crop.maxW - crop.rect.x, Math.max(1, Number(e.target.value))) })} aria-label="Crop width" />
+          <NumberStepper min={1} max={crop.maxW - crop.rect.x} value={Math.round(crop.rect.w)} onChange={(n) => crop.onRect({ ...crop.rect, w: Math.min(crop.maxW - crop.rect.x, Math.max(1, n)) })} ariaLabel="Crop width" />
         </Field>
         <Field label="Height">
-          <input className={styles.numberField} type="number" min={1} max={crop.maxH} value={Math.round(crop.rect.h)} onChange={(e) => crop.onRect({ ...crop.rect, h: Math.min(crop.maxH - crop.rect.y, Math.max(1, Number(e.target.value))) })} aria-label="Crop height" />
+          <NumberStepper min={1} max={crop.maxH - crop.rect.y} value={Math.round(crop.rect.h)} onChange={(n) => crop.onRect({ ...crop.rect, h: Math.min(crop.maxH - crop.rect.y, Math.max(1, n)) })} ariaLabel="Crop height" />
         </Field>
       </div>
       <div className={styles.row}>
         <Field label="X">
-          <input className={styles.numberField} type="number" min={0} value={Math.round(crop.rect.x)} onChange={(e) => crop.onRect({ ...crop.rect, x: Math.max(0, Math.min(crop.maxW - crop.rect.w, Number(e.target.value))) })} aria-label="Crop X" />
+          <NumberStepper min={0} max={crop.maxW - crop.rect.w} value={Math.round(crop.rect.x)} onChange={(n) => crop.onRect({ ...crop.rect, x: Math.max(0, Math.min(crop.maxW - crop.rect.w, n)) })} ariaLabel="Crop X" />
         </Field>
         <Field label="Y">
-          <input className={styles.numberField} type="number" min={0} value={Math.round(crop.rect.y)} onChange={(e) => crop.onRect({ ...crop.rect, y: Math.max(0, Math.min(crop.maxH - crop.rect.h, Number(e.target.value))) })} aria-label="Crop Y" />
+          <NumberStepper min={0} max={crop.maxH - crop.rect.h} value={Math.round(crop.rect.y)} onChange={(n) => crop.onRect({ ...crop.rect, y: Math.max(0, Math.min(crop.maxH - crop.rect.h, n)) })} ariaLabel="Crop Y" />
         </Field>
       </div>
       <div className={styles.row}>

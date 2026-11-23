@@ -45,9 +45,8 @@ test('a drawing added and removed again is not an edit', async ({ context, exten
   await expect(reset).toBeEnabled();
   await editor.keyboard.press('Delete');
   await expect(reset).toBeDisabled();
-  await editor.getByRole('toolbar', { name: 'Editor tools' }).getByRole('button', { name: 'Compare with original' }).click();
-  await expect(editor.getByRole('dialog', { name: 'Original screenshot' })).toBeVisible();
-  await expect(editor.getByRole('dialog', { name: 'Original vs edited screenshot' })).toHaveCount(0);
+  // Nothing to compare: Before / After stays off.
+  await expect(editor.getByRole('group', { name: 'View' }).getByRole('switch', { name: 'Before / After' })).toBeDisabled();
 });
 
 test('the arrow panel only offers what the design can do', async ({ context, extensionId }) => {

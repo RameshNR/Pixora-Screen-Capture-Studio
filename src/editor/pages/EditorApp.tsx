@@ -5,7 +5,7 @@ import type { AutoFrame, CaptureRecord, ImageFormat, Settings } from '@/shared/t
 import { loadSettings } from '@/settings/settings-service';
 import { usePageContextMenu } from '@/shared/components/PageContextMenu';
 import type { MenuItem } from '@/shared/components/Dropdown';
-import { AlignCenter, AlignCenterHorizontal, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowUp, BringToFront, ClipboardPaste, Copy, CopyPlus, Download, Keyboard, Lock, LockOpen, Maximize, Move, Pencil, Redo2, Scissors, SendToBack, Trash2, Undo2 } from 'lucide-react';
+import { AlignCenter, AlignCenterHorizontal, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowUp, BringToFront, ClipboardPaste, Copy, CopyPlus, Download, Keyboard, Lock, LockOpen, Maximize, Move, Pencil, Redo2, Scissors, SendToBack, Sparkles, Trash2, Undo2, X, Crop as CropIcon } from 'lucide-react';
 import { useSettings } from '@/shared/hooks/useSettings';
 import { useToast } from '@/shared/components/Toast';
 import { Spinner } from '@/shared/components/Progress';
@@ -20,11 +20,11 @@ import { generateImageThumbnail } from '@/recording/services/thumbnail';
 import type { Annotation, BoxAnnotation, EditorDoc, MarkerAnnotation, StrokeAnnotation, Frame, Rect, Tool, ToolStyles, Watermark } from '../types';
 import { BACKGROUND_DEFAULTS, BORDER_DEFAULTS, DEFAULT_TOOL_STYLES, EMPTY_FRAME } from '../types';
 import { canRedo, canUndo, createHistory, historyReducer, sameDoc, timeline, type HistoryState } from '../history/history';
-import { exportDocument } from '../render';
-import { applyCrop, applyCutOut, applyFlip, applyResize, applyRotate, aspectValue, constrainAspect, cutBand, defaultCutBand, type AspectRatio, type CutBand } from '../tools/crop';
+import { renderArea, exportDocument } from '../render';
+import { applyClearArea, applyCrop, applyEraseImage, applyCutOut, applyFlip, applyResize, applyRotate, aspectValue, constrainAspect, cutBand, defaultCutBand, type AspectRatio, type CutBand } from '../tools/crop';
 import { annotationId } from '../tools/common';
 import { describeAnnotation, getBounds, rotateBy, translate } from '../tools/annotations';
-import type { AlignTo, LayerMove, SelectionActions } from '../components/SelectionBar';
+import type { AlignTo, AreaActions, LayerMove, SelectionActions } from '../components/SelectionBar';
 import { defaultBends } from '../tools/shapes';
 import { fitCallout } from '../tools/callouts';
 import { clipFromShape, isCutShape, isStroke } from '../tools/stroke-clip';
@@ -47,6 +47,16 @@ import { CompareDialog } from '@/shared/components/CompareDialog';
 import type { AddedImage } from '@/shared/components/AddImageMenu';
 import { getOriginalImage, keepOriginal, restoreOriginalImage } from '@/flow/flow-store';
 import { ImageRail } from '../components/ImageRail';
+import { EraseSwitch, FiltersPanel, isEraseTool } from '../components/RetouchPanels';
+import { FilmStrip } from '../components/FilmStrip';
+import { BusyPill } from '@/shared/components/BusyPill';
+import { ImageInfo } from '../components/ImageInfo';
+import { groupIntoFlow } from '@/flow/flow-store';
+import { COMPARE_DEFAULT, CompareBar, type CompareState } from '../components/CompareBar';
+import type { ComparePane } from '../render';
+import { isActive } from '../tools/filters';
+import { useFill, useRetouch } from '../components/useRetouch';
+import { newMaskCanvas, paintStroke } from '../tools/retouch';
 import styles from '../components/editor.module.css';
 
 // v2: new defaults (thicker pen / lines, highlighter opacity in its colour, callout designs).
@@ -57,14 +67,27 @@ const PREFS_KEY = 'glint.editor.prefs';
 export interface EditorPrefs {
   frame?: Frame | null;
   watermark?: Watermark | null;
-  format?: ImageFormat;
+  format?: ImageFormat | 'original';
   quality?: number;
+  /** The bar under the picture (compare, zoom, fit, full screen); off: a small card in the corner. */
+  compareBar?: boolean;
+  /** Full screen: image details float over the picture (true, default) or sit in a panel beside it. */
+  detailsPopup?: boolean;
 }
 
 type LoadState = { status: 'loading' } | { status: 'import' } | { status: 'error'; message: string } | { status: 'ready'; record: CaptureRecord; doc: EditorDoc };
 
 export function EditorApp() {
   const { settings } = useSettings();
+  /** Something slow is going on (opening an image, adding images): the busy pill. */
+  const [busyLabel, setBusyLabel] = useState<string | null>(null);
+  /** The editor area is full screen (shows the strip of open images). */
+  const [pageFull, setPageFull] = useState(() => Boolean(document.fullscreenElement));
+  useEffect(() => {
+    const on = () => setPageFull(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', on);
+    return () => document.removeEventListener('fullscreenchange', on);
+  }, []);
   const params = useMemo(() => new URLSearchParams(location.search), []);
   const preparing = params.get('preparing') === '1';
   const [load, setLoad] = useState<LoadState>(() => (params.get('id') || preparing ? { status: 'loading' } : { status: 'import' }));
@@ -95,10 +118,11 @@ export function EditorApp() {
   // Follows Settings › General › Theme (light, dark or the computer's setting).
   useTheme(settings?.general.theme);
 
-  const openCapture = useCallback(async (id: string) => {
-    setLoad({ status: 'loading' });
+  const openCapture = useCallback(async (id: string, ready?: { record: CaptureRecord; blob: Blob }) => {
+    // An image already showing stays until the next one is ready (no Loading screen in between: switching flickered).
+    if (!ready) setLoad((l) => (l.status === 'ready' ? l : { status: 'loading' }));
     try {
-      const [record, blob] = await Promise.all([getCapture(id), getCaptureBlob(id)]);
+      const [record, blob] = ready ? [ready.record, ready.blob] : await Promise.all([getCapture(id), getCaptureBlob(id)]);
       if (!record || !blob) throw new Error('This capture no longer exists. It may have been deleted.');
       const base = await createImageBitmap(blob);
       document.title = `${record.name} · Pixora Editor`;
@@ -177,34 +201,94 @@ export function EditorApp() {
   };
   const isEdited = (id: string) => !reverted(id) && (Boolean(records[id]?.edited) || (dirty.has(id) && Boolean(changedDoc(id))));
 
+  /** Images whose edits are being saved in the background (waited for only when reopened). */
+  const saving = useRef(new Map<string, Promise<void>>());
   const openImage = async (id: string) => {
     if (id === currentId) return;
-    try {
-      await flush(currentId);
-    } catch (err) {
-      toast.error(errorInfoOf(err));
+    // The image left behind is saved in the background: switching does not wait for it.
+    const prev = currentId;
+    if (prev) {
+      const job = flush(prev).catch((err: unknown) => toast.error(errorInfoOf(err))).finally(() => saving.current.delete(prev));
+      saving.current.set(prev, job);
     }
     syncUrl(setIds, id);
-    await openCapture(id);
+    // Opened before in this session: shown at once from memory (no reading and decoding again).
+    const h = histories.current.get(id);
+    const rec = records[id];
+    if (h && rec) {
+      document.title = `${rec.name} · Pixora Editor`;
+      setLoad({ status: 'ready', record: rec, doc: h.original });
+      return;
+    }
+    setBusyLabel('Opening the image…');
+    try {
+      await saving.current.get(id);
+      await openCapture(id);
+    } finally {
+      setBusyLabel(null);
+    }
   };
 
   /** Stores pictures as captures and adds them to the session (the first one opens). */
   const addImages = async (images: AddedImage[]) => {
-    const added: string[] = [];
-    for (const im of images) {
-      try {
-        added.push((await createCapture(im.blob, im.name)).id);
-      } catch (err) {
-        toast.error(errorInfoOf(err));
-      }
+    setBusyLabel(images.length > 1 ? `Adding ${images.length} images…` : 'Adding the image…');
+    try { await addImagesNow(images); } finally { setBusyLabel(null); }
+  };
+  const addImagesNow = async (images: AddedImage[]) => {
+    // The image left behind is saved in the background; the new ones are stored side by side.
+    const prev = currentId;
+    if (prev) {
+      const job = flush(prev).catch(() => undefined).finally(() => saving.current.delete(prev));
+      saving.current.set(prev, job);
     }
-    if (!added.length) return;
+    const made = await Promise.all(images.map((im) => createCapture(im.blob, im.name).then((record) => ({ record, blob: im.blob })).catch((err: unknown) => { toast.error(errorInfoOf(err)); return null; })));
+    const done = made.filter((m): m is { record: CaptureRecord; blob: Blob } => !!m);
+    if (!done.length) return;
+    const added = done.map((m) => m.record.id);
+    // The images of an editor session are kept together as one flow capture (one entry in Recent
+    // captures): new images join the flow of the images already open, or a new flow is made with them.
+    try {
+      const open = setIds.map((x) => (x === currentId && load.status === 'ready' ? load.record : records[x])).filter((r): r is CaptureRecord => !!r);
+      const into = open.find((r) => r.flowId)?.flowId;
+      const loose = open.filter((r) => r.kind === 'screenshot' && !r.flowId).map((r) => r.id);
+      const fid = into ? await groupIntoFlow([...loose, ...added], { into }) : await groupIntoFlow([...loose, ...added]);
+      const moved = new Set([...loose, ...added]);
+      for (const m of done) m.record = { ...m.record, flowId: fid };
+      setRecords((r) => {
+        const next = { ...r, ...Object.fromEntries(done.map((m) => [m.record.id, m.record])) };
+        for (const id of moved) if (next[id]) next[id] = { ...next[id]!, flowId: fid };
+        return next;
+      });
+      if (load.status === 'ready' && moved.has(load.record.id)) setLoad((l) => (l.status === 'ready' ? { ...l, record: { ...l.record, flowId: fid } } : l));
+      broadcast({ target: 'broadcast', type: 'history/changed' });
+    } catch { /* they stay separate images */ }
     const ids = [...setIds, ...added];
+    syncUrl(ids, added[0]!);
+    // Opened from the picture already in memory; the list grows at the same moment (an image added
+    // in between could otherwise land in the editor that is being replaced).
+    await openCapture(added[0]!, done[0]);
     setSetIds(ids);
     toast.success(added.length > 1 ? `${added.length} images added` : 'Image added', 'They are in the image list on the left.');
-    await flush(currentId).catch(() => undefined);
-    syncUrl(ids, added[0]!);
-    await openCapture(added[0]!);
+  };
+
+  /** Images from Recent captures: join the image list (nothing copied); the first one opens. */
+  const addExisting = async (pick: string[]) => {
+    setBusyLabel(pick.length > 1 ? `Adding ${pick.length} images…` : 'Adding the image…');
+    try { await addExistingNow(pick); } finally { setBusyLabel(null); }
+  };
+  const addExistingNow = async (pick: string[]) => {
+    const fresh = pick.filter((x) => !setIds.includes(x));
+    if (!fresh.length) return;
+    const prev = currentId;
+    if (prev) {
+      const job = flush(prev).catch(() => undefined).finally(() => saving.current.delete(prev));
+      saving.current.set(prev, job);
+    }
+    const ids = [...setIds, ...fresh];
+    syncUrl(ids, fresh[0]!);
+    await openCapture(fresh[0]!);
+    setSetIds(ids);
+    toast.success(fresh.length > 1 ? `${fresh.length} images added` : 'Image added', 'They are in the image list on the left.');
   };
 
   const removeImage = async (id: string) => {
@@ -313,15 +397,15 @@ export function EditorApp() {
   };
 
   async function createCapture(blob: Blob, name: string): Promise<CaptureRecord> {
-    const bitmap = await createImageBitmap(blob);
+    const [bitmap, thumbnail] = await Promise.all([createImageBitmap(blob), generateImageThumbnail(blob)]);
     const record = await addCapture(
       {
         kind: 'screenshot',
-        name: stripExtension(name) ? `${stripExtension(name)}.png` : buildFilename(settings?.general.filenamePattern ?? '{type} {date}', { type: 'Screenshot', extension: 'png' }),
+        name: stripExtension(name) ? name : buildFilename(settings?.general.filenamePattern ?? '{type} {date}', { type: 'Screenshot', extension: 'png' }),
         mimeType: blob.type || 'image/png',
         width: bitmap.width,
         height: bitmap.height,
-        thumbnail: await generateImageThumbnail(blob),
+        thumbnail,
         sourceTitle: name,
       },
       blob,
@@ -357,6 +441,8 @@ export function EditorApp() {
   );
 
   let content: JSX.Element;
+  /** In full screen: the open images, to switch between them (each with its own Before / After). */
+  let fsStrip: JSX.Element | null = null;
   if (load.status === 'import') {
     content = <ImportScreen onImage={(b, n) => void importImage(b, n)} onCollage={() => setCollage([])} />;
   } else if (load.status === 'loading' || !settings) {
@@ -378,6 +464,9 @@ export function EditorApp() {
   } else {
     const id = load.record.id;
     const items = setIds.map((x) => (x === id ? load.record : records[x])).filter((r): r is CaptureRecord => !!r);
+    if (pageFull && items.length > 1) {
+      fsStrip = <FilmStrip items={items} currentId={id} onOpen={(x) => void openImage(x)} />;
+    }
     content = (
       <Editor
         key={`${id}:${editorKey}`}
@@ -394,6 +483,8 @@ export function EditorApp() {
         }}
         onSaved={(rec) => { savedDocs.current.set(id, histories.current.get(id)?.present.doc ?? load.doc); setRecords((r) => ({ ...r, [id]: rec })); }}
         onCompare={() => void openCompare(id)}
+        strip={fsStrip}
+        onStep={(dir) => { const next = setIds[setIds.indexOf(id) + dir]; if (next) void openImage(next); }}
         rail={
           <ImageRail
             items={items}
@@ -409,6 +500,7 @@ export function EditorApp() {
             onRestore={(x) => void restoreImage(x)}
             onRemove={(x) => void removeImage(x)}
             onAdd={(imgs) => void addImages(imgs)}
+            onAddExisting={(ids) => void addExisting(ids)}
             onCollage={() => void openCollage()}
             onMove={moveImage}
             onDuplicate={(x) => void duplicateImage(x)}
@@ -421,7 +513,10 @@ export function EditorApp() {
   }
   return (
     <>
-      {content}
+      <div id="pixora-fs-root" className={styles.fsRoot}>
+        {content}
+        <BusyPill label={busyLabel} />
+      </div>
       {collageView}
       <CompareDialog
         open={compare !== null}
@@ -464,7 +559,8 @@ function mergeStyles(stored: Partial<ToolStyles> | undefined): ToolStyles {
   return out as unknown as ToolStyles;
 }
 
-type PanelTab = 'props' | 'layers' | 'history';
+/** 'info': the image details (the toolbar's Details button), in place of the tabs' content. */
+type PanelTab = 'props' | 'layers' | 'history' | 'info';
 
 export interface EditorProps {
   record: CaptureRecord;
@@ -485,6 +581,10 @@ export interface EditorProps {
   actionsRef?: { current: EditorActions | null };
   /** Left image panel (screenshot editor). */
   rail?: ReactNode;
+  /** Full screen with several images: the open images, left of the controls under the picture. */
+  strip?: ReactNode;
+  /** Full screen: ← / → show the previous / next image. */
+  onStep?: (dir: 1 | -1) => void;
   /** Opens the Compare window for the image in the editor. */
   onCompare?: () => void;
   /** Drawing on a video frame (Advanced Video Editor): tools that change the size are hidden. */
@@ -504,7 +604,12 @@ export interface EditorActions {
   hasSelection: boolean;
 }
 
-export function Editor({ record: initialRecord, initialDoc, settings, params, onCollage, initialHistory, onHistory, onSaved, embedded, frameApply, actionsRef, rail, onCompare, videoMode, inline }: EditorProps) {
+/** The page's one-time URL requests (?ocr, ?autosave, ?copy) were handled (by the first image opened). */
+let urlActionsUsed = false;
+/** Captures whose "extract text" request was handled in this page. */
+const ocrDone = new Set<string>();
+
+export function Editor({ record: initialRecord, initialDoc, settings, params, onCollage, initialHistory, onHistory, onSaved, embedded, frameApply, actionsRef, rail, strip, onStep, videoMode, inline }: EditorProps) {
   const toast = useToast();
   const [hist, dispatch] = useReducer(historyReducer, initialDoc, (d: EditorDoc) => initialHistory ?? createHistory(d));
   // Report the history only when it really changes: re-sending an old history on a parent
@@ -523,11 +628,15 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const [multiIds, setMultiIds] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
   const [crop, setCrop] = useState<{ rect: Rect; aspect: AspectRatio } | null>(null);
+  /** Select tool: an area of the picture marked by dragging (copy, cut, delete or crop to it). */
+  const [area, setArea] = useState<Rect | null>(null);
   const [textEdit, setTextEdit] = useState<TextEditState | null>(null);
   const [panning, setPanning] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>('props');
   const [filename, setFilename] = useState(stripExtension(initialRecord.name));
-  const [format, setFormat] = useState<ImageFormat>(settings.screenshot.format);
+  /** Export format; 'original': the format the picture came in (default). */
+  const [format, setFormat] = useState<ImageFormat | 'original'>('original');
+  const outFormat: ImageFormat = format !== 'original' ? format : /^image\/(png|jpeg|webp)$/.test(record.mimeType) ? (record.mimeType.slice(6) as ImageFormat) : 'png';
   const [quality, setQuality] = useState(settings.screenshot.quality);
   const [busy, setBusy] = useState(false);
   /** Which export is running (its button shows the spinner, others are only disabled). */
@@ -539,6 +648,102 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     return toast.progress(working, 'Large images can take a few seconds.');
   }, [working, toast]);
   const [resizeOpen, setResizeOpen] = useState(false);
+  /** Filters: showing the picture without them (Before). */
+  /** The editor fills the screen (browser full screen). */
+  const [fullScreen, setFullScreen] = useState(() => Boolean(document.fullscreenElement));
+  useEffect(() => {
+    // Full screen changes the picture area's size: show the whole picture again.
+    const on = () => { setFullScreen(Boolean(document.fullscreenElement)); requestAnimationFrame(() => requestAnimationFrame(() => workspace.current?.fit())); };
+    document.addEventListener('fullscreenchange', on);
+    return () => document.removeEventListener('fullscreenchange', on);
+  }, []);
+  /** Full screen: the details panel (↓ shows it, ↑ hides it). */
+  const [fsInfo, setFsInfo] = useState(false);
+  /** The details are on their way out (they slide / fade away before they are removed). */
+  const [fsInfoOut, setFsInfoOut] = useState(false);
+  const outTimer = useRef(0);
+  const hideFsInfo = useCallback(() => {
+    setFsInfoOut(true);
+    window.clearTimeout(outTimer.current);
+    outTimer.current = window.setTimeout(() => { setFsInfo(false); setFsInfoOut(false); }, 170);
+  }, []);
+  const toggleFsInfo = useCallback(() => {
+    if (fsInfo && !fsInfoOut) hideFsInfo();
+    else { window.clearTimeout(outTimer.current); setFsInfoOut(false); setFsInfo(true); }
+  }, [fsInfo, fsInfoOut, hideFsInfo]);
+  useEffect(() => {
+    if (!fullScreen) { setFsInfo(false); return; }
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); onStep?.(e.key === 'ArrowRight' ? 1 : -1); }
+      // ↓ shows the details, and hides them again; ↑ hides them.
+      else if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); toggleFsInfo(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); hideFsInfo(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [fullScreen, onStep, toggleFsInfo, hideFsInfo]);
+
+  /**
+   * Full screen: the picture and its bar fill the screen (toolbar, side panel and image list hidden;
+   * the other open images in a strip on top). It is the area that stays while switching images.
+   */
+  const toggleFullScreen = useCallback(() => {
+    const root = document.getElementById('pixora-fs-root');
+    if (!root) { workspace.current?.toggleFullScreen(); return; }
+    void (document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen()).catch(() => undefined);
+  }, []);
+  /** Filters: Before / After split on the picture (share of its width), or off. */
+  const [cmp, setCmp] = useState<CompareState>(COMPARE_DEFAULT);
+  // Picking a drawing / editing tool while comparing: Before / After (or the original) goes away, so
+  // the tool works (comparing is view only).
+  useEffect(() => {
+    if (tool === 'select' || tool === 'hand' || tool === 'filters') return;
+    setCmp((c) => (c.on || c.original ? { ...c, on: false, original: false } : c));
+  }, [tool]);
+  const patchCmp = useCallback((p: Partial<CompareState>) => setCmp((c) => ({ ...c, ...p })), []);
+  /** Side by side: zoom / move a pane (and the other one too when Sync zoom / Sync scroll is on). */
+  const movePane = useCallback((i: 0 | 1, ch: { dx?: number; dy?: number; zoom?: number }) => setCmp((c) => {
+    const step = (p: ComparePane, z: number | undefined, dx: number, dy: number): ComparePane => {
+      const k = Math.min(8, Math.max(1, p.k * (z ?? 1)));
+      const m = 0.5 / k;
+      return { k, x: Math.min(1 - m, Math.max(m, p.x + dx)), y: Math.min(1 - m, Math.max(m, p.y + dy)) };
+    };
+    const panes = [...c.panes] as [ComparePane, ComparePane];
+    panes[i] = step(panes[i], ch.zoom, ch.dx ?? 0, ch.dy ?? 0);
+    const o = (1 - i) as 0 | 1;
+    const z = c.syncZoom ? ch.zoom : undefined;
+    const moved = c.syncScroll && (ch.dx || ch.dy);
+    if (z || moved) panes[o] = c.syncZoom && c.syncScroll ? panes[i] : step(panes[o], z, moved ? ch.dx ?? 0 : 0, moved ? ch.dy ?? 0 : 0);
+    return { ...c, panes };
+  }), []);
+  /**
+   * Before / After compares with the picture as first opened: offered once anything changed
+   * (filters, removed objects or background, erasing, drawings…) while the size is the same (after
+   * a crop or resize the two can't be lined up), and always in the Filters tool.
+   */
+  // An image edited and saved before: Before / After and Original show the kept original picture
+  // (not just the picture as it was opened).
+  // Only when the picture was already edited when it was opened: an edit saved in this session (a
+  // download) and then undone leaves the picture equal to the original — nothing to compare.
+  const editedWhenOpened = useRef(Boolean(record.edited)).current;
+  const [keptOriginal, setKeptOriginal] = useState<EditorDoc | null>(null);
+  useEffect(() => {
+    setKeptOriginal(null);
+    if (!editedWhenOpened) return;
+    let alive = true;
+    void getOriginalImage(record.id).then(async (blob) => {
+      if (!blob || !alive) return;
+      const base = await createImageBitmap(blob);
+      if (alive) setKeptOriginal({ base, width: base.width, height: base.height, annotations: [], watermark: null, frame: null });
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [record.id, editedWhenOpened]);
+  const opened = hist.original;
+  const original = keptOriginal && keptOriginal.width === doc.width && keptOriginal.height === doc.height ? keptOriginal : opened;
+  const sameSize = original.width === doc.width && original.height === doc.height;
+  const canCompare = isActive(doc.filters) || original !== opened || (sameSize && !sameDoc(doc, original));
   const [cut, setCut] = useState<CutBand | null>(null);
   const [ocr, setOcr] = useState<{ open: boolean; text: string | null; progress: number; status: string; error: string | null }>({ open: false, text: null, progress: 0, status: '', error: null });
   const [savedDoc, setSavedDoc] = useState<EditorDoc>(initialDoc);
@@ -548,6 +753,11 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const [qrOpen, setQrOpen] = useState(false);
   const [scan, setScan] = useState<{ open: boolean; matches: SensitiveMatch[] | null; progress: number; error: string | null; hidden?: number }>({ open: false, matches: null, progress: 0, error: null });
   const [prefs, setPrefs] = useState<EditorPrefs>({});
+  /** The bar under the picture is on unless switched off in its settings. */
+  const showCompareBar = prefs.compareBar !== false;
+  const detailsPopup = prefs.detailsPopup !== false;
+  // The picture re-fits when the docked details open or close.
+  useEffect(() => { if (fullScreen) requestAnimationFrame(() => workspace.current?.fit()); }, [fsInfo, detailsPopup]); // eslint-disable-line react-hooks/exhaustive-deps
   const stylesLoaded = useRef(false);
   const clipboard = useRef<Annotation | null>(null);
   /** Several copied objects (used when no single object was copied after them). */
@@ -602,6 +812,18 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   useLayoutEffect(() => {
     workspace.current?.fit();
   }, []);
+  // A new picture size — crop, rotate, resize, and undoing / redoing / resetting them — shows the
+  // whole picture again (undoing a crop used to leave the full picture at the cropped zoom).
+  // Cut out & join and erasing keep the zoom you work at.
+  const keepViewNext = useRef(false);
+  const shownSize = useRef({ w: doc.width, h: doc.height });
+  useEffect(() => {
+    const s = shownSize.current;
+    if (s.w === doc.width && s.h === doc.height) return;
+    shownSize.current = { w: doc.width, h: doc.height };
+    if (keepViewNext.current) keepViewNext.current = false;
+    else requestAnimationFrame(() => workspace.current?.fit());
+  }, [doc.width, doc.height]);
 
   const selectedLock = selected?.lock;
   useEffect(() => {
@@ -638,6 +860,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         t = 'rect';
       }
       setTextEdit(null);
+      if (t !== 'select') setArea(null);
       if (t === 'crop') {
         setCrop({ rect: { x: 0, y: 0, w: doc.width, h: doc.height }, aspect: 'free' });
         setSelectedId(null);
@@ -650,7 +873,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       } else {
         setCut(null);
       }
-      if (t === 'watermark' || t === 'frame') setSelectedId(null);
+      if (t === 'watermark' || t === 'frame' || t === 'filters' || t === 'removeObject' || t === 'removeBg') setSelectedId(null);
       else if (t !== 'select' && t !== tool) setSelectedId((id) => (id && styleKindFor(t) && doc.annotations.find((a) => a.id === id && styleKindFor(a.type) === styleKindFor(t)) ? id : null));
       setToolState(t);
       setPanelTab('props');
@@ -665,18 +888,37 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       try {
         const next = await op();
         clearRedactCache();
+        // Crop / rotate / resize show the new image whole (the size effect fits it); Cut out & join
+        // keeps the zoom you work at.
+        keepViewNext.current = Boolean(opts.keepView) && (next.width !== doc.width || next.height !== doc.height);
         commit(next, label);
         setSelectedId(null);
-        // Crop / rotate / resize show the new image whole; Cut out & join keeps the zoom you work at.
-        if (!opts.keepView) requestAnimationFrame(() => workspace.current?.fit());
+        if (!opts.keepView && next.width === doc.width && next.height === doc.height) requestAnimationFrame(() => workspace.current?.fit());
       } catch (err) {
         toast.error(errorInfoOf(err));
       } finally {
         setBusy(false);
       }
     },
-    [commit, toast],
+    [commit, toast, doc.width, doc.height],
   );
+
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  const latestDoc = useCallback(() => docRef.current, []);
+  const fillWithBackground = useFill(geometry, setWorking, latestDoc);
+  const retouch = useRetouch({
+    doc, tool, styles: toolStyles, busy, geometry, setWorking, latest: latestDoc,
+    setStyle: (kind, patch) => setToolStyles((st) => ({ ...st, [kind]: { ...st[kind], ...patch } })),
+    onError: (message) => toast.error(message),
+    done: () => setToolState('select'),
+  });
+  const retouchKey = useRef(retouch.onKey);
+  retouchKey.current = retouch.onKey;
+  const retouchUndo = useRef(retouch.undo);
+  retouchUndo.current = retouch.undo;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
 
   const applyCurrentCrop = useCallback(() => {
     if (!crop) return;
@@ -864,7 +1106,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   }
 
   /* --------------------------------- export --------------------------------- */
-  const render = useCallback(async (fmt: ImageFormat = format) => exportDocument(doc, fmt, quality), [doc, format, quality]);
+  const render = useCallback(async (fmt: ImageFormat = outFormat) => exportDocument(doc, fmt, format === 'original' ? Math.max(quality, 0.95) : quality), [doc, outFormat, format, quality]);
 
   const persistEdits = useCallback(
     async (blob: Blob, patch: Partial<CaptureRecord> = {}) => {
@@ -897,12 +1139,15 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       setTextEdit(null);
       setBusy(true);
       setAction(saveAs ? 'saveas' : 'download');
-      const ext = format === 'jpeg' ? 'jpg' : format;
+      const ext = outFormat === 'jpeg' ? 'jpg' : outFormat;
       setWorking(`Preparing ${filename || 'screenshot'}.${ext}…`);
       try {
         // Nothing drawn, framed or changed: the stored PNG is the result (no re-encoding, instant).
-        const untouched = format === 'png' && sameDoc(doc, savedDoc) && doc.annotations.length === 0 && !doc.frame && !doc.watermark
-          && doc.width === record.width && doc.height === record.height && record.mimeType === 'image/png';
+        // Nothing changed and already in the wanted format: the stored file itself (no re-encoding: a
+        // 6 MB JPEG stays 6 MB instead of growing to 18 MB, or 40 MB as PNG).
+        const untouched = sameDoc(doc, savedDoc) && doc.annotations.length === 0 && !doc.frame && !doc.watermark && !doc.filters
+          && doc.width === record.width && doc.height === record.height && record.mimeType === `image/${outFormat}`
+          && (format === 'original' || outFormat === 'png' || quality >= 0.95);
         const blob = (untouched ? await getCaptureBlob(record.id).catch(() => undefined) : undefined) ?? (await render());
         setWorking(null);
         const id = await downloadBlob(blob, `${filename || 'screenshot'}.${ext}`, {
@@ -910,7 +1155,9 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           subfolder: settings.storage.subfolder,
         });
         // The file is already saved: storage trouble only means Recent captures is not updated.
-        const kept = await persistEdits(blob, { downloadId: id, name: `${filename || 'screenshot'}.png` }).then(() => true, (err: unknown) => {
+        // The stored picture keeps its own ending (a JPEG download does not rename it).
+        const own = /\.[a-z0-9]+$/i.exec(record.name)?.[0] ?? '.png';
+        const kept = await persistEdits(blob, { downloadId: id, name: `${filename || 'screenshot'}${own}` }).then(() => true, (err: unknown) => {
           if (!isStorageUnavailable(err)) throw err;
           return false;
         });
@@ -927,7 +1174,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         setBusy(false);
       }
     },
-    [render, format, filename, settings, persistEdits, toast, doc, savedDoc, record],
+    [render, format, outFormat, quality, filename, settings, persistEdits, toast, doc, savedDoc, record],
   );
 
   const copy = useCallback(async (): Promise<boolean> => {
@@ -938,10 +1185,11 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       const blob = await render('png');
       await copyImageToClipboard(blob);
       setWorking(null);
-      await persistEdits(blob).catch((err: unknown) => {
-        if (!isStorageUnavailable(err)) throw err;
-      });
       toast.success('Copied to clipboard');
+      // Saving the edits to Recent captures happens afterwards, without holding up the copy.
+      void persistEdits(blob).catch((err: unknown) => {
+        if (!isStorageUnavailable(err)) toast.error(errorInfoOf(err));
+      });
       return true;
     } catch (err) {
       toast.error(errorInfoOf(err));
@@ -1031,7 +1279,23 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   useEffect(() => {
     if (initialActions.current) return;
     initialActions.current = true;
-    if (params.get('ocr') === '1' || record.ocrRequested) void runOcr();
+    // One-time requests (Take screenshot & extract text, autosave, copy) are used up on the first
+    // image opened: opening a capture again later (Recent captures, another image of the set, a
+    // reload) doesn't run them again.
+    const fromUrl = !urlActionsUsed;
+    urlActionsUsed = true;
+    const wantOcr = (fromUrl && params.get('ocr') === '1') || (record.ocrRequested && !ocrDone.has(record.id));
+    if (record.ocrRequested) {
+      ocrDone.add(record.id);
+      void updateCapture(record.id, { ocrRequested: false }).catch(() => undefined);
+    }
+    if (wantOcr) void runOcr();
+    if (fromUrl && ['ocr', 'autosave', 'copy'].some((k) => params.has(k))) {
+      const q = new URLSearchParams(location.search);
+      ['ocr', 'autosave', 'copy'].forEach((k) => q.delete(k));
+      history.replaceState(null, '', `?${q.toString()}`);
+    }
+    if (!fromUrl) return;
     if (params.get('autosave') === '1') void download(false);
     if (params.get('copy') === '1') {
       void render('png')
@@ -1056,6 +1320,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       if (!items.length) return;
       commit({ ...doc, annotations: [...doc.annotations, ...items] }, label);
       setSelectedId(items[items.length - 1]!.id);
+      // Only the new object is highlighted: a marked area (copied from) lets go.
+      setArea(null);
     },
     [doc, commit],
   );
@@ -1091,6 +1357,86 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     [doc.width, doc.height, replaceAnnotation],
   );
   const [hasClipboard, setHasClipboard] = useState(false);
+
+  /* ------------------------------ marked area ------------------------------ */
+  // A new picture size (crop, rotate, undo…) makes the marked area meaningless.
+  useEffect(() => setArea(null), [doc.width, doc.height]);
+  /** The marked part as a picture annotation where it is now (annotations included). */
+  // Drawn straight to a bitmap (no PNG encoding), so Duplicate is instant even on big pictures.
+  const areaPiece = useCallback(async (r: Rect): Promise<{ canvas: OffscreenCanvas; piece: Annotation }> => {
+    const canvas = await renderArea(doc, r);
+    const bitmap = await createImageBitmap(canvas);
+    return { canvas, piece: { id: annotationId(), type: 'image', bitmap, x: r.x, y: r.y, w: r.w, h: r.h, opacity: 1 } };
+  }, [doc]);
+  const copyArea = useCallback(async (r: Rect): Promise<boolean> => {
+    try {
+      const { canvas, piece } = await areaPiece(r);
+      // Paste (Ctrl+V or the right-click menu) puts the part back as a picture you can move; it
+      // is on the computer's clipboard too, for other apps.
+      clipboard.current = piece;
+      setHasClipboard(true);
+      await canvas.convertToBlob({ type: 'image/png' }).then(copyImageToClipboard).catch(() => undefined);
+      return true;
+    } catch (err) {
+      toast.error(errorInfoOf(err));
+      return false;
+    }
+  }, [areaPiece, toast]);
+  const areaActions = useMemo<AreaActions | null>(() => {
+    if (!area || area.w < 3 || area.h < 3) return null;
+    const r = area;
+    /**
+     * In the video editor the frame itself can't change: Delete / Cut / Crop become annotations
+     * (covering the area, or everything outside it), so they appear on the timeline with a start
+     * and an end like any other annotation.
+     */
+    const asAnnotation = (role: 'delete' | 'cut' | 'crop') => {
+      setArea(null);
+      addAnnotations([{
+        id: annotationId(), type: 'mask', role, x: r.x, y: r.y, w: r.w, h: r.h, intensity: 0, opacity: 1,
+        color: role === 'crop' ? '#000000' : '#ffffff', ...(role === 'crop' ? { invert: true } : {}),
+      } as Annotation], role === 'crop' ? `Crop to ${r.w} × ${r.h}` : `${role === 'cut' ? 'Cut' : 'Delete'} ${r.w} × ${r.h} area`);
+    };
+    const remove = (label: 'Delete' | 'Cut') => {
+      if (videoMode) { asAnnotation(label === 'Cut' ? 'cut' : 'delete'); return; }
+      setArea(null);
+      void geometry(() => applyClearArea(doc, r), `${label} ${r.w} × ${r.h} area`, { keepView: true });
+    };
+    return {
+      copy: () => void copyArea(r).then((ok) => ok && toast.success('Area copied', 'Press Ctrl+V or right-click › Paste to place it as a picture.')),
+      duplicate: () => {
+        setArea(null);
+        void areaPiece(r)
+          .then(({ piece }) => addAnnotations([translate(piece, 24, 24)], 'Duplicate area'))
+          .catch((err: unknown) => toast.error(errorInfoOf(err)));
+      },
+      cut: () => void copyArea(r).then((ok) => { if (ok) { remove('Cut'); toast.success('Area cut', 'Press Ctrl+V or right-click › Paste to place it as a picture.'); } }),
+      remove: () => remove('Delete'),
+      ...(videoMode ? {} : {
+        fill: () => {
+          setArea(null);
+          const mask = newMaskCanvas(doc.width, doc.height);
+          const m = mask.getContext('2d')!;
+          m.fillStyle = '#fff';
+          m.fillRect(r.x, r.y, r.w, r.h);
+          // The area shows that it is being worked on until the new picture is in.
+          setBusyArea({ rect: r, text: 'Removing content…' });
+          void fillWithBackground(doc, mask, { strength: 100, feather: 2, preserve: false }, `Remove content from ${r.w} × ${r.h} area`).finally(() => setBusyArea(null));
+        },
+      }),
+      crop: () => {
+        if (videoMode) { asAnnotation('crop'); return; }
+        setArea(null);
+        void geometry(() => applyCrop(doc, r), `Crop to ${r.w} × ${r.h}`);
+      },
+      clear: () => setArea(null),
+    };
+  }, [area, doc, geometry, copyArea, areaPiece, addAnnotations, toast, videoMode, fillWithBackground]);
+  /** A part of the picture being worked on (shown over it with a spinner). */
+  const [busyArea, setBusyArea] = useState<{ rect: Rect; text: string } | null>(null);
+  const areaRef = useRef(areaActions);
+  areaRef.current = areaActions;
+
   const selectionActions = useMemo<SelectionActions | null>(() => {
     if (!selected) return null;
     const kind = styleKindFor(selected.type);
@@ -1138,6 +1484,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     });
     commit({ ...doc, annotations: [...doc.annotations, ...copies] }, `${label} ${copies.length} objects`);
     setSelectedId(null);
+    setArea(null);
     setMultiIds(copies.map((a) => a.id));
   }, [doc, commit]);
   const pasteMany = useCallback(() => {
@@ -1206,13 +1553,39 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     ];
   };
 
+  /** Crops the picture to an object's box (kept inside the picture). */
+  const cropToObject = (a: Annotation) => {
+    const b = getBounds(a);
+    const x = Math.max(0, Math.floor(b.x));
+    const y = Math.max(0, Math.floor(b.y));
+    const r = { x, y, w: Math.min(doc.width, Math.ceil(b.x + b.w)) - x, h: Math.min(doc.height, Math.ceil(b.y + b.h)) - y };
+    if (r.w < 2 || r.h < 2) { toast.error('This object is outside the picture.'); return; }
+    setSelectedId(null);
+    void geometry(() => applyCrop(doc, r), `Crop to ${describeAnnotation(a).toLowerCase()}`);
+  };
+
+  /** Right-click on the canvas while an area is marked: what the area bar offers. */
+  const areaMenu = (act: AreaActions): MenuItem[] => [
+    { id: 'paste', label: 'Paste', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current, onSelect: () => { if (clipboard.current) { duplicate(clipboard.current, 24); clipboard.current = translate(clipboard.current, 24, 24); } } },
+    { id: 'area-cut', label: 'Cut area', description: 'Ctrl+X', icon: <Scissors size={14} />, separatorBefore: true, onSelect: act.cut },
+    { id: 'area-copy', label: 'Copy area', description: 'Ctrl+C', icon: <Copy size={14} />, onSelect: act.copy },
+    { id: 'area-dup', label: 'Duplicate area', description: 'Ctrl+D', icon: <CopyPlus size={14} />, onSelect: act.duplicate },
+    { id: 'area-crop', label: 'Crop to area', description: 'Enter', icon: <CropIcon size={14} />, separatorBefore: true, onSelect: act.crop },
+    ...(act.fill ? [{ id: 'area-fill', label: 'Remove content (fill with background)', icon: <Sparkles size={14} />, onSelect: act.fill }] : []),
+    { id: 'area-del', label: 'Delete area', description: 'Del', icon: <Trash2 size={14} />, danger: true, separatorBefore: true, onSelect: act.remove },
+    { id: 'area-clear', label: 'Clear selection', description: 'Esc', icon: <X size={14} />, onSelect: act.clear },
+  ];
+
   const objectMenu = (a: Annotation): MenuItem[] => {
     const textual = a.type === 'text' || a.type === 'callout';
     return [
       ...(textual ? [{ id: 'edit', label: 'Edit text', icon: <Pencil size={14} />, disabled: Boolean(a.lock), onSelect: () => setTextEdit({ annotation: a as TextEditState['annotation'], isNew: false }) }] : []),
-      { id: 'copy', label: 'Copy', description: 'Ctrl+C', icon: <Copy size={14} />, separatorBefore: textual, onSelect: () => { clipboard.current = a; setHasClipboard(true); } },
+      { id: 'cut', label: 'Cut', description: 'Ctrl+X', icon: <Scissors size={14} />, separatorBefore: textual, disabled: Boolean(a.lock), onSelect: () => { clipboard.current = a; setHasClipboard(true); removeAnnotation(a); } },
+      { id: 'copy', label: 'Copy', description: 'Ctrl+C', icon: <Copy size={14} />, onSelect: () => { clipboard.current = a; setHasClipboard(true); } },
       { id: 'paste', label: 'Paste', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current, onSelect: () => { if (clipboard.current) { duplicate(clipboard.current, 24); clipboard.current = translate(clipboard.current, 24, 24); } } },
       { id: 'dup', label: 'Duplicate', description: 'Ctrl+D', icon: <CopyPlus size={14} />, onSelect: () => duplicate(a) },
+      // The picture cropped to this object's box (the object stays, now filling the picture).
+      ...(videoMode ? [] : [{ id: 'crop', label: 'Crop to this object', icon: <CropIcon size={14} />, onSelect: () => cropToObject(a) }]),
       ...cutItems([a]),
       ...(a.lock ? [{ id: 'unlock', label: 'Unlock', icon: <LockOpen size={14} />, separatorBefore: true, onSelect: () => setLock(a, null) }] : []),
       ...(!a.lock ? [{ id: 'move-only', label: 'Move only', icon: <Move size={14} />, separatorBefore: true, onSelect: () => { setSelectedId(a.id); setMoveOnlyId(a.id); } }] : []),
@@ -1242,7 +1615,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
 
   /** Menu for the image / the rest of the editor. */
   const canvasMenu = (): MenuItem[] => [
-    { id: 'paste', label: 'Paste object', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current, onSelect: () => { if (clipboard.current) { duplicate(clipboard.current, 24); clipboard.current = translate(clipboard.current, 24, 24); } } },
+    { id: 'paste', label: 'Paste', description: 'Ctrl+V', icon: <ClipboardPaste size={14} />, disabled: !clipboard.current, onSelect: () => { if (clipboard.current) { duplicate(clipboard.current, 24); clipboard.current = translate(clipboard.current, 24, 24); } } },
     ...(videoMode ? [] : [
       { id: 'undo', label: 'Undo', description: 'Ctrl+Z', icon: <Undo2 size={14} />, disabled: !canUndo(hist), separatorBefore: true, onSelect: () => dispatch({ type: 'undo' }) },
       { id: 'redo', label: 'Redo', description: 'Ctrl+Y', icon: <Redo2 size={14} />, disabled: !canRedo(hist), onSelect: () => dispatch({ type: 'redo' }) },
@@ -1293,6 +1666,20 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       const target = e.target as HTMLElement | null;
       if (target?.closest('input, textarea, [contenteditable="true"]')) return;
       const file = Array.from(e.clipboardData?.files ?? []).find((f) => f.type.startsWith('image/'));
+      const piece = clipboard.current;
+      if (file && piece?.type === 'image') {
+        // The computer's clipboard holds the area copied here (same size): paste that piece.
+        e.preventDefault();
+        void createImageBitmap(file).then((b) => {
+          const same = b.width === Math.round(piece.w) && b.height === Math.round(piece.h);
+          b.close();
+          if (same) {
+            duplicate(piece, 24);
+            clipboard.current = translate(piece, 24, 24);
+          } else void insertImage(file);
+        }, () => void insertImage(file));
+        return;
+      }
       if (file) {
         e.preventDefault();
         void insertImage(file);
@@ -1317,9 +1704,10 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   useEffect(() => {
     const keys: Record<string, Tool> = {
       v: 'select', p: 'pen', g: 'highlighter', r: 'rect', o: 'ellipse', a: 'arrow', l: 'arrow', t: 'text', k: 'callout', b: 'blur', m: 'mask',
-      x: 'pixelate', n: 'marker', s: 'sticker', u: 'cursor', e: 'eraser', c: 'crop', h: 'hand', w: 'watermark', f: 'frame',
+      x: 'pixelate', n: 'marker', s: 'sticker', u: 'cursor', e: 'eraser', i: 'eraseImage', c: 'crop', h: 'hand', w: 'watermark', f: 'frame',
+      q: 'removeObject', j: 'removeBg', y: 'filters',
     };
-    if (videoMode) { delete keys.c; delete keys.f; }
+    if (videoMode) { delete keys.c; delete keys.f; delete keys.i; delete keys.q; delete keys.j; delete keys.y; }
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       // Only block shortcuts while the user is typing (sliders, buttons and swatches keep them working).
@@ -1330,8 +1718,19 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       const k = e.key.toLowerCase();
       // On the video page, undo covers the whole video (the page handles these keys).
       if (videoMode && mod && (k === 'z' || k === 'y')) return;
-      if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'undo' }); return; }
-      if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); dispatch({ type: 'redo' }); return; }
+      // Remove object / background: their own selection steps come first; nothing while a removal runs.
+      if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); if (retouchUndo.current(true) || busyRef.current) return; dispatch({ type: 'undo' }); return; }
+      if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); if (retouchUndo.current(false) || busyRef.current) return; dispatch({ type: 'redo' }); return; }
+      // A marked area (Select tool): Ctrl+C / Ctrl+X / Delete act on that part of the picture.
+      const areaAct = areaRef.current;
+      if (areaAct) {
+        if (mod && k === 'c' && !e.shiftKey) { e.preventDefault(); areaAct.copy(); return; }
+        if (mod && k === 'x') { e.preventDefault(); areaAct.cut(); return; }
+        if ((!mod || (e.metaKey && e.key === 'Backspace')) && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); areaAct.remove(); return; }
+        if (e.key === 'Escape') { areaAct.clear(); return; }
+        if (e.key === 'Enter') { e.preventDefault(); areaAct.crop(); return; }
+        if (mod && k === 'd') { e.preventDefault(); areaAct.duplicate(); return; }
+      }
       if (multiActive.current) {
         const act = manyRef.current;
         const step = e.shiftKey ? 10 : 1;
@@ -1369,6 +1768,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
       if (e.key === '?' || e.key === 'F1') { e.preventDefault(); setShortcutsOpen(true); return; }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
       if (e.key === 'Escape' && moveOnlyRef.current) { setMoveOnlyId(null); return; }
+      if (retouchKey.current(e)) return;
       if (e.key === 'Escape') {
         if (crop) { setCrop(null); setToolState('select'); }
         else if (cut) { setCut(null); setToolState('select'); }
@@ -1434,22 +1834,24 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   const panelPortal = (node: JSX.Element) => (inline ? (inline.panelSlot ? createPortal(node, inline.panelSlot) : null) : node);
 
   return (
-    <div className={inline ? styles.appInline : styles.app} onContextMenu={(e) => pageMenu.handle(e, null)}>
+    <div className={inline ? styles.appInline : `${styles.app} ${fullScreen ? styles.appFull : ''}`} onContextMenu={(e) => pageMenu.handle(e, null)}>
       {pageMenu.element}
-      {!inline && <EditorToolbar
+      {!inline && !fullScreen && <EditorToolbar
         tool={tool}
         onTool={setTool}
-        canUndo={canUndo(hist)}
-        canRedo={canRedo(hist)}
+        canUndo={(canUndo(hist) || retouch.canUndo) && !busy}
+        canRedo={(canRedo(hist) || retouch.canRedo) && !busy}
         canReset={!sameDoc(hist.present.doc, hist.original)}
-        onUndo={() => dispatch({ type: 'undo' })}
-        onRedo={() => dispatch({ type: 'redo' })}
+        onUndo={() => { if (!retouch.undo(true)) dispatch({ type: 'undo' }); }}
+        onRedo={() => { if (!retouch.undo(false)) dispatch({ type: 'redo' }); }}
         onReset={() => { setCrop(null); setSelectedId(null); dispatch({ type: 'reset' }); requestAnimationFrame(() => workspace.current?.fit()); }}
         onRotate={(dir) => void geometry(() => applyRotate(doc, dir), dir === 'cw' ? 'Rotate right' : 'Rotate left')}
         onFlip={(axis) => void geometry(() => applyFlip(doc, axis), axis === 'horizontal' ? 'Flip horizontal' : 'Flip vertical')}
         onResize={() => setResizeOpen(true)}
         onCutOut={() => setTool('cut')}
-        onCompare={onCompare}
+        hideZoom={!videoMode && !inline}
+        infoActive={panelTab === 'info'}
+        onInfo={!videoMode ? () => setPanelTab((t) => (t === 'info' ? 'props' : 'info')) : undefined}
         onInsertImages={(imgs) => void (async () => { for (const im of imgs) await insertImage(im.blob); })()}
         onCollage={onCollage ? () => void openCollage() : undefined}
         zoom={zoom}
@@ -1466,8 +1868,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         hideBrand={embedded}
         videoMode={videoMode}
       />}
-      <div className={inline ? styles.bodyInline : `${styles.body} ${rail ? styles.bodyRail : ''}`}>
-        {rail}
+      <div className={inline ? styles.bodyInline : `${styles.body} ${rail && !fullScreen ? styles.bodyRail : ''} ${fullScreen ? styles.bodyFull : ''} ${fullScreen && fsInfo && !detailsPopup ? styles.bodyDock : ''}`}>
+        {!fullScreen && rail}
         <CanvasWorkspace
           ref={workspace}
           doc={doc}
@@ -1494,10 +1896,62 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
           onWatermarkMove={(w) => setWatermark(w, 'watermark:move')}
           moveOnlyId={moveOnlyId}
           onMoveOnlyEnd={() => setMoveOnlyId(null)}
-          onCanvasMenu={(e, hit) => pageMenu.handle(e, hit ? (multiIds.length > 1 && multiIds.includes(hit.id) ? multiMenu() : objectMenu(hit)) : canvasMenu())}
+          area={tool === 'select' ? area : null}
+          onAreaChange={setArea}
+          areaActions={areaActions}
+          onEraseImage={(pts, size) => {
+            const st = toolStyles.eraseImage;
+            if (st.fill === 'smart') {
+              // Smart eraser: what was painted over is rebuilt from the picture around it.
+              const mask = newMaskCanvas(doc.width, doc.height);
+              paintStroke(mask, pts, size, st.hardness ?? 80, 'add');
+              void fillWithBackground(doc, mask, { strength: st.strength ?? 100, feather: st.feather ?? 4, preserve: st.preserve ?? true }, 'Erase and fill with background');
+              return;
+            }
+            void geometry(() => applyEraseImage(doc, pts, size, st.fill === 'transparent' ? 'transparent' : 'white'), 'Erase part of the image', { keepView: true });
+          }}
+          retouch={retouch.input}
+          baseOverride={retouch.preview}
+          busyArea={busyArea}
+          compare={canCompare && (cmp.on || cmp.original || cmp.highlight)
+            ? { mode: cmp.on ? cmp.mode : cmp.original ? 'before' : 'after', split: cmp.split, vertical: cmp.vertical, labels: cmp.labels, before: sameSize ? original : null, panes: cmp.panes, highlight: cmp.highlight }
+            : null}
+          onPane={movePane}
+          loupe={!videoMode && !inline && cmp.loupe}
+          viewOnly={fullScreen || (canCompare && (cmp.on || cmp.original))}
+          onSplit={(split) => patchCmp({ split })}
+          bottomInset={!videoMode && !inline && showCompareBar ? 64 : 0}
+          controls={!videoMode && !inline ? (
+            <>
+            {fullScreen && strip}
+            <CompareBar
+              state={cmp}
+              onState={patchCmp}
+              canCompare={canCompare}
+              showBar={showCompareBar}
+              onShowBar={(show) => savePrefs({ compareBar: show })}
+              zoom={zoom}
+              onZoomStep={(dir) => workspace.current?.setZoomAt(nextZoom(zoom, dir))}
+              onZoomTo={(z) => workspace.current?.setZoomAt(z)}
+              onFit={() => workspace.current?.fit()}
+              fullScreen={fullScreen}
+              onFullScreen={toggleFullScreen}
+              detailsPopup={detailsPopup}
+              onDetailsPopup={(v) => savePrefs({ detailsPopup: v })}
+              infoOpen={fullScreen ? fsInfo : panelTab === 'info'}
+              onInfo={() => (fullScreen ? toggleFsInfo() : setPanelTab((t) => (t === 'info' ? 'props' : 'info')))}
+            />
+            </>
+          ) : undefined}
+          onCanvasMenu={(e, hit) => pageMenu.handle(e, hit ? (multiIds.length > 1 && multiIds.includes(hit.id) ? multiMenu() : objectMenu(hit)) : areaRef.current ? areaMenu(areaRef.current) : canvasMenu())}
           {...(inline ? { padding: 0 } : {})}
         />
-        {panelPortal(<aside className={inline ? styles.panelInline : styles.panel} aria-label="Properties">
+        {fullScreen && fsInfo && !detailsPopup && (
+          <aside className={`${styles.fsInfo} ${styles.fsDock} ${fsInfoOut ? styles.fsInfoOut : ''}`} role="dialog" aria-label="Image details">
+            <ImageInfo record={record} width={doc.width} height={doc.height} source={doc.base} edited={!sameDoc(doc, savedDoc)} onClose={hideFsInfo} />
+          </aside>
+        )}
+        {!fullScreen && panelPortal(<aside className={inline ? styles.panelInline : styles.panel} aria-label="Properties">
           <div className={styles.panelTabs} role="tablist" aria-label="Side panel">
             {([['props', 'Properties'], ['layers', 'Layers'], ['history', 'History']] as const).map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={panelTab === id} className={`${styles.panelTab} ${panelTab === id ? styles.panelTabActive : ''}`} onClick={() => setPanelTab(id)}>
@@ -1530,7 +1984,16 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
                 )}
               </section>
             )}
-            {panelTab === 'props' && multiIds.length <= 1 && (
+            {panelTab === 'props' && tool === 'filters' && (
+              <FiltersPanel
+                filters={doc.filters ?? null}
+                onChange={(f, label, key) => commit({ ...doc, filters: f }, label, key)}
+                source={doc.base}
+              />
+            )}
+            {panelTab === 'props' && !videoMode && isEraseTool(tool) && <EraseSwitch tool={tool} onTool={setTool} />}
+            {panelTab === 'props' && retouch.panel}
+            {panelTab === 'props' && multiIds.length <= 1 && tool !== 'filters' && !retouch.panel && (
               <div ref={lockedPanel} className={selected?.lock ? styles.lockedPanel : undefined}>
               <PropertiesPanel
                 tool={tool}
@@ -1596,16 +2059,35 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
                 onRemoveFrame={() => setFrame(null, 'frame:remove')}
               />
             )}
+            {panelTab === 'history' && retouch.steps > 0 && (
+              <section className={styles.section} aria-label="Selection steps">
+                <div className={styles.sectionTitle}>{tool === 'removeBg' ? 'Remove background' : 'Remove object'} · not applied yet</div>
+                <div className={styles.hint}>{retouch.steps} selection step{retouch.steps === 1 ? '' : 's'}. Undo (Ctrl+Z) and Redo (Ctrl+Y) go through these first; {tool === 'removeBg' ? 'Apply' : 'Remove'} makes them one step below.</div>
+              </section>
+            )}
             {panelTab === 'history' && <HistoryPanel history={hist} onJump={(index) => { setSelectedId(null); dispatch({ type: 'jump', index }); }} />}
-            <section className={styles.section}>
-              <div className={styles.sectionTitle}>Image</div>
-              <div className={styles.hint}>
-                {doc.width} × {doc.height} px
-              </div>
-            </section>
+            {panelTab !== 'info' && (
+              <section className={styles.section} aria-label="Image size">
+                <div className={styles.sectionTitle}>Image</div>
+                <div className={styles.imageLine}>
+                  <span className={styles.hint}>{doc.width} × {doc.height} px</span>
+                  <button type="button" className={styles.detailsLink} onClick={() => setPanelTab('info')}>Details</button>
+                </div>
+              </section>
+            )}
+            {panelTab === 'info' && (
+              <section className={styles.infoPanel} aria-label="Image details">
+                <ImageInfo record={record} width={doc.width} height={doc.height} source={doc.base} edited={!sameDoc(doc, savedDoc)} onClose={() => setPanelTab('props')} />
+              </section>
+            )}
           </div>
         </aside>)}
       </div>
+      {fullScreen && fsInfo && detailsPopup && (
+        <div className={`${styles.fsInfo} ${fsInfoOut ? styles.fsInfoOut : ''}`} role="dialog" aria-label="Image details">
+          <ImageInfo record={record} width={doc.width} height={doc.height} source={doc.base} edited={!sameDoc(doc, savedDoc)} onClose={hideFsInfo} />
+        </div>
+      )}
       <ResizeDialog
         open={resizeOpen}
         width={doc.width}
@@ -1624,6 +2106,7 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
             filename={filename}
             onFilename={setFilename}
             format={format}
+            originalType={outFormat}
             onFormat={(f) => { setFormat(f); savePrefs({ format: f }); }}
             quality={quality}
             onQuality={(q) => { setQuality(q); savePrefs({ quality: q }); }}

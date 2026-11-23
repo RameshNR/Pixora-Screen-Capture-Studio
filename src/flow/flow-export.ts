@@ -1,16 +1,23 @@
 import { buildDocx, DOCX_MIME, type DocxBlock } from '@/shared/utils/docx';
 import type { FlowDoc, FlowItem, FlowStep, ImageFormat } from '@/shared/types';
-import { getCaptureBlob } from '@/history/history-service';
+import { getCapture, getCaptureBlob } from '@/history/history-service';
 import { buildZip, type ZipEntry } from '@/shared/utils/zip';
 import { buildMultiPagePdf, jpegFor, type MultiPdfOptions, type PdfPage } from '@/shared/utils/pdf';
 import { getOriginalImage } from './flow-store';
 
 export type ExportVersion = 'edited' | 'original' | 'both';
 
+/** 'original': each picture in the format it came in (unedited pictures are written untouched). */
+export type ExportFormat = ImageFormat | 'original';
+
 export interface FlowExportOptions {
   items: FlowItem[];
   version: ExportVersion;
-  format: ImageFormat;
+  format: ExportFormat;
+  /** File names: the picture's own name (default) or its description / page title. */
+  originalNames?: boolean;
+  /** "03 - " in front of each file name (default on). */
+  numbered?: boolean;
   quality: number;
   /** Sequence, time, URL and description (ZIP metadata files, PDF captions, HTML / JSON). */
   metadata: boolean;
@@ -18,14 +25,28 @@ export interface FlowExportOptions {
   steps: boolean;
 }
 
-/** "03 - Sign in page.png": sequence number, then the description or page title. */
-export function exportName(seq: number, item: FlowItem, ext: string, suffix = ''): string {
-  const base = (item.description || item.pageTitle || 'image').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'image';
-  return `${String(seq).padStart(2, '0')} - ${base}${suffix}.${ext}`;
+/** A picture file ending (removed from names so "photo.jpeg" does not become "photo.jpeg.png"). */
+const IMAGE_EXT = /\.(png|jpe?g|webp|gif|bmp|avif|tiff?|ico|heic|heif)$/i;
+
+/**
+ * "03 - Sign in page.png": sequence number (unless turned off), then the picture's own name or its
+ * description / page title.
+ */
+export function exportName(seq: number, item: FlowItem, ext: string, suffix = '', opts: { name?: string; numbered?: boolean } = {}): string {
+  const raw = (opts.name || item.description || item.pageTitle || 'image').replace(IMAGE_EXT, '');
+  const base = raw.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'image';
+  return `${opts.numbered === false ? '' : `${String(seq).padStart(2, '0')} - `}${base}${suffix}.${ext}`;
+}
+
+/** File ending for a picture type ("image/jpeg" → "jpg"). */
+export function extFor(type: string): string {
+  const t = type.split('/')[1]?.split(/[;+]/)[0] ?? 'png';
+  return t === 'jpeg' ? 'jpg' : t === 'svg' ? 'svg' : t || 'png';
 }
 
 export async function convertImage(blob: Blob, format: ImageFormat, quality: number): Promise<Blob> {
-  if (format === 'png' && blob.type === 'image/png') return blob;
+  // Already in that format: kept as it is (re-encoding a JPEG at 100 % made it three times larger).
+  if (blob.type === `image/${format}` && (format === 'png' || quality >= 0.95)) return blob;
   const bmp = await createImageBitmap(blob);
   const canvas = new OffscreenCanvas(bmp.width, bmp.height);
   const ctx = canvas.getContext('2d')!;
@@ -48,15 +69,23 @@ export interface ExportImage {
 
 /** Images to export, in flow order, in the chosen version(s) and format. */
 export async function collectImages(opts: FlowExportOptions, allItems: FlowItem[]): Promise<ExportImage[]> {
-  const ext = opts.format === 'jpeg' ? 'jpg' : opts.format;
   const out: ExportImage[] = [];
   for (const item of opts.items) {
     const seq = allItems.findIndex((i) => i.id === item.id) + 1;
     const versions: Array<'edited' | 'original'> = opts.version === 'both' ? ['original', 'edited'] : [opts.version];
+    const rec = opts.originalNames === false ? undefined : await getCapture(item.id);
+    // The format the picture came in (an edited picture is stored as PNG; its original keeps the format).
+    const first = await getOriginalImage(item.id);
     for (const v of versions) {
-      const raw = v === 'original' ? await getOriginalImage(item.id) : await getCaptureBlob(item.id);
+      const raw = v === 'original' ? first : await getCaptureBlob(item.id);
       if (!raw) continue;
-      out.push({ item, seq, version: v, blob: await convertImage(raw, opts.format, opts.quality), name: exportName(seq, item, ext, opts.version === 'both' ? ` (${v})` : '') });
+      let blob: Blob;
+      if (opts.format === 'original') {
+        const want = (first ?? raw).type;
+        blob = raw.type === want || !/^image\/(png|jpeg|webp)$/.test(want) ? raw : await convertImage(raw, want.slice(6) as ImageFormat, 0.95);
+      } else blob = await convertImage(raw, opts.format, opts.quality);
+      const name = rec?.name && !/^Flow step \d+\.png$/.test(rec.name) ? rec.name : undefined;
+      out.push({ item, seq, version: v, blob, name: exportName(seq, item, extFor(blob.type), opts.version === 'both' ? ` (${v})` : '', { name, numbered: opts.numbered }) });
     }
   }
   return out;
@@ -100,7 +129,6 @@ export async function exportZip(doc: FlowDoc, opts: FlowExportOptions): Promise<
   for (const img of images) entries.push({ name: img.name, data: new Uint8Array(await img.blob.arrayBuffer()), date: new Date(img.item.at) });
   if (opts.metadata) {
     const rows = metadataRows(doc, images);
-    entries.push({ name: 'metadata.json', data: JSON.stringify({ flow: doc.name, startedAt: new Date(doc.startedAt).toISOString(), images: rows, ...(opts.steps ? { steps: doc.steps } : {}) }, null, 2) });
     entries.push({ name: 'metadata.csv', data: csv(rows) });
   }
   return new Blob([buildZip(entries)], { type: 'application/zip' });

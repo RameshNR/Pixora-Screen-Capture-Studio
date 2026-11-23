@@ -5,7 +5,7 @@ permalink: /privacy/
 
 # Pixora – Privacy Policy
 
-_Last updated: 21 November 2026_
+_Last updated: 23 November 2026_
 
 Pixora – Screen Capture Studio ("Pixora") is a browser extension for taking screenshots, recording
 the screen, and annotating the results. This policy explains what Pixora handles and where it goes.
@@ -27,7 +27,7 @@ or share data with anyone.
 | Where you click while recording with click highlights on (left / right / double click and the mouse position) | Only while you record with *Highlight mouse clicks* on | Drawn on the page for a moment so the recording shows it; never stored or sent |
 | Text found by OCR / sensitive-text detection | Only when you ask for it | Processed on your computer by the built-in OCR engine; nothing is sent anywhere |
 | A picture of the browser window's top bar — tabs, address bar and bookmarks bar (optional) | Only when you turn on *Include browser header* and choose the window in Chrome's share dialog | Added to that screenshot, on your computer; the window picture is used once and not kept |
-| Settings and preferences, including your theme | When you change them | Chrome's extension storage on your computer |
+| Settings and preferences, including your theme, and the groups you make in Recent captures (their names and which captures they hold) | When you change them | Chrome's extension storage on your computer |
 | The folder you choose for saving (optional) | When you pick one in Settings | A handle to that folder, in your browser; you can remove it in Settings |
 | A picture you add from a web address (optional) | Only when you type or paste the address in *Add image › From a web address* | Pixora downloads that picture from the address (without your cookies) and keeps it with your captures. Like any download, the site you named receives the request; Pixora sends it nothing else |
 
@@ -38,6 +38,15 @@ address and title of each page you capture, with the time) — only on your comp
 capturing, and never sends them anywhere. Pixora does **not** ask for or keep personally identifiable
 information, health, financial, authentication or location data, or personal communications, and it
 does not track what you browse outside the captures you make.
+
+**Camera background.** When you blur, remove or replace your camera background, each camera frame
+is processed on your computer by a segmentation model that is part of Pixora (MediaPipe, by Google,
+Apache-2.0). Nothing is downloaded for it and no camera picture is sent anywhere. A background
+picture you choose is kept on this device only.
+
+**Image editor AI** (Remove object, Remove background, smart eraser). Objects and subjects are found
+by MediaPipe models that are part of Pixora, and missing background is rebuilt by code in Pixora,
+all on your computer. Your picture is never uploaded.
 
 ## Sharing
 

@@ -20,6 +20,45 @@ async function transformImages(annotations: Annotation[], fn: (bitmap: ImageBitm
   return Promise.all(annotations.map(async (a) => (a.type === 'image' ? { ...a, bitmap: await fn(a.bitmap) } : a)));
 }
 
+/**
+ * Deletes a part of the picture: the marked area becomes white (like a paint program; white also
+ * stays white in JPEG). Annotations over it stay.
+ */
+export async function applyClearArea(doc: EditorDoc, rect: Rect, fill = '#ffffff'): Promise<EditorDoc> {
+  const r = clampRect(normalizeRect({ x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.w), h: Math.round(rect.h) }), doc.width, doc.height);
+  if (r.w < 1 || r.h < 1) return doc;
+  const base = await deriveBitmap(doc.width, doc.height, (ctx) => {
+    ctx.drawImage(doc.base, 0, 0);
+    ctx.fillStyle = fill;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+  });
+  return { ...doc, base };
+}
+
+/** Erases the picture along a brush stroke (a click: a dot), painting white or making it see-through. */
+export async function applyEraseImage(doc: EditorDoc, points: ReadonlyArray<{ x: number; y: number }>, size: number, fill: 'white' | 'transparent'): Promise<EditorDoc> {
+  if (!points.length || size <= 0) return doc;
+  const base = await deriveBitmap(doc.width, doc.height, (ctx) => {
+    ctx.drawImage(doc.base, 0, 0);
+    if (fill === 'transparent') ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (points.length === 1) {
+      ctx.beginPath();
+      ctx.arc(points[0]!.x, points[0]!.y, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    ctx.beginPath();
+    points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.stroke();
+  });
+  return { ...doc, base };
+}
+
 export async function applyCrop(doc: EditorDoc, rect: Rect): Promise<EditorDoc> {
   const r = clampRect(normalizeRect({ x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.w), h: Math.round(rect.h) }), doc.width, doc.height);
   if (r.w < 2 || r.h < 2) return doc;

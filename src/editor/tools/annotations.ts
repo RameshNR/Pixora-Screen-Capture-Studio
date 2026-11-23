@@ -312,8 +312,11 @@ function resizeLocal(o: Annotation, handle: Handle, dx: number, dy: number, squa
     h = nh;
   }
   if (square && SQUARE_TYPES.has(o.type)) {
-    // Equal sides, with the opposite corner or side staying where it is.
-    const size = Math.max(2, handle.length === 2 ? Math.min(Math.abs(w), Math.abs(h)) : handle === 'e' || handle === 'w' ? Math.abs(w) : Math.abs(h));
+    // Equal sides, with the opposite corner or side staying where it is. Shapes square up to the
+    // pointer (the shorter side, never past it); a callout squares to the longer side, so its text
+    // keeps its room (it used to shrink to the short side and the text spilled out).
+    const grow = o.type === 'callout';
+    const size = Math.max(2, handle.length === 2 ? (grow ? Math.max : Math.min)(Math.abs(w), Math.abs(h)) : handle === 'e' || handle === 'w' ? Math.abs(w) : Math.abs(h));
     const place = (from: number, len: number, low: boolean, high: boolean, raw: number) => {
       if (low) return raw >= 0 ? from + len - size : from + len;
       if (high) return raw >= 0 ? from : from - size;
@@ -487,7 +490,7 @@ export function describeAnnotation(a: Annotation): string {
     case 'pixelate':
       return 'Pixelate';
     case 'mask':
-      return 'Mask';
+      return a.role === 'crop' ? 'Crop' : a.role === 'cut' ? 'Cut area' : a.role === 'delete' ? 'Deleted area' : 'Mask';
     case 'marker':
       return `Marker ${markerLabel(a.n, a.counter)}`;
     case 'sticker':

@@ -288,6 +288,14 @@ function growHeight<T extends CalloutAnnotation>(c: T): T {
   return out;
 }
 
+/**
+ * Resized by hand: the text wraps to the width the user gives, and the box grows taller when the
+ * wrapped text needs it (it never shrinks the user's height).
+ */
+export function fitCalloutHeight<T extends CalloutAnnotation>(c: T): T {
+  return growHeight(c);
+}
+
 /** Widest shape a box keeps while growing: a thin strip first gets a usable height. */
 const MAX_FIT_ASPECT = 4;
 

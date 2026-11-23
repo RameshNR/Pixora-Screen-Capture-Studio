@@ -93,7 +93,7 @@ export function sameDoc(a: EditorDoc, b: EditorDoc): boolean {
   return a.base === b.base && a.width === b.width && a.height === b.height
     && a.annotations.length === b.annotations.length
     && a.annotations.every((x, i) => x === b.annotations[i] || (x.type !== 'image' && sameValue(x, b.annotations[i])))
-    && sameValue(a.watermark, b.watermark) && sameValue(a.frame, b.frame);
+    && sameValue(a.watermark, b.watermark) && sameValue(a.frame, b.frame) && sameValue(a.filters ?? null, b.filters ?? null);
 }
 
 export const canUndo = (s: HistoryState) => s.past.length > 0;

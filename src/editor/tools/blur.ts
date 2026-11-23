@@ -43,9 +43,10 @@ export function redactOutline(a: Pick<RedactAnnotation, 'x' | 'y' | 'w' | 'h' | 
   return shapeGeometry(kind, { x: a.x, y: a.y, w: a.w, h: a.h }, a.radius ?? 0).outline;
 }
 
-function canvas(w: number, h: number): { c: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D } | null {
+/** `read`: its pixels are read back (Chrome warns unless that is said when the canvas is made). */
+function canvas(w: number, h: number, read = false): { c: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D } | null {
   const c = new OffscreenCanvas(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
-  const ctx = c.getContext('2d');
+  const ctx = c.getContext('2d', read ? { willReadFrequently: true } : undefined);
   return ctx ? { c, ctx } : null;
 }
 
@@ -183,7 +184,7 @@ function pixelateInto(ctx: OffscreenCanvasRenderingContext2D, base: RedactSource
       const dy = r * 1.5;
       const cols = Math.ceil(w / dx) + 2;
       const rows = Math.ceil(h / dy) + 2;
-      const small = canvas(cols, rows);
+      const small = canvas(cols, rows, true);
       if (!small) break;
       small.ctx.imageSmoothingQuality = 'high';
       small.ctx.drawImage(base, x - dx / 2, y - dy / 2, cols * dx, rows * dy, 0, 0, cols, rows);
@@ -323,7 +324,7 @@ function buildRegion(base: RedactSource, a: RedactAnnotation): { canvas: Offscre
   const w = Math.min(base.width - x, Math.ceil(r.w));
   const h = Math.min(base.height - y, Math.ceil(r.h));
   if (w < 1 || h < 1) return null;
-  const out = canvas(w, h);
+  const out = canvas(w, h, a.type === 'blur' && a.mode === 'noise');
   if (!out) return null;
   const { ctx } = out;
   if (a.type === 'blur') blurInto(ctx, base, x, y, w, h, a);

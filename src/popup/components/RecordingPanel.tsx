@@ -12,7 +12,7 @@ import type { ActiveTabInfo } from '../hooks/useActiveTab';
 import { openPermissionPage, useMediaDevices } from '../hooks/useMediaDevices';
 import { ActionRow, FeatureRow, RecordingModeCard } from './CaptureModeCard';
 import { FlowRecordingOptions, requestFlowAccess } from './FlowSetup';
-import { CameraControl, ControlBarToggle, MicControl, SystemSoundToggle } from './AudioControls';
+import { CameraControl, CameraSettingsPage, ControlBarToggle, MicControl, MicSettingsPage, SystemSoundToggle } from './AudioControls';
 import { RecordingToolbar } from './RecordingToolbar';
 import { ActiveRecording, command } from './ActiveRecording';
 import styles from '../styles/popup.module.css';
@@ -35,6 +35,7 @@ const MODES: Array<{ mode: RecordingMode; label: string; icon: JSX.Element; hint
 
 export function RecordingPanel({ settings, updateRec, updateFlow, activeTab, state, onMore }: Props) {
   const [flowOptions, setFlowOptions] = useState(false);
+  const [devicePage, setDevicePage] = useState<'camera' | 'mic' | null>(null);
   const toast = useToast();
   const devices = useMediaDevices();
   const [starting, setStarting] = useState(false);
@@ -69,6 +70,8 @@ export function RecordingPanel({ settings, updateRec, updateFlow, activeTab, sta
   }
 
   const flowOn = rec.mode === 'camera' ? settings.flow.withRecording && settings.flow.inCameraMode : settings.flow.withRecording;
+  if (devicePage === 'camera') return <CameraSettingsPage rec={rec} update={updateRec} devices={devices} locked={rec.mode === 'camera'} onBack={() => setDevicePage(null)} />;
+  if (devicePage === 'mic') return <MicSettingsPage rec={rec} update={updateRec} devices={devices} onBack={() => setDevicePage(null)} />;
   if (flowOptions) return <FlowRecordingOptions settings={settings} camera={rec.mode === 'camera'} onBack={() => setFlowOptions(false)} updateFlow={updateFlow} />;
 
   return (
@@ -106,8 +109,8 @@ export function RecordingPanel({ settings, updateRec, updateFlow, activeTab, sta
       )}
 
       <div className={styles.deviceRow}>
-        <CameraControl rec={rec} update={updateRec} devices={devices} locked={rec.mode === 'camera'} />
-        <MicControl rec={rec} update={updateRec} devices={devices} />
+        <CameraControl rec={rec} update={updateRec} devices={devices} locked={rec.mode === 'camera'} onOpenSettings={() => setDevicePage('camera')} />
+        <MicControl rec={rec} update={updateRec} devices={devices} onOpenSettings={() => setDevicePage('mic')} />
         <SystemSoundToggle rec={rec} update={updateRec} />
         <ControlBarToggle rec={rec} update={updateRec} />
       </div>

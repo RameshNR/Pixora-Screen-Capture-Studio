@@ -1,6 +1,7 @@
 import type { CameraConfig, MicConfig } from '@/shared/types';
 import { CAMERA_RESOLUTIONS, type Dimensions } from '@/shared/constants/media';
 import { AppError, toAppError } from '@/shared/utils/errors';
+import { processCameraTrack } from './camera-background';
 
 /**
  * All getUserMedia / desktopCapture access lives here so UI and orchestration code never touch
@@ -101,6 +102,16 @@ export async function getMicStream(mic: MicConfig): Promise<MediaStream> {
 }
 
 export async function getCameraStream(camera: CameraConfig, override?: Dimensions, fps = 30): Promise<MediaStream> {
+  const raw = await openCamera(camera, override, fps);
+  // Background blurred / removed / replaced on this computer (camera-background.ts).
+  const bg = camera.background;
+  if (!bg || bg.mode === 'none') return raw;
+  const track = raw.getVideoTracks()[0];
+  if (!track) return raw;
+  return new MediaStream([processCameraTrack(track, () => bg, Boolean(camera.opaque))]);
+}
+
+async function openCamera(camera: CameraConfig, override?: Dimensions, fps = 30): Promise<MediaStream> {
   const dims = override ?? CAMERA_RESOLUTIONS[camera.resolution];
   try {
     return await navigator.mediaDevices.getUserMedia({
@@ -114,7 +125,7 @@ export async function getCameraStream(camera: CameraConfig, override?: Dimension
     });
   } catch (err) {
     if (camera.deviceId && camera.deviceId !== 'default' && err instanceof DOMException && (err.name === 'OverconstrainedError' || err.name === 'NotFoundError')) {
-      return getCameraStream({ ...camera, deviceId: 'default' }, override, fps);
+      return openCamera({ ...camera, deviceId: 'default' }, override, fps);
     }
     throw new AppError(toAppError(err, 'camera').code, String(err));
   }

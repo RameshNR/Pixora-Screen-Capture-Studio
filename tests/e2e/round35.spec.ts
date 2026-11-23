@@ -13,7 +13,7 @@ async function png(page: import('@playwright/test').Page, w: number, h: number, 
   }, [w, h, color] as const));
 }
 
-test('screenshot editor: select-drag pans, cut keeps zoom, image panel, compare, collage', async ({ context, extensionId, extPage }) => {
+test('screenshot editor: select-drag marks an area, hand-drag pans, cut keeps zoom, image panel, compare, collage', async ({ context, extensionId, extPage }) => {
   const editor = await context.newPage();
   await editor.setViewportSize({ width: 1500, height: 900 });
   await editor.goto(`chrome-extension://${extensionId}/editor.html?import=1`);
@@ -21,7 +21,7 @@ test('screenshot editor: select-drag pans, cut keeps zoom, image panel, compare,
   const canvas = editor.getByRole('img', { name: 'Screenshot canvas' });
   await expect(canvas).toBeVisible();
 
-  // ---- Select tool: dragging an empty spot moves around the image (like the hand tool).
+  // ---- Select tool: dragging an empty spot marks an area (Round 88); the hand tool moves around the image.
   const zoom = editor.getByRole('textbox', { name: 'Zoom level' });
   await zoom.click();
   await zoom.fill('200');
@@ -30,10 +30,19 @@ test('screenshot editor: select-drag pans, cut keeps zoom, image panel, compare,
   const scroller = canvas.locator('xpath=ancestor::*[contains(@class,"workspace")][1]');
   const before = await scroller.evaluate((el) => [el.scrollLeft, el.scrollTop]);
   const box = (await canvas.boundingBox())!;
-  await editor.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await editor.mouse.down();
-  await editor.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2 - 120, { steps: 6 });
-  await editor.mouse.up();
+  const dragAcross = async () => {
+    await editor.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await editor.mouse.down();
+    await editor.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2 - 120, { steps: 6 });
+    await editor.mouse.up();
+  };
+  await dragAcross();
+  await expect(editor.getByRole('toolbar', { name: 'Marked area' })).toBeVisible();
+  expect(await scroller.evaluate((el) => [el.scrollLeft, el.scrollTop])).toEqual(before);
+  await editor.keyboard.press('Escape');
+  await expect(editor.getByRole('toolbar', { name: 'Marked area' })).toHaveCount(0);
+  await editor.keyboard.press('h');
+  await dragAcross();
   const after = await scroller.evaluate((el) => [el.scrollLeft, el.scrollTop]);
   expect(after[0]! - before[0]!).toBeGreaterThan(100);
   expect(after[1]! - before[1]!).toBeGreaterThan(80);

@@ -231,7 +231,8 @@ function MarkersPanel({ now, onAdd }: { now: number; onAdd: () => void }) {
 }
 
 /* --------------------------------- camera -------------------------------- */
-const GRID: Array<[number, number]> = [[0.12, 0.15], [0.5, 0.15], [0.88, 0.15], [0.12, 0.5], [0.5, 0.5], [0.88, 0.5], [0.12, 0.85], [0.5, 0.85], [0.88, 0.85]];
+/** Corners and edges: 0 / 1 put the bubble at that edge (with the recorder's small margin). */
+const GRID: Array<[number, number]> = [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.5, 0.5], [1, 0.5], [0, 1], [0.5, 1], [1, 1]];
 
 function CameraPanel({ style, available }: { style: CameraStyle | null; available: boolean }) {
   if (!available || !style) return <p className={styles.hint}>The camera overlay is off for this recording.</p>;
@@ -241,7 +242,7 @@ function CameraPanel({ style, available }: { style: CameraStyle | null; availabl
       <Section title="Position">
         <div className={styles.grid9} role="radiogroup" aria-label="Camera position">
           {GRID.map(([x, y]) => {
-            const on = Math.abs(style.x - x) < 0.05 && Math.abs(style.y - y) < 0.05;
+            const on = Math.abs(style.x - x) < 0.08 && Math.abs(style.y - y) < 0.08;
             return <button key={`${x}${y}`} type="button" role="radio" aria-checked={on} aria-label={`Camera position ${x},${y}`} className={on ? styles.cellOn : styles.cell} onClick={() => set({ x, y })} />;
           })}
         </div>

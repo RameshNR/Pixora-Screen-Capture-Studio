@@ -150,7 +150,44 @@ export class VideoCompositor {
     }
   }
 
+  /**
+   * The recording keeps the size of its first frame. A source that changes size while recording (a
+   * window or tab going full screen, a resized window) is scaled to fit inside it, centred: the encoder
+   * would otherwise cut off what is outside the first size (the bottom of a full-screen window) or
+   * stop recording altogether.
+   */
+  private locked: { w: number; h: number } | null = null;
+  private fitCanvas: OffscreenCanvas | null = null;
+  private fitCtx: OffscreenCanvasRenderingContext2D | null = null;
+
   private process(frame: VideoFrame): VideoFrame {
+    const out = this.compose(frame);
+    const w = this.outputWidth;
+    const h = this.outputHeight;
+    if (!this.locked) this.locked = { w, h };
+    const L = this.locked;
+    if (w === L.w && h === L.h) return out;
+    // Size changed: fit the frame into the first size (black around it).
+    if (!this.fitCanvas || this.fitCanvas.width !== L.w || this.fitCanvas.height !== L.h) {
+      this.fitCanvas = new OffscreenCanvas(L.w, L.h);
+      this.fitCtx = this.fitCanvas.getContext('2d', { alpha: false, desynchronized: true });
+    }
+    const ctx = this.fitCtx!;
+    const k = Math.min(L.w / w, L.h / h);
+    const dw = Math.round(w * k);
+    const dh = Math.round(h * k);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, L.w, L.h);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(out, Math.round((L.w - dw) / 2), Math.round((L.h - dh) / 2), dw, dh);
+    const fitted = new VideoFrame(this.fitCanvas, { timestamp: frame.timestamp, ...(frame.duration ? { duration: frame.duration } : {}) });
+    if (out !== frame) out.close();
+    this.outputWidth = L.w;
+    this.outputHeight = L.h;
+    return fitted;
+  }
+
+  private compose(frame: VideoFrame): VideoFrame {
     const fw = frame.displayWidth;
     const fh = frame.displayHeight;
     const rect = this.crop ? cropToPixels(this.crop, fw, fh) : { x: 0, y: 0, width: fw, height: fh };

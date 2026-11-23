@@ -150,3 +150,13 @@ export async function clearAllCaptures(): Promise<void> {
     tx.objectStore('flows').clear();
   });
 }
+
+/** Every image the user can pick (screenshots, flow images) and the flows they belong to, newest first. */
+export async function listPickableImages(): Promise<{ images: CaptureRecord[]; flows: CaptureRecord[] }> {
+  const all = await getAll<CaptureRecord>('captures');
+  const byNewest = (a: CaptureRecord, b: CaptureRecord) => b.createdAt - a.createdAt;
+  return {
+    images: all.filter((c) => c.kind === 'screenshot').sort(byNewest),
+    flows: all.filter((c) => c.kind === 'flow').sort(byNewest),
+  };
+}

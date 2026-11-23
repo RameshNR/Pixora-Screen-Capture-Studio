@@ -46,9 +46,18 @@ Before every submission:
 > Pixora is a complete screen capture studio that works entirely on your computer — no account, no
 > uploads, no tracking.
 >
+> NEW IN 1.1.5
+> • Filters, Erase & remove: presets and adjustments, remove an object or the background — all on your computer
+> • Before / After bar under the picture: slider, side by side or overlay, highlight changes, loupe, full screen with all open images (← / →)
+> • Image details: size, ratio, colour histogram and the main colours (click to copy)
+> • Recent captures: groups for screenshots, flows and videos; make a flow from images by drag and drop
+> • Export in the original format and names — no needless re-encoding; a redesigned video and flow export
+> • Recordings keep their size when a window or tab goes full screen
+>
 > NEW IN 1.1
 > • Right-click any page: Pixora's captures and recordings are in the right-click menu (and "Annotate this image" on pictures)
 > • Blur, pixelate and mask: apply to an area, everything outside it or the whole picture, with each part of the look (effect, shape, edges, colour, border) set on its own
+> • Camera background: blur it, remove it, or use a colour or your own picture — processed on your computer
 > • Better on a Mac: shortcuts shown as ⌘ ⌥ ⇧, ⇧⌘Z redo, ⌘⌫ delete
 > • Open a picture from a web address in the editor; screen and window screenshots count down on the toolbar icon
 > • Click highlights redesigned: smooth animated effects, the cursor with each click (design, colour, motion, left / right / double click), quick looks and a live preview — on every page you visit while recording
@@ -73,6 +82,7 @@ Before every submission:
 >
 > SCREEN RECORDING
 > • Record a tab, a custom area, your desktop or a window, or your camera — up to 4K, MP4 or WebM
+> • Camera bubble with background blur, removal, a colour or your own picture
 > • Microphone and tab / system audio, camera bubble, countdown, pause / resume
 > • Live tools: zoom, highlight, spotlight, draw on the screen, chapter markers, teleprompter
 >
@@ -152,8 +162,9 @@ product. Don't put personal data (emails, names, accounts) in them.
 | `contextMenus` | Adds a "Pixora – Screen Capture Studio" entry to the right-click menu of web pages, so the user can annotate a picture they right-clicked, start a capture (visible part, full page, selected area, delayed, with text, screen or window) or a recording (tab, area, screen or window, camera) and open Pixora's pages from there. The menu reads nothing from the page; a click only grants access to that tab, like the toolbar icon. |
 | Optional host access `<all_urls>` | Never required. Asked only for something the user starts: (1) a Flow Capture that follows the user to other pages and sites; (2) a recording with click highlights (or key combinations / cursor effects), so the highlights are added again to each page the user opens while recording, including embedded frames; (3) "Add image › From a web address" — access to that one site only, to read the picture the user asked for. Declining keeps everything else working. |
 
-**Remote code:** No, I am not using remote code. (All code, the OCR engine and its language data
-are in the package. `wasm-unsafe-eval` is only for the bundled OCR WebAssembly.)
+**Remote code:** No, I am not using remote code. (All code is in the package: the OCR engine and
+its language data, and the camera-background engine — MediaPipe selfie segmenter, WebAssembly and
+model file. `wasm-unsafe-eval` is only for these bundled WebAssembly engines.)
 
 **Data usage** — Google requires disclosing data an extension *handles*, even when it is only
 processed and stored on the user's device ([User Data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq):
@@ -188,6 +199,21 @@ Package → **Upload new package** with the new `release/pixora-<version>.zip`, 
 - **Privacy policy** — date current and covers any new kind of data (`docs/PRIVACY.md`, live on
   GitHub Pages).
 - Submit for review. The listing keeps showing the old version until the new one is approved.
+
+### 1.1.5 (over the published 1.1.4)
+
+- Permissions: **unchanged** (only `version` changed in the manifest), so users are not asked again.
+- Justifications: unchanged — the texts in section 3 still apply. **Remote code:** answer No; the
+  camera-background and image-editor AI (MediaPipe models and WebAssembly) are bundled in the package.
+- Data usage: unchanged (Website content, User activity, Web history). Groups in Recent captures are
+  settings kept in the extension's storage on the device.
+- Privacy policy: updated 23 November 2026 (on-device camera background and image AI; capture groups).
+  Live once `main` is pushed (GitHub Pages).
+- Description: section 2 text, with the new "NEW IN 1.1.5" block at the top.
+- Screenshots: the five in `store-assets/upload/`, retaken for 1.1.5 (Purple Lavender light theme,
+  Pixora's pages only — editor with the Before / After bar, video editor, click highlights, Recent
+  captures with *New group*, themes).
+- Upload `release/pixora-1.1.5.zip`.
 
 ### 1.1.3 (over the published 1.0.0)
 

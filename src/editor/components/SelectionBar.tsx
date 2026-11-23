@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical,
   ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Bold, ChevronRight, ClipboardPaste, Copy, CopyPlus, Italic, Layers, Lock, Minus,
-  MoreHorizontal, Plus, Trash2,
+  MoreHorizontal, Plus, Trash2, Scissors, Crop, Sparkles, X,
 } from 'lucide-react';
 import type { Rect } from '../types';
 import type { MenuItem } from '@/shared/components/Dropdown';
@@ -141,6 +141,47 @@ export function SelectionBar({ anchor, view, actions }: Props) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** What can be done with an area of the image marked with the Select tool. */
+export interface AreaActions {
+  copy: () => void;
+  duplicate: () => void;
+  cut: () => void;
+  remove: () => void;
+  /** Removes what is in the area and rebuilds the background there (screenshot editor only). */
+  fill?: () => void;
+  crop: () => void;
+  clear: () => void;
+}
+
+/** Floating bar over a marked area: its size, Copy, Cut, Delete, Crop to it, and clear. */
+export function AreaBar({ anchor, view, size, actions }: { anchor: Rect; view: { width: number; height: number }; size: { w: number; h: number }; actions: AreaActions }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barW, setBarW] = useState(260);
+  useEffect(() => {
+    if (barRef.current) setBarW(barRef.current.offsetWidth);
+  });
+  const above = anchor.y - BAR_H - GAP >= 8;
+  const top = above ? anchor.y - BAR_H - GAP : Math.min(view.height - BAR_H - 8, anchor.y + anchor.h + GAP);
+  const left = Math.max(8, Math.min(view.width - barW - 8, anchor.x + anchor.w / 2 - barW / 2));
+  const stop = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onDoubleClick: (e: React.MouseEvent) => e.stopPropagation() };
+  return (
+    <div className={styles.root} style={{ left, top }} {...stop}>
+      <div ref={barRef} className={styles.bar} role="toolbar" aria-label="Marked area">
+        <span className={styles.count}>{Math.round(size.w)} × {Math.round(size.h)}</span>
+        <span className={styles.sep} />
+        <Btn label="Copy area (Ctrl+C)" onClick={actions.copy}><Copy size={16} /></Btn>
+        <Btn label="Cut area (Ctrl+X)" onClick={actions.cut}><Scissors size={16} /></Btn>
+        <Btn label="Duplicate area (Ctrl+D)" onClick={actions.duplicate}><CopyPlus size={16} /></Btn>
+        <Btn label="Delete area (Del)" onClick={actions.remove}><Trash2 size={16} /></Btn>
+        {actions.fill && <Btn label="Remove content (fill with background)" onClick={actions.fill}><Sparkles size={16} /></Btn>}
+        <Btn label="Crop to area" onClick={actions.crop}><Crop size={16} /></Btn>
+        <span className={styles.sep} />
+        <Btn label="Clear selection (Esc)" onClick={actions.clear}><X size={16} /></Btn>
+      </div>
     </div>
   );
 }

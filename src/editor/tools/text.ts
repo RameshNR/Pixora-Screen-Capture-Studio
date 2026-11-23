@@ -48,7 +48,21 @@ export function wrapText(text: string, style: TextStyle, maxWidth: number, ctx?:
   for (const para of displayText(text, style).split('\n')) {
     const words = para.split(/(\s+)/);
     let line = '';
+    const fits = (t: string) => measureLines([t], style, ctx)[0]! <= maxWidth;
     for (const word of words) {
+      // A word wider than the box (a long name, a link) is broken where it no longer fits.
+      if (word.trim() && !fits(word)) {
+        if (line.trim()) out.push(line.trimEnd());
+        let piece = '';
+        for (const ch of word) {
+          if (piece && !fits(piece + ch)) {
+            out.push(piece);
+            piece = ch;
+          } else piece += ch;
+        }
+        line = piece;
+        continue;
+      }
       const candidate = line + word;
       if (line && measureLines([candidate.trimEnd()], style, ctx)[0]! > maxWidth) {
         out.push(line.trimEnd());

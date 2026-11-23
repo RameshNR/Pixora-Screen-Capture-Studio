@@ -8,8 +8,10 @@ import styles from './editor.module.css';
 interface Props {
   filename: string;
   onFilename: (name: string) => void;
-  format: ImageFormat;
-  onFormat: (f: ImageFormat) => void;
+  format: ImageFormat | 'original';
+  onFormat: (f: ImageFormat | 'original') => void;
+  /** What Original means for this picture ("JPEG"). */
+  originalType?: string;
   quality: number;
   onQuality: (q: number) => void;
   onCopy: () => void;
@@ -26,15 +28,17 @@ interface Props {
   height?: number;
 }
 
-const FORMATS: Array<{ value: ImageFormat; label: string; hint: string }> = [
+const FORMATS: Array<{ value: ImageFormat | 'original'; label: string; hint: string }> = [
+  { value: 'original', label: 'Original', hint: 'As it came, same size' },
   { value: 'png', label: 'PNG', hint: 'Sharp, lossless' },
   { value: 'jpeg', label: 'JPEG', hint: 'Small, for photos' },
   { value: 'webp', label: 'WebP', hint: 'Smallest file' },
 ];
 
 /** Body of the editor's Export popup (opened from the toolbar's Export… button). */
-export function ExportPanel({ filename, onFilename, format, onFormat, quality, onQuality, onCopy, onDownload, onSaveAs, onPdf, onWord, onQr, busy, action = null, width, height }: Props) {
-  const ext = format === 'jpeg' ? 'jpg' : format;
+export function ExportPanel({ filename, onFilename, format, onFormat, originalType = 'png', quality, onQuality, onCopy, onDownload, onSaveAs, onPdf, onWord, onQr, busy, action = null, width, height }: Props) {
+  const real = format === 'original' ? originalType : format;
+  const ext = real === 'jpeg' ? 'jpg' : real;
   return (
     <div className={styles.exportBody} aria-label="Export">
       <div className={styles.exportSection}>
@@ -65,7 +69,7 @@ export function ExportPanel({ filename, onFilename, format, onFormat, quality, o
             </button>
           ))}
         </div>
-        {format !== 'png' && <Slider tone="dark" label="Quality" min={0.1} max={1} step={0.01} value={quality} format={(q) => `${Math.round(q * 100)}%`} onChange={onQuality} />}
+        {format !== 'png' && format !== 'original' && <Slider tone="dark" label="Quality" min={0.1} max={1} step={0.01} value={quality} format={(q) => `${Math.round(q * 100)}%`} onChange={onQuality} />}
       </div>
 
       <div className={styles.exportSection}>

@@ -2,7 +2,7 @@ import type { Settings } from '../types';
 
 export const APP_NAME = 'Pixora';
 export const SETTINGS_STORAGE_KEY = 'glint.settings';
-export const SETTINGS_VERSION = 9;
+export const SETTINGS_VERSION = 10;
 
 export const DEFAULT_FILENAME_PATTERN = 'Pixora {type} {date} at {time}';
 
@@ -71,7 +71,8 @@ export const DEFAULT_SETTINGS: Settings = {
     excludeTaskbar: false,
     advancedVideoEditor: true,
     areaSource: 'tab',
-    cameraStyle: { shape: 'circle', sizePct: 24, opacity: 1, borderWidth: 3, borderColor: '#FFFFFF', mirror: true, x: 0.12, y: 0.82 },
+    cameraStyle: { shape: 'circle', sizePct: 24, opacity: 1, borderWidth: 3, borderColor: '#FFFFFF', mirror: true, x: 0, y: 1 },
+    cameraBackground: { mode: 'none', blur: 14, color: '#E8E4F5' },
     cursorEffects: {
       cursor: false, cursorSize: 36, cursorColor: '#FFD84D', style: 'ring', leftColor: '#4F8DF7', rightColor: '#E05252', radius: 26,
       opacity: 0.85, durationMs: 600,

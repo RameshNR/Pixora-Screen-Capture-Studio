@@ -51,6 +51,11 @@ a:hover {
   box-shadow: var(--ring);
 }
 
+/* Focus given back by a dialog that was opened with the mouse (see Modal). */
+[data-quiet-focus]:focus-visible {
+  box-shadow: none !important;
+}
+
 ::selection {
   background: var(--c-primary-soft-strong);
 }

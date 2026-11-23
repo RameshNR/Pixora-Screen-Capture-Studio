@@ -217,6 +217,13 @@ describe('callouts and text', () => {
     expect(l.lines.length).toBeGreaterThan(2);
     expect(l.lines.at(-1)).toBe('five');
   });
+  it('breaks a word wider than the box (it used to run out of a narrow callout)', () => {
+    const style = { fontFamily: 'sans-serif', fontSize: 10, bold: false, italic: false, color: '#000', align: 'left' as const };
+    const l = wrapText('go feafsdbjsdkfdfsfeafsdbjsdkfdfs now', style, 60);
+    expect(l.lines.length).toBeGreaterThan(2);
+    expect(l.lines.join('').replace(/\s/g, '')).toBe('gofeafsdbjsdkfdfsfeafsdbjsdkfdfsnow');
+    expect(Math.max(...l.lineWidths)).toBeLessThanOrEqual(60);
+  });
 });
 
 describe('frame layout', () => {

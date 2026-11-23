@@ -103,7 +103,8 @@
   color: var(--c-text);
   font: inherit;
   font-size: 13px;
-  cursor: crosshair;
+  /* The normal mouse pointer: this demonstrates clicks as they look in a recording. */
+  cursor: default;
   user-select: none;
 }
 

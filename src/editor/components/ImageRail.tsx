@@ -20,6 +20,8 @@ interface Props {
   onRestore: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: (images: AddedImage[]) => void;
+  /** Images from Recent captures (by id). */
+  onAddExisting?: (ids: string[]) => void;
   onCollage: () => void;
   /** Moves an image to a new position in the list. */
   onMove: (id: string, to: number) => void;
@@ -57,7 +59,7 @@ export function ImageRail(p: Props) {
     <aside className={styles.rail} aria-label="Images">
       <div className={styles.head}>
         <span className={styles.title}><Images size={15} /> Images ({p.items.length})</span>
-        <AddImageMenu className={styles.addBtn} onAdd={p.onAdd} />
+        <AddImageMenu className={styles.addBtn} onAdd={p.onAdd} onAddExisting={p.onAddExisting} exclude={p.items.map((r) => r.id)} />
         <button type="button" className={styles.hide} aria-label="Hide image panel" title="Hide image panel" onClick={() => p.onHidden(true)}>
           <PanelLeftClose size={15} />
         </button>

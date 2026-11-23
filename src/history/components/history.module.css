@@ -306,3 +306,97 @@
 .flex {
   flex: 1;
 }
+
+/* Drag and drop: put images / flows together in a flow. */
+.card { transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease; }
+/* The cards being dragged stay clearly visible (a light dim and a dashed outline). */
+.cardDragging { opacity: 0.8; transform: scale(0.97); outline: 2px dashed color-mix(in srgb, var(--c-primary) 55%, transparent); outline-offset: 3px; }
+.cardNoDrop { opacity: 0.55; filter: grayscale(0.5); }
+.cardDrop {
+  transform: translateY(-4px) scale(1.03);
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primary) 45%, transparent), 0 14px 32px color-mix(in srgb, var(--c-primary) 30%, transparent);
+  z-index: 2;
+}
+.dropHint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  background: color-mix(in srgb, var(--c-primary) 58%, transparent);
+  backdrop-filter: blur(2px);
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: dropIn 0.16s ease-out;
+}
+.dropHint strong { font-size: 14px; }
+.dropHint small { font-size: 12px; opacity: 0.9; }
+.dropHint svg { animation: dropBob 0.9s ease-in-out infinite; }
+@keyframes dropIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes dropBob { 50% { transform: translateY(-3px); } }
+.cardMerging { animation: mergeOut 0.26s ease-in forwards; pointer-events: none; }
+@keyframes mergeOut { to { opacity: 0; transform: scale(0.6); } }
+.cardPop { animation: flowPop 0.6s cubic-bezier(0.3, 1.6, 0.5, 1), flowGlow 1.2s ease-out; }
+@keyframes flowPop { 0% { transform: scale(0.9); } 60% { transform: scale(1.04); } 100% { transform: none; } }
+@keyframes flowGlow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-primary) 60%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+.flowCount {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(17, 24, 39, 0.72);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+/* Floats at the top while dragging (in the page flow it pushed the cards down as the drag began). */
+.dragGuide {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(760px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border: 1px solid color-mix(in srgb, var(--c-primary) 50%, transparent);
+  border-radius: 12px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 13px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+  animation: dropIn 0.16s ease-out;
+}
+/* The picture under the pointer while dragging (built off screen, then taken by the browser). */
+.ghost { position: fixed; top: 0; left: 0; width: 176px; height: 132px; pointer-events: none; z-index: 1000; will-change: transform; }
+.ghost > * { animation: ghostIn 0.16s ease-out; }
+@keyframes ghostIn { from { opacity: 0; scale: 0.85; } }
+.ghostCard { position: absolute; top: 18px; left: 10px; width: 120px; height: 76px; border: 2px solid #fff; border-radius: 10px; overflow: hidden; background: #ddd; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); }
+.ghostCard img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ghostCount { position: absolute; top: 6px; left: 116px; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: var(--c-primary); color: #fff; font: 700 13px/24px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff; z-index: 5; }
+@media (prefers-reduced-motion: reduce) {
+  .card, .dropHint, .dropHint svg, .cardMerging, .cardPop, .dragGuide { animation: none; transition: none; }
+}
+
+/* Groups: a folder card (up to four thumbnails), and the bar of an open group. */
+.mosaic { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; background: color-mix(in srgb, var(--c-primary) 10%, var(--c-bg)); }
+.mosaic > span { overflow: hidden; background: color-mix(in srgb, var(--c-primary) 6%, var(--c-bg)); }
+.mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.groupCard { border-style: dashed; border-color: color-mix(in srgb, var(--c-primary) 45%, var(--c-border)); }
+.groupBar { display: flex; align-items: center; gap: 8px; margin-bottom: var(--sp-3); padding: 8px 12px; border-radius: var(--r-md, 10px); border: 1px solid var(--c-border); background: var(--c-bg); }
+.crumb, .groupTitle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px dashed transparent; border-radius: 8px; background: transparent; color: var(--c-text); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.crumb:hover, .groupTitle:hover { background: color-mix(in srgb, var(--c-primary) 8%, transparent); }
+.crumbDrop { border-color: var(--c-primary); background: color-mix(in srgb, var(--c-primary) 12%, transparent); }
+.crumbSep { color: var(--c-text-muted); }
+.groupName { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--c-primary); border-radius: 7px; background: var(--c-bg); color: var(--c-text); font: inherit; font-weight: 600; }

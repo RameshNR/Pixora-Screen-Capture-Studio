@@ -157,3 +157,10 @@ IndexedDB → `glint-capture`; verbose logs — Settings → Advanced → *Debug
 
 Copyright © 2026 the Pixora author. All rights reserved. The source is published for reference; no
 licence to use, copy, modify or distribute it is granted.
+
+## Third-party components
+
+Bundled in the extension (no remote code): [tesseract.js](https://github.com/naptha/tesseract.js)
+(Apache-2.0) for text recognition, and [MediaPipe Tasks Vision](https://github.com/google-ai-edge/mediapipe)
+with its selfie segmenter model (Apache-2.0) for the camera background.
+

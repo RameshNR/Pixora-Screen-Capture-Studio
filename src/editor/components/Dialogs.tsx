@@ -4,6 +4,7 @@ import { Modal } from '@/shared/components/Modal';
 import { Button, IconButton } from '@/shared/components/Button';
 import { ProgressIndicator } from '@/shared/components/Progress';
 import styles from './editor.module.css';
+import { NumberStepper } from './NumberStepper';
 import { formatKeys } from '@/shared/utils/keys';
 
 export function ResizeDialog({
@@ -42,14 +43,14 @@ export function ResizeDialog({
         <div className={styles.row} style={{ alignItems: 'end' }}>
           <div>
             <span className={styles.label}>Width (px)</span>
-            <input className={styles.numberField} type="number" min={1} max={16384} value={w} aria-label="Width"
-              onChange={(e) => { const n = Math.round(Number(e.target.value)); setW(n); if (lock) setH(Math.max(1, Math.round(n / aspect))); }} />
+            <NumberStepper min={1} max={16384} value={w} ariaLabel="Width"
+              onChange={(n) => { setW(n); if (lock) setH(Math.max(1, Math.round(n / aspect))); }} />
           </div>
           <IconButton tone="dark" label={lock ? 'Unlock aspect ratio' : 'Lock aspect ratio'} icon={lock ? <Lock size={15} /> : <Unlock size={15} />} active={lock} onClick={() => setLock(!lock)} style={{ flex: 'none' }} />
           <div>
             <span className={styles.label}>Height (px)</span>
-            <input className={styles.numberField} type="number" min={1} max={16384} value={h} aria-label="Height"
-              onChange={(e) => { const n = Math.round(Number(e.target.value)); setH(n); if (lock) setW(Math.max(1, Math.round(n * aspect))); }} />
+            <NumberStepper min={1} max={16384} value={h} ariaLabel="Height"
+              onChange={(n) => { setH(n); if (lock) setW(Math.max(1, Math.round(n * aspect))); }} />
           </div>
         </div>
         <div className={styles.row}>
@@ -112,7 +113,7 @@ export const SHORTCUT_GROUPS: Array<{ title: string; items: Array<[string, strin
     items: [
       ['V', 'Select & move'], ['H / Space', 'Pan (hold Space)'], ['P', 'Pen'], ['G', 'Highlighter'], ['R', 'Rectangle'], ['O', 'Ellipse'],
       ['A / L', 'Line & arrow'], ['T', 'Text'], ['K', 'Callout'], ['B', 'Blur'], ['X', 'Pixelate'], ['N', 'Numbered marker'],
-      ['S', 'Sticker'], ['U', 'Cursor & click effects'], ['M', 'Solid mask'], ['E', 'Eraser'], ['C', 'Crop'], ['W', 'Watermark'], ['F', 'Border & frame'],
+      ['S', 'Sticker'], ['U', 'Cursor & click effects'], ['M', 'Solid mask'], ['E', 'Eraser'], ['I', 'Erase image'], ['Q', 'Remove object (AI)'], ['J', 'Remove background (AI)'], ['Y', 'Filters'], ['C', 'Crop'], ['W', 'Watermark'], ['F', 'Border & frame'],
     ],
   },
   {

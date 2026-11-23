@@ -1,17 +1,18 @@
+import { Spinner } from '@/shared/components/Progress';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import type { Annotation, CalloutAnnotation, EditorDoc, Point, Rect, RedactLook, TextAnnotation, Tool, ToolStyles, Watermark } from '../types';
-import { HANDLE_HIT_RADIUS, renderScene, usedFonts } from '../render';
+import { HANDLE_HIT_RADIUS, renderScene, usedFonts, type CompareRender } from '../render';
 import { annotationId, rectFromPoints } from '../tools/common';
 import { appendPoint } from '../tools/pen';
 import { defaultBends, snap45 } from '../tools/shapes';
-import { SelectionBar, type SelectionActions } from './SelectionBar';
+import { AreaBar, SelectionBar, type AreaActions, type SelectionActions } from './SelectionBar';
 import {
   angleFrom, describeAnnotation, findAt, getBounds, handlesFor, canChange, canMove, isRoundHandle, isTextHandle, pivotOf, resizeBy, rotateBy, rotationOf, translate, type Handle, selectionPolygon,
 } from '../tools/annotations';
 import { constrainAspect } from '../tools/crop';
 import { frameLayout, onFrameImageLoaded } from '../tools/decorations';
 import { fontString, LINE_HEIGHT, textBlock } from '../tools/text';
-import { calloutTextRects, fitCallout } from '../tools/callouts';
+import { calloutTextRects, fitCallout, fitCalloutHeight } from '../tools/callouts';
 import { moveWatermark, watermarkBox } from '../tools/decorations';
 import { isBoxyStroke } from '../tools/pen-styles';
 import { inRect } from '../tools/common';
@@ -50,6 +51,9 @@ export interface WorkspaceHandle {
   setZoomAt: (zoom: number) => void;
   /** Document point at the centre of the viewport (for placing inserted images). */
   viewportCenter: () => Point;
+  /** The picture area alone fills the screen (or leaves full screen). */
+  toggleFullScreen: () => void;
+  isFullScreen: () => boolean;
 }
 
 interface Props {
@@ -86,6 +90,45 @@ interface Props {
   padding?: number;
   /** Right click on the canvas: the object under the pointer (selected first), or null. */
   onCanvasMenu?: (e: React.MouseEvent, hit: Annotation | null) => void;
+  /** Select tool: an area of the image marked by dragging on an empty spot (copy, cut, delete it). */
+  area?: Rect | null;
+  onAreaChange?: (area: Rect | null) => void;
+  /** What can be done with the marked area (shown on a bar over it). */
+  areaActions?: AreaActions | null;
+  /** Image eraser: a finished stroke (image px, brush size in image px). */
+  onEraseImage?: (points: Point[], size: number) => void;
+  /** Retouch tools (Remove object, Remove background): brush strokes, clicks or a box on the picture. */
+  retouch?: RetouchInput | null;
+  /** Shown instead of the picture (a preview of a retouch), without filters. */
+  baseOverride?: (CanvasImageSource & { width: number; height: number }) | null;
+  /** Filters off (Before / After). */
+  noFilters?: boolean;
+  /** Before / After comparison, or null. Slider: drag the divider to move it (onSplit). */
+  compare?: CompareRender | null;
+  /** A magnifying glass follows the pointer. */
+  loupe?: boolean;
+  /** Full screen / comparison: look only — no drawing or editing (drag pans, the divider still moves). */
+  viewOnly?: boolean;
+  onSplit?: (v: number) => void;
+  /** Side by side: the wheel over a pane zooms it, a drag moves it (shares of the picture; zoom as a factor). */
+  onPane?: (i: 0 | 1, change: { dx?: number; dy?: number; zoom?: number }) => void;
+  /** Room kept free under the picture when fitting (the bar under it). */
+  bottomInset?: number;
+  /** A part of the picture being worked on: shaded, with a spinner and a few words. */
+  busyArea?: { rect: Rect; text: string } | null;
+  /** Floating controls over the bottom of the canvas (Filters: Before / After, fit, pan). */
+  controls?: React.ReactNode;
+}
+
+export interface RetouchInput {
+  kind: 'click' | 'brush' | 'box';
+  /** Brush size (image px). */
+  size: number;
+  /** Colour the stroke shows in while painting. */
+  paint: string;
+  onClick?: (p: Point, shift: boolean) => void;
+  onStroke?: (points: Point[], size: number) => void;
+  onBox?: (r: Rect) => void;
 }
 
 type Drag =
@@ -100,6 +143,12 @@ type Drag =
   | { kind: 'crop-new'; start: Point }
   | { kind: 'crop-move'; start: Point; original: Rect }
   | { kind: 'crop-resize'; start: Point; original: Rect; handle: Handle }
+  | { kind: 'area-new'; start: Point }
+  | { kind: 'erase-image'; start: Point; straight: boolean }
+  | { kind: 'retouch-brush'; start: Point; straight: boolean }
+  | { kind: 'retouch-box'; start: Point }
+  | { kind: 'split' }
+  | { kind: 'pane'; i: 0 | 1; x: number; y: number }
   | { kind: 'cut-new'; start: number }
   | { kind: 'cut-edge'; edge: 'from' | 'to' }
   | { kind: 'cut-move'; start: number; from: number; to: number };
@@ -111,7 +160,17 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const {
     doc, tool, toolStyles, zoom, onZoom, selectedId, onSelect, onCommit, crop, cropAspect, onCropChange, cut = null, onCutChange,
     textEdit, onTextEdit, onTextCommit, panning, selectionActions, multiIds = NO_IDS, onMultiChange, multiActions, onWatermarkMove, moveOnlyId = null, onMoveOnlyEnd, onCanvasMenu, padding = PAD,
+    area = null, onAreaChange, areaActions, onEraseImage, retouch = null, baseOverride = null, noFilters = false, compare = null, loupe = false, viewOnly = false, onSplit, onPane, controls, busyArea = null, bottomInset = 0,
   } = props;
+  const retouchBrush = retouch?.kind === 'brush';
+  /** Loupe: where the pointer is over the canvas (CSS px), or null. */
+  const [loupeAt, setLoupeAt] = useState<{ x: number; y: number } | null>(null);
+  /** Remove object: the box being dragged. */
+  const [boxDraft, setBoxDraft] = useState<Rect | null>(null);
+  /** The image eraser's stroke so far. */
+  const imageStroke = useRef<Point[]>([]);
+  const erasing = tool === 'eraser' || tool === 'eraseImage' || retouchBrush;
+  const eraserSize = retouchBrush ? retouch.size : tool === 'eraseImage' ? toolStyles.eraseImage.size : toolStyles.eraser.size;
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [view, setView] = useState({ width: 800, height: 600, scrollX: 0, scrollY: 0 });
@@ -125,6 +184,8 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const [eraserTrail, setEraserTrail] = useState<Point[] | null>(null);
   const [eraserAt, setEraserAt] = useState<Point | null>(null);
   const [cursor, setCursor] = useState('default');
+  /** Bumped when an area has been marked (the bar shows once the drag ends). */
+  const [, setAreaDone] = useState(0);
   /** How far the picture was panned while it fits in the view (no scrolling possible). */
   const [shift, setShift] = useState({ x: 0, y: 0 });
   // A new zoom level starts centred again.
@@ -158,11 +219,15 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const outer = layout.outer;
   const tilt = layout.tilt ?? null;
   const contentW = outer.w * zoom + padding * 2;
-  const contentH = outer.h * zoom + padding * 2;
+  // Room under the picture for the bar, so the end of a zoomed picture can be scrolled clear of it.
+  const contentH = outer.h * zoom + padding * 2 + bottomInset;
   const fitsX = contentW <= view.width + 0.5;
   const fitsY = contentH <= view.height + 0.5;
+  /** The canvas ends where the bar under the picture begins (the picture is centred in it, above the bar). */
+  const canvasH = Math.max(1, view.height - bottomInset);
   const outerX = fitsX ? (view.width - outer.w * zoom) / 2 + shift.x : padding - view.scrollX;
-  const outerY = fitsY ? (view.height - outer.h * zoom) / 2 + shift.y : padding - view.scrollY;
+  // A picture that fits is centred in the space above the bar (the same gap above and below it).
+  const outerY = fitsY ? (canvasH - outer.h * zoom) / 2 + shift.y : padding - view.scrollY;
   const originX = outerX - outer.x * zoom;
   const originY = outerY - outer.y * zoom;
 
@@ -197,11 +262,19 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const fitZoom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return 1;
-    const z = Math.min((el.clientWidth - padding * 2) / outer.w, (el.clientHeight - padding * 2) / outer.h, padding ? 1 : Infinity);
+    const z = Math.min((el.clientWidth - padding * 2) / outer.w, (el.clientHeight - padding * 2 - bottomInset) / outer.h, padding ? 1 : Infinity);
     return Math.max(0.02, z);
-  }, [outer.w, outer.h, padding]);
+  }, [outer.w, outer.h, padding, bottomInset]);
 
   /** The zoom last set by "fit": while it is unchanged, the picture re-fits when the view resizes. */
+  /**
+   * Fitted at least once. Until then the picture area shows no scrollbars: a new picture is first laid
+   * out at 100 %, a scrollbar flashed for a frame, the area narrowed and the bar and picture jumped
+   * (the flicker when switching images).
+   */
+  const [fitted, setFitted] = useState(false);
+  // Editors that never fit (video) get their scrollbars back after the first frames.
+  useEffect(() => { const r = requestAnimationFrame(() => requestAnimationFrame(() => setFitted(true))); return () => cancelAnimationFrame(r); }, []);
   const fittedZoom = useRef<number | null>(null);
   /** View size when the picture was last fitted. */
   const fittedView = useRef({ w: 0, h: 0 });
@@ -223,7 +296,13 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   }, [view.width, view.height]);
 
   useImperativeHandle(ref, () => ({
-    fit: () => { setShift({ x: 0, y: 0 }); const z = Math.round(fitZoom() * 1e4) / 1e4; fittedZoom.current = z; fittedView.current = { w: view.width, h: view.height }; onZoom(z); },
+    toggleFullScreen: () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      void (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen()).catch(() => undefined);
+    },
+    isFullScreen: () => Boolean(scrollRef.current && document.fullscreenElement === scrollRef.current),
+    fit: () => { setFitted(true); setShift({ x: 0, y: 0 }); const z = Math.round(fitZoom() * 1e4) / 1e4; fittedZoom.current = z; fittedView.current = { w: view.width, h: view.height }; onZoom(z); },
     setZoomAt: (z: number) => {
       const el = scrollRef.current;
       if (el) {
@@ -232,8 +311,8 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       }
       onZoom(z);
     },
-    viewportCenter: () => ({ x: (view.width / 2 - originX) / zoom, y: (view.height / 2 - originY) / zoom }),
-  }), [fitZoom, onZoom, originX, originY, zoom, view.width, view.height]);
+    viewportCenter: () => ({ x: (view.width / 2 - originX) / zoom, y: (canvasH / 2 - originY) / zoom }),
+  }), [fitZoom, onZoom, originX, originY, zoom, view.width, view.height, canvasH]);
 
   // Keep the anchored document point under the cursor / centre after a zoom change.
   useLayoutEffect(() => {
@@ -256,41 +335,61 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   }, [doc, draft]);
 
   /* --------------------------------- render --------------------------------- */
-  useEffect(() => {
+  /** Just opened: draw straight away (a new canvas is blank — switching images flickered). */
+  const mountedAt = useRef(performance.now());
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const w = Math.max(1, Math.round(view.width * dpr));
-    const h = Math.max(1, Math.round(view.height * dpr));
+    const h = Math.max(1, Math.round(canvasH * dpr));
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     // Resizing the canvas clears it: done in the same frame as the drawing, so the browser never
     // shows the cleared canvas in between (the picture flickered while the window was resized,
     // focused or restored).
-    const raf = requestAnimationFrame(() => {
+    const paint = () => {
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
       const moving = manyDraft ? new Map(manyDraft.map((a) => [a.id, a])) : null;
       const layered = moving ? { ...doc, annotations: doc.annotations.map((a) => moving.get(a.id) ?? a) } : doc;
-      const shown = markDraft ? { ...layered, watermark: markDraft } : layered;
+      const marked = markDraft ? { ...layered, watermark: markDraft } : layered;
+      const shown = baseOverride ? { ...marked, base: baseOverride as ImageBitmap, filters: null } : noFilters ? { ...marked, filters: null } : marked;
       renderScene(
         ctx,
         shown,
         { zoom, originX, originY, dpr },
         {
-          selectedId, moveOnly: Boolean(selectedId && selectedId === moveOnlyId), multi: shown.annotations.filter((a) => multiIds.includes(a.id)), watermarkBox: tool === 'watermark' ? watermarkBox(shown, shown.watermark) : null, hiddenId: textEdit?.annotation.id ?? null, draft, crop, cut, eraserTrail,
-          eraserCursor: tool === 'eraser' && eraserAt ? { ...eraserAt, r: toolStyles.eraser.size / 2 } : null,
+          selectedId, moveOnly: Boolean(selectedId && selectedId === moveOnlyId), multi: shown.annotations.filter((a) => multiIds.includes(a.id)), watermarkBox: tool === 'watermark' ? watermarkBox(shown, shown.watermark) : null, hiddenId: textEdit?.annotation.id ?? null, draft, crop, cut, eraserTrail, area: boxDraft ?? area,
+          eraserCursor: erasing && eraserAt ? { ...eraserAt, r: eraserSize / 2 } : null,
+          compare,
+          loupe: loupe ? loupeAt : null,
+          eraserPaint: retouchBrush ? retouch.paint : tool === 'eraseImage' ? (toolStyles.eraseImage.fill === 'white' ? '#ffffff' : 'rgba(224, 82, 82, 0.45)') : null,
         },
-        { width: view.width, height: view.height },
+        { width: view.width, height: canvasH },
       );
-    });
+    };
+    if (performance.now() - mountedAt.current < 400) { paint(); return; }
+    const raf = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(raf);
-  }, [doc, zoom, originX, originY, dpr, selectedId, moveOnlyId, multiIds, manyDraft, markDraft, draft, crop, cut, eraserTrail, eraserAt, tool, toolStyles.eraser.size, view.width, view.height, textEdit, fontsTick]);
+  }, [doc, zoom, originX, originY, dpr, selectedId, moveOnlyId, multiIds, manyDraft, markDraft, draft, crop, cut, eraserTrail, eraserAt, tool, erasing, eraserSize, toolStyles.eraseImage.fill, view.width, view.height, canvasH, textEdit, fontsTick, area, boxDraft, baseOverride, noFilters, retouchBrush, retouch?.paint, compare, loupe, loupeAt]);
+
+  /** Side by side: the pane (0 Before, 1 After) under a document point. */
+  const paneAt = (p: Point): 0 | 1 => ((compare?.vertical ? p.y > doc.height / 2 : p.x > doc.width / 2) ? 1 : 0);
+  const sidePanes = compare?.mode === 'side' && Boolean(onPane);
 
   /* --------------------------------- wheel ---------------------------------- */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      if (sidePanes && !e.ctrlKey && !e.metaKey) {
+        const r = canvasRef.current!.getBoundingClientRect();
+        const p = { x: (e.clientX - r.left - originX) / zoom, y: (e.clientY - r.top - originY) / zoom };
+        if (p.x < 0 || p.y < 0 || p.x > doc.width || p.y > doc.height) return;
+        e.preventDefault();
+        onPane!(paneAt(p), { zoom: Math.exp(-e.deltaY * 0.0025) });
+        return;
+      }
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
@@ -301,7 +400,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [zoom, originX, originY, onZoom]);
+  }, [zoom, originX, originY, onZoom, sidePanes, onPane, doc.width, doc.height, compare?.vertical]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ------------------------------ pointer logic ----------------------------- */
   const tolerance = 6 / zoom;
@@ -309,6 +408,14 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   const selected = selectedId ? doc.annotations.find((a) => a.id === selectedId) ?? null : null;
 
   const onImage = (p: Point) => p.x >= 0 && p.y >= 0 && p.x <= doc.width && p.y <= doc.height;
+  /** On the Before / After divider (within a few screen px), over the picture. */
+  /** On the Before / After divider (slider mode, within a few screen px), over the picture. */
+  const nearSplit = (p: Point) => {
+    if (!compare || compare.mode !== 'slider') return false;
+    if (compare.vertical) return p.x >= 0 && p.x <= doc.width && Math.abs(p.y - doc.height * compare.split) * zoom <= 18;
+    return p.y >= 0 && p.y <= doc.height && Math.abs(p.x - doc.width * compare.split) * zoom <= 18;
+  };
+  const splitCursor = compare?.vertical ? 'ns-resize' : 'ew-resize';
 
   const handleAt = (p: Point, a: Annotation | null): Handle | null => {
     if (!a || a.id === moveOnlyId) return null;
@@ -412,6 +519,25 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     // "Move only" ends with a press anywhere but on that annotation.
     if (moveOnlyId && findAt(doc.annotations, p, tolerance)?.id !== moveOnlyId) onMoveOnlyEnd?.();
 
+    // Before / After: the divider (and its round handle) can be dragged from anywhere along it.
+    if (e.button === 0 && onSplit && nearSplit(p)) {
+      drag.current = { kind: 'split' };
+      setCursor(splitCursor);
+      return;
+    }
+
+    // View only (full screen / comparing): nothing is drawn or edited; a drag moves the view.
+    if (viewOnly && e.button === 0 && sidePanes && p.x >= 0 && p.y >= 0 && p.x <= doc.width && p.y <= doc.height) {
+      drag.current = { kind: 'pane', i: paneAt(p), x: e.clientX, y: e.clientY };
+      setCursor('grabbing');
+      return;
+    }
+    if (viewOnly && e.button === 0) {
+      drag.current = { kind: 'pan', startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop, shiftX: shift.x, shiftY: shift.y };
+      setCursor('grabbing');
+      return;
+    }
+
     // Move & pan tool: drag an annotation (or the selected ones) to move it; drag elsewhere to pan.
     if (tool === 'hand' && !panning && e.button === 0) {
       const under = findAt(doc.annotations, p, tolerance);
@@ -429,6 +555,37 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     if (panning || tool === 'hand' || e.button === 1) {
       drag.current = { kind: 'pan', startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop, shiftX: shift.x, shiftY: shift.y };
       setCursor('grabbing');
+      return;
+    }
+
+    // Retouch tools: paint a mask, click an object, or drag a box. Ctrl+drag: a straight stroke.
+    const ctrl = e.ctrlKey || e.metaKey;
+    // Outside the picture these tools (and Erase image) do nothing, like the other tools.
+    const offPicture = p.x < 0 || p.y < 0 || p.x > doc.width || p.y > doc.height;
+    if ((retouch || tool === 'eraseImage') && e.button === 0 && offPicture) return;
+    if (retouch && e.button === 0 && ctrl && retouch.onStroke) {
+      imageStroke.current = [p, p];
+      setEraserTrail([p, p]);
+      setEraserAt(p);
+      drag.current = { kind: 'retouch-brush', start: p, straight: true };
+      return;
+    }
+    if (retouch && e.button === 0 && !ctrl) {
+      if (retouch.kind === 'click') { retouch.onClick?.(p, e.shiftKey); return; }
+      if (retouch.kind === 'box') { drag.current = { kind: 'retouch-box', start: p }; setBoxDraft({ x: p.x, y: p.y, w: 0, h: 0 }); return; }
+      imageStroke.current = [p];
+      setEraserTrail([p]);
+      setEraserAt(p);
+      drag.current = { kind: 'retouch-brush', start: p, straight: false };
+      return;
+    }
+
+    // Image eraser: paints over the picture itself (annotations are left alone).
+    if (tool === 'eraseImage' && e.button === 0) {
+      imageStroke.current = ctrl ? [p, p] : [p];
+      setEraserTrail([...imageStroke.current]);
+      setEraserAt(p);
+      drag.current = { kind: 'erase-image', start: p, straight: ctrl };
       return;
     }
 
@@ -512,9 +669,14 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
 
     if (SELECT_LIKE.has(tool)) {
       onSelect(hit?.id ?? null);
+      if (area) onAreaChange?.(null);
       if (hit) pressOn(hit);
-      else {
-        // Select tool on an empty spot: drag to move around the image (like the hand tool).
+      else if (tool === 'select' && onAreaChange) {
+        // Select tool on an empty spot: drag to mark an area of the image (then copy, cut or delete
+        // it). Moving around the image: the hand tool, Space + drag, or the mouse wheel.
+        const start = { x: Math.max(0, Math.min(doc.width, p.x)), y: Math.max(0, Math.min(doc.height, p.y)) };
+        drag.current = { kind: 'area-new', start };
+      } else {
         drag.current = { kind: 'pan', startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop, shiftX: shift.x, shiftY: shift.y };
         setCursor('grabbing');
       }
@@ -627,6 +789,10 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (loupe) {
+      const box = e.currentTarget.getBoundingClientRect();
+      setLoupeAt({ x: e.clientX - box.left, y: e.clientY - box.top });
+    }
     noteKeys(e);
     const p = toDoc(e.clientX, e.clientY);
     const d = drag.current;
@@ -642,6 +808,48 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
       return;
     }
     switch (d.kind) {
+      case 'pane': {
+        // Screen pixels → shares of the picture shown in a half-size pane.
+        const k = (compare?.panes?.[d.i]?.k ?? 1) * 0.5 * zoom;
+        onPane?.(d.i, { dx: -(e.clientX - d.x) / (k * doc.width), dy: -(e.clientY - d.y) / (k * doc.height) });
+        d.x = e.clientX;
+        d.y = e.clientY;
+        return;
+      }
+      case 'split': {
+        onSplit?.(Math.max(0, Math.min(1, compare?.vertical ? p.y / doc.height : p.x / doc.width)));
+        return;
+      }
+      case 'retouch-box': {
+        const x = Math.max(0, Math.min(doc.width, p.x));
+        const y = Math.max(0, Math.min(doc.height, p.y));
+        setBoxDraft({ x: Math.min(x, d.start.x), y: Math.min(y, d.start.y), w: Math.abs(x - d.start.x), h: Math.abs(y - d.start.y) });
+        return;
+      }
+      case 'retouch-brush':
+      case 'erase-image': {
+        // Ctrl+drag: straight from where it started; Shift: straight at 0 / 45 / 90° (like the highlighter).
+        if (d.straight || e.shiftKey) imageStroke.current = [d.start, e.shiftKey ? snap45(d.start, p) : p];
+        else imageStroke.current.push(p);
+        setEraserAt(p);
+        setEraserTrail([...imageStroke.current]);
+        return;
+      }
+      case 'area-new': {
+        const x = Math.max(0, Math.min(doc.width, p.x));
+        const y = Math.max(0, Math.min(doc.height, p.y));
+        let w = x - d.start.x;
+        let h = y - d.start.y;
+        // Shift: a square.
+        if (e.shiftKey) {
+          const s = Math.min(Math.abs(w), Math.abs(h));
+          w = Math.sign(w || 1) * s;
+          h = Math.sign(h || 1) * s;
+        }
+        const r = { x: Math.round(Math.min(d.start.x, d.start.x + w)), y: Math.round(Math.min(d.start.y, d.start.y + h)), w: Math.round(Math.abs(w)), h: Math.round(Math.abs(h)) };
+        onAreaChange?.(r);
+        return;
+      }
       case 'pan': {
         const el = scrollRef.current!;
         const dx = e.clientX - d.startX;
@@ -668,7 +876,9 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
         return;
       case 'resize':
         // Shift keeps shapes and callouts square (or round).
-        setDraft(resizeBy(d.original, d.handle, p.x - d.start.x, p.y - d.start.y, e.shiftKey));
+        const resized = resizeBy(d.original, d.handle, p.x - d.start.x, p.y - d.start.y, e.shiftKey);
+        // A callout made narrower wraps its text and grows taller to hold it (Shift keeps it square).
+        setDraft(resized.type === 'callout' && !e.shiftKey && !isTextHandle(d.handle) && d.handle !== 't' ? fitCalloutHeight(resized) : resized);
         return;
       case 'rotate': {
         let delta = angleFrom(d.original, p) - d.startAngle;
@@ -759,6 +969,34 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     const d = drag.current;
     drag.current = null;
     if (!d) return;
+    if (d.kind === 'split') { setCursor(splitCursor); return; }
+    if (d.kind === 'pane') { setCursor('grab'); return; }
+    if (d.kind === 'retouch-brush') {
+      const pts = imageStroke.current;
+      imageStroke.current = [];
+      setEraserTrail(null);
+      if (pts.length) retouch?.onStroke?.(pts, retouch.size);
+      return;
+    }
+    if (d.kind === 'retouch-box') {
+      const b = boxDraft;
+      setBoxDraft(null);
+      if (b && b.w >= 3 && b.h >= 3) retouch?.onBox?.(b);
+      return;
+    }
+    if (d.kind === 'erase-image') {
+      const pts = imageStroke.current;
+      imageStroke.current = [];
+      setEraserTrail(null);
+      if (pts.length) onEraseImage?.(pts, toolStyles.eraseImage.size);
+      return;
+    }
+    if (d.kind === 'area-new') {
+      // A click (no real area) just clears the selection.
+      if (area && (area.w < 3 || area.h < 3)) onAreaChange?.(null);
+      else setAreaDone((n) => n + 1);
+      return;
+    }
     if (d.kind === 'pan') {
       setCursor(tool === 'hand' || panning || SELECT_LIKE.has(tool) ? 'grab' : 'default');
       return;
@@ -833,9 +1071,17 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     setOverObject(Boolean(over));
     const box = !over && SELECT_LIKE.has(tool) ? watermarkBox(doc, doc.watermark) : null;
     let next = 'default';
-    if (panning) next = 'grab';
+    if (nearSplit(p)) next = splitCursor;
+    else if (viewOnly) next = 'grab';
+    else if (panning) next = 'grab';
     else if (tool === 'hand') next = over && canMove(over) ? 'move' : 'grab';
-    else if (tool === 'eraser') {
+    // Outside the picture nothing can be drawn, erased or picked: a plain pointer, no brush circle.
+    else if ((retouch || tool === 'eraser' || tool === 'eraseImage') && !onImage(p)) {
+      next = 'default';
+      setEraserAt(null);
+    }
+    else if (retouch && retouch.kind !== 'brush') next = 'crosshair';
+    else if (tool === 'eraser' || tool === 'eraseImage' || retouchBrush) {
       next = ERASER_CURSOR;
       setEraserAt(p);
     }
@@ -851,7 +1097,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     }
     // The selected object can be dragged with any tool: four-way move cursor over it.
     else if (selected && tool !== 'text' && findAt(doc.annotations, p, tolerance)?.id === selected.id) next = 'move';
-    else if (SELECT_LIKE.has(tool)) next = over || (box && inRect(p, box)) ? 'move' : 'grab';
+    else if (SELECT_LIKE.has(tool)) next = over || (box && inRect(p, box)) ? 'move' : tool === 'select' && onAreaChange ? (onImage(p) ? 'crosshair' : 'default') : 'grab';
     else if (tool !== 'pen' && tool !== 'highlighter' && findAt(doc.annotations, p, tolerance)) next = 'pointer';
     else if (!onImage(p)) next = 'default';
     else if (tool === 'text') next = 'text';
@@ -879,6 +1125,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     <div
       ref={scrollRef}
       className={styles.workspace}
+      style={fitted ? undefined : { overflow: 'hidden' }}
       onScroll={(e) => {
         const el = e.currentTarget;
         setView((v) => ({ ...v, scrollX: el.scrollLeft, scrollY: el.scrollTop }));
@@ -905,14 +1152,15 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
         onPointerCancel={onPointerUp}
         onDoubleClick={onDoubleClick}
         onPointerLeave={() => {
-          if (tool === 'eraser') {
+          setLoupeAt(null);
+          if (erasing && !drag.current) {
             setEraserTrail(null);
             setEraserAt(null);
           }
         }}
       >
-        <canvas ref={canvasRef} className={styles.canvas} style={{ width: view.width, height: view.height }} aria-label="Screenshot canvas" role="img" />
-        {selected && selectionActions && !draft && !textEdit && !crop && !cut && !selected.hidden && (() => {
+        <canvas ref={canvasRef} className={styles.canvas} style={{ width: view.width, height: canvasH }} aria-label="Screenshot canvas" role="img" />
+        {!viewOnly && selected && selectionActions && !draft && !textEdit && !crop && !cut && !selected.hidden && (() => {
           const pts = selectionPolygon(selected);
           const xs = pts.map((p) => originX + p.x * zoom);
           const ys = pts.map((p) => originY + p.y * zoom);
@@ -921,7 +1169,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
           const lift = handlesFor(selected, zoom).some((h) => h.handle === 'rot') ? 30 : 0;
           return <SelectionBar key={selected.id} anchor={{ ...anchor, y: anchor.y - lift, h: anchor.h + lift }} view={view} actions={selectionActions} />;
         })()}
-        {multiIds.length > 1 && multiActions && !manyDraft && !textEdit && !crop && !cut && (() => {
+        {!viewOnly && multiIds.length > 1 && multiActions && !manyDraft && !textEdit && !crop && !cut && (() => {
           const pts = doc.annotations.filter((a) => multiIds.includes(a.id)).flatMap((a) => selectionPolygon(a));
           if (!pts.length) return null;
           const xs = pts.map((p) => originX + p.x * zoom);
@@ -929,6 +1177,16 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
           const anchor = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
           return <SelectionBar key="several" anchor={anchor} view={view} actions={multiActions} />;
         })()}
+        {!viewOnly && area && areaActions && area.w >= 3 && area.h >= 3 && drag.current?.kind !== 'area-new' && (
+          <AreaBar anchor={{ x: originX + area.x * zoom, y: originY + area.y * zoom, w: area.w * zoom, h: area.h * zoom }} view={view} size={area} actions={areaActions} />
+        )}
+        {busyArea && (
+          <div className={styles.busyArea} role="status" aria-label={busyArea.text}
+            style={{ left: originX + busyArea.rect.x * zoom, top: originY + busyArea.rect.y * zoom, width: busyArea.rect.w * zoom, height: busyArea.rect.h * zoom }}>
+            <span className={styles.busyBadge}><Spinner size={14} /> {busyArea.text}</span>
+          </div>
+        )}
+        {controls && <div className={styles.canvasControls} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>{controls}</div>}
         {textEdit && (
           <TextEditor
             key={textEdit.annotation.id}

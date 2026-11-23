@@ -1,7 +1,11 @@
 .tooltip {
   position: fixed;
   z-index: 10000;
-  max-width: 260px;
+  /* Its own width (up to the cap), not the room left between its anchor and the window's edge:
+     a button in the right column gets the same wide tooltip, ending where the button ends. */
+  width: max-content;
+  max-width: min(260px, calc(100vw - 12px));
+  overflow-wrap: anywhere;
   padding: 6px 9px;
   border-radius: var(--r-sm);
   background: #202938;

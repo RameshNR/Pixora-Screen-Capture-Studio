@@ -394,16 +394,24 @@ function init(): void {
    * message lost), recording-only overlays remove themselves once no recording is running.
    */
   function startWatchdog(): void {
-    if (watchdog) return;
+    // Embedded frames are torn down with their page (the teardown message reaches every frame):
+    // they never poll, so pages full of frames add no traffic while recording.
+    if (watchdog || SUB_FRAME) return;
+    let failures = 0;
     watchdog = setInterval(() => {
       chrome.runtime
         .sendMessage({ target: 'background', type: 'recording/get-state' })
         .then((res: { ok?: boolean; data?: { status?: string } }) => {
+          failures = 0;
           const status = res?.data?.status;
-          if (!status || ['idle', 'error'].includes(status)) teardown();
+          if (status && ['idle', 'error'].includes(status)) teardown();
         })
-        .catch(() => teardown());
-    }, 2000);
+        // A busy or restarting service worker misses an answer now and then: only give up after
+        // several in a row (one miss used to switch the click effects off for the whole recording).
+        .catch(() => {
+          if (++failures >= 4) teardown();
+        });
+    }, 3000);
   }
 
   /** Where this page is on screen (desktop / window recordings place page areas and the mouse on their frames). */
@@ -446,8 +454,9 @@ function init(): void {
     let glide = false;
     let pointerOffset = { x: 0, y: 0 };
     if (styled && fx) {
-      const design = fx.pointerDesign ?? 'arrow';
-      const size = Math.max(12, fx.pointerSize ?? 28);
+      // The same cursor as Highlight mouse clicks shows with each click (one design, size and colour).
+      const design = fx.clickDesign ?? fx.pointerDesign ?? 'arrow';
+      const size = Math.max(12, fx.clickCursorSize ?? fx.pointerSize ?? 28);
       const dpr = window.devicePixelRatio || 1;
       const def = CURSOR_DESIGNS[design] ?? CURSOR_DESIGNS.arrow;
       const k = size / 24;
@@ -465,7 +474,7 @@ function init(): void {
       if (pc) {
         pc.scale(dpr, dpr);
         renderCursor(pc, {
-          id: 'p', type: 'cursor', x: pointerOffset.x, y: pointerOffset.y, size, design, color: fx.pointerColor ?? '#FFFFFF', outline: fx.pointerOutline ?? '#111827',
+          id: 'p', type: 'cursor', x: pointerOffset.x, y: pointerOffset.y, size, design, color: fx.clickCursorColor ?? fx.pointerColor ?? '#FFFFFF', outline: fx.clickCursorOutline ?? fx.pointerOutline ?? '#111827',
           click: 'none', clickColor: '#000000', effect: 'none', effectColor: '#000000', effectSize: 1, opacity: 1,
         });
       }

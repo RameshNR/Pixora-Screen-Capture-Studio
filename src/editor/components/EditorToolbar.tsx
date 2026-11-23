@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  ArrowUpRight, ChevronDown, Share2, Columns2, Copy, Crop, Download, Droplet, Eraser, FlipHorizontal2, FlipVertical2, Frame, Grid3x3, Hand, Highlighter,
+  ArrowUpRight, ChevronDown, Share2, Columns2, Copy, Crop, Download, Droplet, FlipHorizontal2, FlipVertical2, Frame, Grid3x3, Hand, Highlighter,
   EyeOff, Keyboard, LayoutGrid, ScanSearch, MessageSquareText, Minus, MousePointer2, MousePointerClick, Pen, Plus, Redo2, RefreshCcwDot, RotateCcw, RotateCw, ScanText, Scaling, Scissors,
-  Shapes, Stamp, Sticker, Type, Undo2,
-} from 'lucide-react';
+  Shapes, Stamp, Sticker, Type, Undo2, SlidersHorizontal, Info } from 'lucide-react';
+import { EraserIcon } from './ToolIcons';
+import { isEraseTool, type EraseTool } from './RetouchPanels';
 import type { Tool } from '../types';
 import { IconButton, Button } from '@/shared/components/Button';
 import { Dropdown } from '@/shared/components/Dropdown';
@@ -16,6 +17,11 @@ import { formatKeys } from '@/shared/utils/keys';
 interface Props {
   /** Inside the Flow Editor: its header shows the logo and the Copy / Download buttons. */
   hideBrand?: boolean;
+  /** The bar under the picture has the zoom: none here. */
+  hideZoom?: boolean;
+  /** Image details in the side panel (file, size, colours). */
+  onInfo?: () => void;
+  infoActive?: boolean;
   tool: Tool;
   onTool: (tool: Tool) => void;
   canUndo: boolean;
@@ -132,6 +138,9 @@ export function EditorToolbar(p: Props) {
   const T = (tool: Tool, label: string, icon: ReactNode, shortcut?: string) => (
     <IconButton tone="dark" key={tool} label={label} shortcut={shortcut} icon={icon} active={p.tool === tool} onClick={() => p.onTool(tool)} />
   );
+  // One button for the four erase / remove tools; it opens the one used last.
+  const [lastErase, setLastErase] = useState<EraseTool>('eraser');
+  useEffect(() => { if (isEraseTool(p.tool)) setLastErase(p.tool); }, [p.tool]);
   return (
     <header className={styles.toolbar} role="toolbar" aria-label="Editor tools">
       <div className={`${styles.group} ${styles.left}`}>
@@ -185,19 +194,24 @@ export function EditorToolbar(p: Props) {
         {T('sticker', 'Sticker', <Sticker size={18} />, 'S')}
         {T('cursor', 'Cursor & click effects', <MousePointerClick size={18} />, 'U')}
         <AddImageMenu variant="icon" label="Insert image" onAdd={p.onInsertImages} />
-        {T('eraser', 'Eraser (removes annotations)', <Eraser size={18} />, 'E')}
+        {p.videoMode
+          ? T('eraser', 'Eraser (removes annotations)', <EraserIcon size={18} />, 'E')
+          : <IconButton tone="dark" key="erase" label="Erase & remove: annotations, image, objects, background" shortcut="E / I / Q / J"
+              icon={<EraserIcon size={18} />} active={isEraseTool(p.tool)} onClick={() => p.onTool(lastErase)} />}
         <span className={styles.sep} />
         {T('watermark', 'Watermark', <Stamp size={18} />, 'W')}
         {!p.videoMode && T('frame', 'Border & browser frame', <Frame size={18} />, 'F')}
+        {!p.videoMode && T('filters', 'Filters & adjustments', <SlidersHorizontal size={18} />, 'Y')}
         {p.onCollage && !p.videoMode && <IconButton tone="dark" label="Collage — combine images" icon={<LayoutGrid size={18} />} onClick={p.onCollage} />}
+        {p.onInfo && <IconButton tone="dark" label="Image details: file, size, colours" icon={<Info size={18} />} active={p.infoActive} onClick={p.onInfo} />}
       </div>
 
       <div className={`${styles.group} ${styles.right}`}>
-        <div className={styles.zoom}>
+        {!p.hideZoom && <div className={styles.zoom}>
           <IconButton tone="dark" size="sm" label="Zoom out" shortcut="Ctrl+−" icon={<Minus size={15} />} onClick={() => p.onZoom(nextZoom(p.zoom, -1))} />
           <ZoomField zoom={p.zoom} onZoom={p.onZoom} />
           <IconButton tone="dark" size="sm" label="Zoom in" shortcut="Ctrl++" icon={<Plus size={15} />} onClick={() => p.onZoom(nextZoom(p.zoom, 1))} />
-        </div>
+        </div>}
         <IconButton tone="dark" size="sm" label="Keyboard shortcuts" shortcut="?" icon={<Keyboard size={16} />} onClick={p.onShortcuts} />
         <button type="button" className={styles.ocrBtn} onClick={p.onOcr} disabled={p.ocrBusy} aria-label="Extract text (OCR)">
           {p.ocrBusy ? <Spinner size={13} /> : <ScanText size={15} />} AI OCR

@@ -1,3 +1,4 @@
+import type { ImageFilters } from './tools/filters';
 import type { ShapeKind, ShapeLook } from './tools/shape-lib';
 import type { BadgeIcon } from './tools/callout-recipes';
 
@@ -253,6 +254,11 @@ export interface RedactAnnotation extends Base, Rect {
   fade?: RedactFade;
   /** Focus: blur / pixelate everything except the region. */
   invert?: boolean;
+  /**
+   * Made by an area action in the video editor (where the frame itself can't change): a deleted /
+   * cut area (covered) or a crop (everything outside covered). Shown under that name.
+   */
+  role?: 'delete' | 'cut' | 'crop';
   /** Colour treatment: dim, grayscale, monochrome or brand tint. */
   tone?: RedactTone;
   tint?: string;
@@ -454,6 +460,8 @@ export interface EditorDoc {
   annotations: Annotation[];
   watermark: Watermark | null;
   frame: Frame | null;
+  /** Filters (a look, adjustments, effects): settings applied when drawn, never baked into `base`. */
+  filters?: ImageFilters | null;
 }
 
 export type Tool =
@@ -473,6 +481,10 @@ export type Tool =
   | 'sticker'
   | 'cursor'
   | 'eraser'
+  | 'eraseImage'
+  | 'removeObject'
+  | 'removeBg'
+  | 'filters'
   | 'crop'
   | 'cut'
   | 'watermark'
@@ -523,6 +535,12 @@ export interface ToolStyles {
   sticker: { glyph: string; variant: 'emoji' | 'badge' | 'icon'; color: string; size: number; badgeStyle?: StickerBadgeStyle; badgeIcon?: string; cutout?: boolean };
   cursor: Pick<CursorAnnotation, 'design' | 'color' | 'outline' | 'size' | 'click' | 'clickColor' | 'effect' | 'effectColor' | 'effectSize' | 'opacity' | 'trail'>;
   eraser: { size: number };
+  /** Erases the picture itself (not annotations): painted white, or see-through in PNG. */
+  eraseImage: { size: number; fill: 'white' | 'transparent' | 'smart'; hardness?: number; feather?: number; strength?: number; preserve?: boolean };
+  /** Remove objects: pick them (AI click, brush or box), then rebuild the background behind them. */
+  removeObject: { mode: 'ai' | 'brush' | 'box' | 'erase'; size: number; grow: number };
+  /** Remove background: what goes behind the subject, edge settings and the restore / remove brush. */
+  removeBg: { fill: 'transparent' | 'white' | 'color' | 'image' | 'blur'; color: string; blur: number; edge: number; feather: number; shift: number; size: number; hardness: number };
 }
 
 /** Look of a blur / pixelate / mask region (everything except its position and strength). */
@@ -552,6 +570,9 @@ export const DEFAULT_TOOL_STYLES: ToolStyles = {
   sticker: { glyph: '✅', variant: 'emoji', color: '#E05252', size: 64, cutout: true },
   cursor: { design: 'arrow', color: '#FFFFFF', outline: '#000000', size: 56, click: 'left', clickColor: '#E05252', effect: 'ripple', effectColor: '#F59E0B', effectSize: 1, opacity: 1 },
   eraser: { size: 24 },
+  eraseImage: { size: 40, fill: 'white', hardness: 80, feather: 4, strength: 100, preserve: true },
+  removeObject: { mode: 'ai', size: 40, grow: 6 },
+  removeBg: { fill: 'transparent', color: '#4F8DF7', blur: 50, edge: 60, feather: 2, shift: 0, size: 40, hardness: 70 },
 };
 
 export const DEFAULT_WATERMARK: Watermark = {

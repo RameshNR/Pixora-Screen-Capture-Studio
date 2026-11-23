@@ -16,6 +16,8 @@ import { broadcast, errorInfoOf, onBroadcast } from '@/shared/messaging/client';
 import { getCapture, getCaptureBlob, updateCapture } from '@/history/history-service';
 import { formatDateTime } from '@/shared/utils/format';
 import { Editor, type EditorActions } from '@/editor/pages/EditorApp';
+import { FilmStrip } from '@/editor/components/FilmStrip';
+import { BusyPill } from '@/shared/components/BusyPill';
 import { Dropdown, type MenuItem } from '@/shared/components/Dropdown';
 import { usePageContextMenu } from '@/shared/components/PageContextMenu';
 import { historyReducer, type HistoryState } from '@/editor/history/history';
@@ -23,7 +25,7 @@ import type { EditorDoc, Frame } from '@/editor/types';
 import type { FrameApply } from '@/editor/components/PropertiesPanel';
 import { exportDocument, renderDocumentThumbnail } from '@/editor/render';
 import { updateSettings } from '@/settings/settings-service';
-import { duplicateFlowImage, getFlow, storeFlowImage, updateFlow, getOriginalImage, purgeFlowImages, putFlow, restoreFlowImages, restoreOriginalImage, saveEditedImage, softDeleteFlowImages } from '../flow-store';
+import { duplicateFlowImage, getFlow, groupIntoFlow, storeFlowImage, updateFlow, getOriginalImage, purgeFlowImages, putFlow, restoreFlowImages, restoreOriginalImage, saveEditedImage, softDeleteFlowImages } from '../flow-store';
 import { FlowExportDialog } from './FlowExportDialog';
 import { ownFrame } from '../own-frame';
 import { CompareDialog } from '@/shared/components/CompareDialog';
@@ -49,6 +51,15 @@ export function FlowEditorApp() {
   const flowId = new URLSearchParams(location.search).get('id') ?? '';
   const [flow, setFlow] = useState<FlowDoc | null>(null);
   const [records, setRecords] = useState<Record<string, CaptureRecord>>({});
+  /** Something slow (adding images): the busy pill. */
+  const [busyLabel, setBusyLabel] = useState<string | null>(null);
+  /** The editor area is full screen: the flow's images show in a strip next to the controls. */
+  const [full, setFull] = useState(() => Boolean(document.fullscreenElement));
+  useEffect(() => {
+    const on = () => setFull(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', on);
+    return () => document.removeEventListener('fullscreenchange', on);
+  }, []);
   const [missing, setMissing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -458,6 +469,7 @@ export function FlowEditorApp() {
   /** Pictures from the computer or the clipboard become new images at the end of the flow. */
   const addImages = async (images: AddedImage[]) => {
     if (!flow) return;
+    setBusyLabel(images.length > 1 ? `Adding ${images.length} images…` : 'Adding the image…');
     try {
       await flush();
       let next = flow;
@@ -465,7 +477,7 @@ export function FlowEditorApp() {
       for (const im of images) {
         const bmp = await createImageBitmap(im.blob);
         const name = im.name.replace(/\.[a-z0-9]+$/i, '');
-        const item = await storeFlowImage(flow.id, next.items.length + 1, { blob: im.blob, width: bmp.width, height: bmp.height, mode: 'visible', auto: false, url: '', pageTitle: name, description: name });
+        const item = await storeFlowImage(flow.id, next.items.length + 1, { blob: im.blob, width: bmp.width, height: bmp.height, mode: 'visible', auto: false, url: '', pageTitle: name, description: name, name: im.name });
         bmp.close();
         next = await updateFlow(flow.id, (d) => ({ ...d, items: [...d.items, item] }));
         first ??= item.id;
@@ -476,6 +488,40 @@ export function FlowEditorApp() {
       setRail('images');
       if (first) setSelected(first);
       toast.success(images.length > 1 ? `${images.length} images added to the flow` : 'Image added to the flow', `Image ${next.items.length}`);
+    } catch (err) {
+      toast.error(errorInfoOf(err));
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
+  /**
+   * From Recent captures: screenshots on their own move into this flow; images of other flows are
+   * copied (those flows keep theirs).
+   */
+  const addExisting = async (ids: string[]) => {
+    if (!flow) return;
+    try {
+      await flush();
+      const recs = (await Promise.all(ids.map((id) => getCapture(id)))).filter((r): r is CaptureRecord => !!r && r.kind === 'screenshot' && r.flowId !== flow.id);
+      const loose = recs.filter((r) => !r.flowId);
+      if (loose.length) await groupIntoFlow(loose.map((r) => r.id), { into: flow.id });
+      const copies: AddedImage[] = [];
+      for (const r of recs.filter((x) => x.flowId)) {
+        const blob = await getCaptureBlob(r.id);
+        if (blob) copies.push({ blob, name: r.name });
+      }
+      if (copies.length) await addImages(copies);
+      const fresh = await getFlow(flow.id);
+      if (fresh) {
+        setFlow(fresh);
+        await refreshRecords([...fresh.items, ...(fresh.deleted ?? [])]);
+        if (loose.length && !copies.length) {
+          setSelected(loose[0]!.id);
+          toast.success(loose.length > 1 ? `${loose.length} images added to the flow` : 'Image added to the flow', `${fresh.items.length} images`);
+        }
+      }
+      broadcast({ target: 'broadcast', type: 'history/changed' });
     } catch (err) {
       toast.error(errorInfoOf(err));
     }
@@ -669,7 +715,7 @@ export function FlowEditorApp() {
             <>
               <div className={styles.railTools}>
                 <Checkbox checked={items.length > 0 && checked.size === items.length} onChange={(v) => setChecked(v ? new Set(items.map((i) => i.id)) : new Set())} label="Select all" />
-                <AddImageMenu className={styles.railAdd} onAdd={(imgs) => void addImages(imgs)} />
+                <AddImageMenu className={styles.railAdd} onAdd={(imgs) => void addImages(imgs)} onAddExisting={(ids) => void addExisting(ids)} exclude={[...items.map((i) => i.id), ...(flow?.deleted ?? []).map((i) => i.id)]} />
               </div>
               <ol className={styles.thumbs}>
                 {items.map((item, i) => {
@@ -816,7 +862,6 @@ export function FlowEditorApp() {
                 <span className={styles.headerInfo}>{sel.pageTitle || sel.url}</span>
                 {switching && <Spinner size={14} />}
                 <span className={styles.flex} />
-                <Button size="sm" className={styles.darkBtn} icon={<Eye size={14} />} onClick={() => void showOriginal(sel.id)}>Original</Button>
                 {(() => {
                   const editedIds = items.filter((i) => changed(i.id)).map((i) => i.id);
                   return (
@@ -845,8 +890,18 @@ export function FlowEditorApp() {
                 <Button size="sm" className={styles.darkBtn} icon={<Copy size={14} />} title={formatKeys('Copy image (Ctrl+C)')} onClick={() => editorActions.current?.copy()}>Copy</Button>
                 <Button size="sm" variant="primary" icon={<Download size={14} />} title={formatKeys('Download (Ctrl+S)')} onClick={() => editorActions.current?.download()}>Download</Button>
               </div>
-              <div className={styles.editorFrame}>
+              {/* The full-screen area: stays while switching images (only the editor inside changes). */}
+              <div className={styles.editorFrame} id="pixora-fs-root">
+                <BusyPill label={busyLabel ?? (selected && loaded.record.id !== selected ? 'Opening the image…' : null)} />
                 <EmbeddedEditor
+                  onStep={(dir) => { const i = items.findIndex((it) => it.id === loaded.record.id); const next = items[i + dir]; if (next) void select(next.id); }}
+                  strip={full && items.length > 1 ? (
+                    <FilmStrip
+                      items={items.map((it, i) => ({ id: it.id, name: it.description || `Image ${i + 1}`, thumbnail: liveThumbs[it.id] ?? records[it.id]?.thumbnail }))}
+                      currentId={loaded.record.id}
+                      onOpen={(id) => void select(id)}
+                    />
+                  ) : undefined}
                   key={`${loaded.record.id}:${loadedKey(loaded)}`}
                   loaded={loaded}
                   settings={settings}
@@ -927,7 +982,7 @@ export function FlowEditorApp() {
   );
 }
 
-function EmbeddedEditor({ loaded, settings, history, onHistory, onSaved, onCollage, frameApply, actionsRef }: { loaded: Loaded; settings: Settings; history?: HistoryState; onHistory: (h: HistoryState) => void; onSaved: (r: CaptureRecord) => void; onCollage: (seed: { blob: Blob; name: string }) => void; frameApply?: FrameApply; actionsRef: { current: EditorActions | null } }) {
+function EmbeddedEditor({ loaded, settings, history, onHistory, onSaved, onCollage, frameApply, actionsRef, strip, onStep }: { strip?: React.ReactNode; onStep?: (dir: 1 | -1) => void; loaded: Loaded; settings: Settings; history?: HistoryState; onHistory: (h: HistoryState) => void; onSaved: (r: CaptureRecord) => void; onCollage: (seed: { blob: Blob; name: string }) => void; frameApply?: FrameApply; actionsRef: { current: EditorActions | null } }) {
   const params = useRef(new URLSearchParams()).current;
   return (
     <Editor
@@ -941,6 +996,8 @@ function EmbeddedEditor({ loaded, settings, history, onHistory, onSaved, onColla
       onCollage={onCollage}
       frameApply={frameApply}
       actionsRef={actionsRef}
+      strip={strip}
+      onStep={onStep}
       embedded
     />
   );

@@ -1,5 +1,33 @@
 # Pixora – Release notes
 
+## 1.1.5 — filters, erase & remove, compare, flows from images (November 2026)
+
+### New
+- **Filters**: presets, adjustments and effects, with Before / After on the picture.
+- **Erase & remove**: erase annotations or part of the image, remove an object (click it, brush or box) or the background (transparent, white, a colour, a picture or blur), all on this device.
+- **Compare bar under the picture**: Before / After (slider, side by side, overlay), Show Original / Edited / Both, Highlight changes, Sync zoom / scroll, a loupe, zoom sizes, Fit and Full screen — with the other open images in a strip in full screen.
+- **Add from Recent captures**: add screenshots and flow images (several at once) to the editor; adding several images at once keeps them together as a flow.
+- **Recent captures**: open several selected images together in the editor, *Make flow* from selected images and flows, or drag an image or flow onto another to put them in one flow.
+- **Groups in Recent captures**: *New group*, name it, and drag screenshots, flows and videos into it; open a group, drag a capture onto *All captures* to take it out, rename or ungroup it. Videos can't go into a flow — Pixora says so if you try.
+- **Image details**: the Info button (or ↓ in full screen) shows the file, size, ratio, a colour histogram, brightness / contrast / saturation and the main colours — click a colour to copy it. Docked beside the picture or as a popup (View settings).
+- **Full screen**: ← / → move between the open images, with the image count and arrows always shown.
+- **Export › Original**: download a picture as it came (same format and size, no re-encoding when nothing changed). Flow export can keep the images' original names, numbered or not.
+- **Loading indicator**: anything that takes a moment (opening, adding, copying, exporting) shows a small busy pill.
+
+### Improved
+- Copy image, switching images and adding images are faster; full screen no longer flickers when switching images; the bar under the picture adapts to narrow windows.
+- **Video export** redesigned like the flow export: Format, Range, Size and frame rate, Quality, Audio and Include as cards, with a summary of the output.
+- **Flow export** redesigned; the ZIP holds only your images (no JSON file).
+- Picking a drawing tool turns Before / After off; Before / After is offered only once the picture has changed.
+- Dragging in Recent captures: a clear drag picture with the count, a drop guide and smoother animations.
+- **Callouts**: Shift + drag on a corner keeps the callout square at the larger side; making a callout narrower wraps its text and grows it taller (long words break too).
+
+### Fixed
+- Recording a tab or window that goes full screen keeps the recording's size (the new size is fitted inside, not cut off), and a tab recording no longer stops when the page goes full screen.
+- Pictures keep their own name and format: a JPEG downloaded unchanged stays a .jpeg of the same size (a 6 MB photo used to become ~40 MB as PNG), and export names no longer double the ending ("photo.jpeg.png").
+- Flow names no longer show a stale image count ("Flow · 2 images" with 15 inside); flows are named by date.
+- After downloading and then undoing, Compare no longer shows a difference that isn't there.
+
 ## 1.1.3 — right-click menu, Mac keyboard, blur / pixelate / mask redesigned (November 2026)
 
 ### New
@@ -8,10 +36,36 @@
 - **Screen & app window screenshots** count down on Pixora's toolbar icon (like *Visible Part after Delay*) instead of a separate countdown window, with *Getting ready…* (page and icon) from the moment you pick the screen or window until the countdown starts.
 - **Annotate an image from a web address**: paste a picture's address on the *Annotate an image* screen (or paste it with Ctrl+V); right-click a picture on a website › Pixora › *Annotate this image* fills it in. Chrome asks once to read from that site.
 - Right-click › Pixora › *Settings* opens the General settings (Recent captures has its own item).
+- **Mark an area with the Select tool**: in the image editor, drag on the picture with *Select & move* to mark an area, then copy it (Ctrl+C, paste it back with Ctrl+V as a picture you can move), cut it (Ctrl+X), delete it (Delete — the area becomes white) or crop to it (Enter). Esc or a click clears it. Moving around the picture is the hand tool, Space + drag or the mouse wheel.
+- **Marked area › Duplicate** (Ctrl+D): a copy of the marked part is placed just beside it, straight away, as a picture you can move, resize or delete. After Paste or Duplicate only the new copy is selected.
+- **Erase image** (toolbar, key I): a brush that erases the screenshot itself — painted white, or see-through in PNG downloads — while annotations stay. The Eraser still removes annotations only. Each eraser has its own icon.
+- **Number fields with − and + buttons** in Resize image, Crop and Cut out & join (Shift+click steps by 10; hold to keep counting).
 - Countdowns on the toolbar icon (delayed and screen / window screenshots, and before a recording, now with the seconds) use the recording red.
 - **Blur, Pixelate and Solid mask: Apply to** — three tiles: *This area*, *Outside area* (the area stays clear) or *Whole image* (*Whole video* in the video editor), with a line saying what it does. Works with every design, and with nothing selected *Whole image* adds one covering the picture. Masks can now cover everything except the area too.
+- **Filters** (key Y): 10 looks (Vintage, Cinematic, Warm, Cool, Dramatic, Portrait, Vivid, Noir, Retro…) with an intensity slider, 9 adjustments (brightness, contrast, saturation, exposure, temperature, tint, highlights, shadows, sharpness) and 5 effects (blur, vignette, grain, fade, sharpen), each with its own reset; Before / After. Never changes the original — change or undo any of it later.
+- **Smart eraser**: Erase image › *Background* rebuilds what you paint over from the picture around it (sand stays sand, a wall’s pattern carries on), with hardness, feather, fill strength and *Preserve surrounding details*.
+- **Remove object** (key Q): click what to remove — on screenshots a click picks exactly a button, badge, arrow or a word / line of text; on photos the AI finds the object — or brush / box it. Several things at once; they disappear into matching background. Marked areas get *Remove content* too.
+- **Remove background** (key J): finds the subject, keeps fine edges, and puts it on a see-through, white, colour, picture or blurred background; Restore / Remove brushes and edge refinement. All AI runs on your computer.
+- **Ctrl+drag** draws straight with Erase image, Remove object and the Remove background brushes (Shift: 45° steps).
+
+- **One Erase & remove button** in the image editor: choose Annotation, Image, Object or Background in the panel (keys E, I, Q, J still work).
+- **Unmark** brush in Remove object; **Ctrl+Z / Ctrl+Y** step through what you selected before touching the picture.
+
+- **Video editor**: Delete, Cut and Crop on a marked area become annotations — *Deleted area*, *Cut area*, *Crop* — on the Annotations timeline, timed like any other.
+- **Right-click** an annotation for **Cut** and **Crop to this object**; right-click a marked area for its own actions.
+
+- **Filters, redesigned**: Presets / Adjust / Effects tabs, 16 looks with live previews, sliders with value boxes, new Noise and Glow, one-click effect tiles, and a **Before / After** divider on the picture itself.
 
 ### Fixed
+- Big photos (20 MP and more) no longer freeze the editor when removing objects or backgrounds; progress is shown; photo backgrounds come off without a coloured halo; the brush circle no longer shows outside the picture.
+- Removing things from screenshots continues the page's colours and edges instead of copying nearby text into the hole; no "willReadFrequently" warning on the Errors page.
+- Remove object selects a whole product photo in a page (its coloured edges and the white parts inside too) and leaves nothing behind; erasing on a plain background fills with exactly that colour; Remove background keeps page header bars; the Undo / Redo buttons and History cover selection steps.
+- Remove object's AI click no longer marks stray bits elsewhere on the page; Remove background on screenshots keeps edges sharp with no tint of the old background; clicks outside the picture do nothing.
+- Settings › *Mouse cursor between clicks*: the Cursor and Both options no longer stretch across the whole card.
+- **Camera preview matches the recording**: the bubble has the same size and the same small gap from every edge as in the video (bottom-left no longer touched the bottom with a gap on the left). Drag the bubble in the preview to place it anywhere. The camera settings keep one width whatever background is chosen.
+- The camera background no longer leaves "OpenGL error checking is disabled" on the extension's Errors page.
+- Popup: the selected Screenshot / Record tab is rounded only on its inner corner.
+- Extracting text no longer leaves an "Estimating resolution as …" entry on the extension's Errors page.
 - Blur / Pixelate / Solid mask designs no longer pile up: a design replaces only its own part of the look (style, shape, colour treatment, border or colour), so e.g. *Zoom blur* after *Depth blur* blurs only the area, and *Cloud* after *Text redaction* really shows a cloud. The design in use is highlighted.
 - Design names and the *Place the mask* buttons are no longer cut off.
 - **In use**: the parts of the look in use (style, shape, colour, border…) are listed above the designs, each removed with one click (e.g. take a border off without looking for it).
@@ -24,6 +78,16 @@
 - A design adds to the shape in use: e.g. text lines or a face inside a cloud or wave.
 - **Border and corners moved to Adjust** (no longer mixed into the designs): border style (none, solid, dashed, dotted, glow), any colour, thickness; corner radius; and opacity for blur and pixelate (a mask's opacity is its colour's). Designs never add or change a border.
 - The small × buttons sit in the middle of their circles (other icon buttons are unchanged).
+- **Camera and microphone settings** open as a page of the popup (Back / Done), like Flow Capture, instead of a panel that did not fit. The same camera settings (live preview, device, resolution, shape, position, size, opacity, border, mirror) and a microphone test (live level, record and play back) are in **Settings › Recording**.
+- **Camera background**: blur it, remove it (only you in the camera bubble, the screen shows around you), or replace it with a colour, a ready-made picture or your own picture. Runs on this computer (bundled MediaPipe selfie segmenter); the camera picture never leaves it. In the popup's camera page and Settings › Recording, with a live preview.
+- Tooltips stay inside the window; a tooltip wider than its button starts where the button starts (left) or ends where it ends (right). Tooltips in the right column (Camera Only, Custom Area) are no longer squeezed into narrow lines.
+- Undoing a crop (or rotate / resize), redoing it or *Reset to original* shows the whole picture fitted to the screen again, instead of the full picture at the cropped zoom.
+- After copying or cutting a marked area, right-click › *Paste* is available (and Ctrl+V puts the part back next to where it was).
+- *Take screenshot & extract text* extracts the text once, when you take it; opening that capture again from Recent captures (or reloading) no longer runs text extraction again.
+- Editor toolbar: a button no longer looks selected (a clipped blue ring) after its dialog closes; keyboard focus shows a ring in the theme colour inside the button.
+- **Lighter while recording**: click effects no longer switch off for the rest of a recording when Chrome misses one status check; embedded frames no longer poll; page-wide click effects are drawn at 1×; the camera background works at the size the camera is shown and finds the person about 15 times a second; Flow Capture step screenshots taken during a recording are saved as JPEG (much quicker than PNG).
+- *Mouse cursor between clicks › Cursor* uses the cursor design, size and colours from Highlight mouse clicks (no second set of controls).
+- **Mouse cursor between clicks**: the separate *Cursor highlight* and *Styled cursor* switches are one setting — Off, Halo, Cursor (drawn into tab recordings, which never include the real cursor) or Both — in the popup and in Settings, next to Highlight mouse clicks.
 - Sliders move smoothly while dragged (e.g. Effect size, Effect opacity and Animation duration in Highlight mouse clicks).
 - **Blur, Pixelate and Solid mask designs, one part at a time**: instead of mixed design categories, the look is picked in separate parts — Blur: Effect, Strength, Shape, Edges, Colour, Glass; Pixelate: Pattern, Block size, Blocks, Shape, Edges, Colour; Mask: Colour, Shape, Inside the mask. Each part shows its choice in its header, exactly one choice is selected, and a choice never changes another part. Strength, opacity, corners and border are fine-tuned under Adjust.
 

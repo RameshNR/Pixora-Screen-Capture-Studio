@@ -257,7 +257,8 @@
   gap: 6px;
   flex-wrap: wrap;
   justify-content: space-between;
-  padding: 8px 12px 0;
+  /* Room under Select all / Add image before the first card. */
+  padding: 8px 12px 10px;
 }
 
 .editorBodyFull {
@@ -593,3 +594,21 @@
   filter: brightness(1.15);
 }
 
+
+/* Full screen (the bar under the picture): the editor fills the screen, with its own background. */
+.editorFrame:fullscreen { background: var(--c-editor-canvas, #1f1d2b); width: 100vw; height: 100vh; }
+
+/* Export flow: sections with cards. */
+.xBody { display: grid; gap: 14px; }
+.xSection { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--c-editor-border); }
+.xTitle { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--c-editor-muted, #a5a3b8); }
+.xRow { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.xCards { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.xCard { display: grid; justify-items: start; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--c-editor-border); border-radius: 12px; background: transparent; color: var(--c-editor-text); font: inherit; text-align: left; cursor: pointer; transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease; }
+.xCard:hover { border-color: color-mix(in srgb, var(--c-primary) 60%, var(--c-editor-border)); transform: translateY(-1px); }
+.xCardOn, .xCardOn:hover { border-color: var(--c-primary); background: color-mix(in srgb, var(--c-primary) 16%, transparent); }
+.xCardIcon { color: var(--c-primary); margin-bottom: 4px; }
+.xCardName { font-weight: 700; font-size: 13.5px; }
+.xCardHint { font-size: 11.5px; color: var(--c-editor-muted, #a5a3b8); line-height: 1.3; }
+.xNote { margin: 0; font-size: 12px; color: var(--c-editor-muted, #a5a3b8); }
+.xSummary { margin-right: auto; font-size: 12.5px; color: var(--c-editor-muted, #a5a3b8); }

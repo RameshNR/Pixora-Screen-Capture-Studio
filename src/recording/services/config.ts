@@ -35,6 +35,8 @@ export function buildRecordingConfig(
       position: rec.cameraPosition,
       size: rec.cameraSize,
       shape: rec.cameraShape,
+      ...(rec.cameraBackground && rec.cameraBackground.mode !== 'none' ? { background: { ...rec.cameraBackground } } : {}),
+      ...(mode === 'camera' ? { opaque: true } : {}),
     },
     systemAudio: mode === 'camera' ? false : rec.systemAudio,
     countdownSeconds: rec.countdownSeconds,

@@ -116,6 +116,13 @@
   grid-template-columns: auto minmax(0, 1fr) 340px;
 }
 
+/* Full screen: no toolbar row, no image list or side panel — the picture area takes it all. */
+.app.appFull { grid-template-rows: minmax(0, 1fr); }
+.body.bodyFull { grid-template-columns: minmax(0, 1fr); }
+
+/* Full screen: only the picture area fills the screen (its own background stays). */
+.workspace:fullscreen { width: 100vw; height: 100vh; }
+
 .workspace {
   position: relative;
   overflow: auto;
@@ -360,6 +367,83 @@
   border-color: var(--c-primary);
 }
 
+/* Number field with − / + buttons (NumberStepper). */
+.stepper {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--c-editor-border);
+  border-radius: var(--r-sm);
+  background: var(--c-editor-field);
+  overflow: hidden;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.stepper:focus-within {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primary) 22%, transparent);
+}
+
+.stepInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--c-editor-text);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.stepInput:focus {
+  outline: none;
+}
+
+.stepInput::-webkit-outer-spin-button,
+.stepInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stepBtn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-editor-text-dim);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.stepBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--c-primary) 14%, transparent);
+  color: var(--c-primary);
+}
+
+.stepBtn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--c-primary) 24%, transparent);
+}
+
+.stepBtn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
+}
+
+.stepBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .iconToggles {
   display: flex;
   gap: 4px;
@@ -453,6 +537,10 @@
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--c-editor-text-dim);
+}
+
+.menuTool:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--c-primary);
 }
 
 .menuTool:hover {
@@ -1631,3 +1719,626 @@
   gap: 8px;
   padding: 2px 10px 10px;
 }
+
+/* ---------- Filters, Remove object, Remove background (Round 91) ---------- */
+.resetSlider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 4px;
+}
+.compareRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.holdCompare {
+  flex: 1;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--c-editor-border);
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  user-select: none;
+}
+.holdCompare:hover:not(:disabled) { background: var(--c-editor-hover); }
+.holdCompare:active:not(:disabled) { border-color: var(--c-primary); }
+.holdCompare:disabled { opacity: 0.5; cursor: default; }
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+.filterCard {
+  display: grid;
+  gap: 4px;
+  padding: 3px 3px 5px;
+  border-radius: 9px;
+  border: 1.5px solid transparent;
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: center;
+  cursor: pointer;
+}
+.filterCard:hover { background: var(--c-editor-hover); }
+.filterCardOn { border-color: var(--c-primary); }
+.filterThumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  display: block;
+  background: #fff;
+}
+.cropActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.fieldRow {
+  display: grid;
+  gap: 2px;
+}
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--c-editor-text);
+  font-size: var(--fs-caption);
+}
+.aiStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--c-editor-text);
+  font-size: var(--fs-caption);
+}
+
+/* Erase & remove: one toolbar button, the kind picked here (2 × 2). */
+.eraseSwitch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.eraseOption {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--c-editor-border);
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+.eraseOption:hover { background: var(--c-editor-hover); }
+.eraseOptionOn,
+.eraseOptionOn:hover {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+
+/* ---------- Filters panel (Presets / Adjust / Effects) ---------- */
+.fHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.fHeadIcon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c-primary) 14%, transparent);
+  color: var(--c-primary);
+  flex: none;
+}
+.fTitle { font-size: 16px; font-weight: 700; color: var(--c-editor-text); }
+.fSub { font-size: var(--fs-caption); color: var(--c-editor-text-dim); margin-top: 2px; }
+.fTabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--c-editor-tile);
+  margin-bottom: 14px;
+}
+.fTab {
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--c-editor-text-dim);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fTab:hover { color: var(--c-editor-text); }
+.fTabOn, .fTabOn:hover { background: var(--c-primary); color: #fff; }
+.fGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.fCard {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 3px 3px 6px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.fCard:hover { background: var(--c-editor-hover); }
+.fCardOn, .fCardOn:hover { border-color: var(--c-primary); background: color-mix(in srgb, var(--c-primary) 10%, transparent); }
+.fCard .filterThumb { aspect-ratio: 16 / 11; border-radius: 7px; }
+.fCardLabel { text-align: center; }
+.fCheck {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+}
+.fIntensity { padding-top: 10px; border-top: 1px solid var(--c-editor-border); }
+.fNote {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c-primary) 9%, transparent);
+  color: var(--c-primary);
+}
+.fNote div { display: grid; gap: 2px; }
+.fNote strong { color: var(--c-editor-text); font-size: 13.5px; }
+.fNote span { color: var(--c-editor-text-dim); font-size: var(--fs-caption); }
+/* One setting: its name on top, then slider · value · reset. */
+.fRow {
+  display: grid;
+  gap: 4px;
+  padding: 6px 0;
+}
+.fRowTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fRowCtl {
+  display: grid;
+  /* The slider starts under the name (past the 20 px icon and its 8 px gap). */
+  padding-left: 28px;
+  grid-template-columns: minmax(0, 1fr) 56px 26px;
+  align-items: center;
+  gap: 10px;
+}
+.fRowIcon { color: var(--c-editor-text-dim); display: grid; place-items: center; width: 20px; flex: none; }
+.fRowLabel { color: var(--c-editor-text); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; }
+.fRange {
+  --fill: 50%;
+  --track: linear-gradient(90deg, var(--c-primary) var(--fill), color-mix(in srgb, var(--c-editor-text) 16%, transparent) var(--fill));
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.fRange::-webkit-slider-runnable-track { height: 5px; border-radius: 999px; background: var(--track); }
+.fRange::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6.5px;
+  border-radius: 50%;
+  border: 2px solid var(--c-primary);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.fRange:focus-visible { outline: none; }
+.fRange:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-primary) 30%, transparent); }
+.fValue {
+  width: 52px;
+  height: 30px;
+  box-sizing: border-box;
+  border: 1px solid var(--c-editor-border);
+  border-radius: 8px;
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.fValue:focus { outline: 2px solid var(--c-primary); outline-offset: -1px; }
+.fFoot { display: flex; justify-content: center; margin-top: 12px; }
+
+/* ---------- Floating controls over the canvas (Filters: Before / After) ---------- */
+.canvasControls {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  z-index: 5;
+}
+.canvasControls > * { pointer-events: auto; }
+.cmpToggle,
+.cmpTools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--c-editor-card, var(--c-editor-tile));
+  border: 1px solid var(--c-editor-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  color: var(--c-editor-text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.cmpTools { gap: 4px; padding: 5px; }
+
+/* A part of the picture being worked on (Remove content): shaded, outlined, with a spinner. */
+.busyArea {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--c-primary);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c-primary) 18%, transparent);
+  pointer-events: none;
+  z-index: 4;
+  animation: busyPulse 1.2s ease-in-out infinite;
+}
+.busyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.85);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+@keyframes busyPulse {
+  50% { background: color-mix(in srgb, var(--c-primary) 8%, transparent); }
+}
+
+/* ---------- The bar under the picture (compare, zoom, fit, full screen) ---------- */
+.cbBar,
+.cbMini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 16px;
+  background: var(--c-editor-card, var(--c-editor-tile));
+  border: 1px solid var(--c-editor-border);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
+  color: var(--c-editor-text);
+  max-width: 100%;
+  /* Not clipped: the settings popup opens above the bar. */
+  overflow: visible;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+/* Bar switched off: a compact card in the bottom-right corner. */
+.cbMini { margin-left: auto; padding: 5px 6px; border-radius: 14px; }
+.cbGroup { display: flex; align-items: center; gap: 4px; }
+.cbSep { width: 1px; align-self: stretch; margin: 6px 4px; background: var(--c-editor-border); flex: none; }
+.cbBtn,
+.cbCheckBtn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  cursor: pointer;
+  flex: none;
+}
+.cbBtn:hover:not(:disabled),
+.cbCheckBtn:hover:not(:disabled) { background: var(--c-editor-hover); }
+.cbBtn:disabled,
+.cbCheckBtn:disabled { opacity: 0.4; cursor: default; }
+.cbBtnOn,
+.cbBtnOn:hover:not(:disabled) { background: var(--c-primary); color: #fff; }
+.cbCheckBtn { background: transparent; }
+.cbCheck {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+.cbToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cbZoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--c-editor-border);
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cbZoom span { min-width: 46px; text-align: center; }
+.cbZoom button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--c-editor-text);
+  cursor: pointer;
+}
+.cbZoom button:hover { background: var(--c-editor-hover); }
+.cbMix { width: 110px; accent-color: var(--c-primary); }
+.cbMenuWrap { position: relative; }
+.cbMenu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  width: 250px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--c-editor-card, var(--c-editor-tile));
+  border: 1px solid var(--c-editor-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  z-index: 10;
+}
+.cbMini .cbMenu { left: auto; right: 0; }
+.cbMenuTitle { font-size: 12px; font-weight: 700; color: var(--c-editor-text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 2px 4px 8px; }
+.cbMenuRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.cbMenuRow:hover { background: var(--c-editor-hover); }
+.cbOff { opacity: 0.45; }
+.cbMenuIcon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--c-editor-tile); color: var(--c-primary); flex: none; }
+.cbMenuLabel { flex: 1; }
+.cbZoom { position: relative; }
+.cbZoomValue { display: inline-flex !important; align-items: center; gap: 3px; width: auto !important; padding: 0 8px; border-radius: 8px !important; font: inherit; font-variant-numeric: tabular-nums; }
+.cbZoomMenu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  min-width: 130px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--c-editor-card, var(--c-editor-tile));
+  border: 1px solid var(--c-editor-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  z-index: 10;
+}
+.cbZoomMenu button {
+  width: auto !important;
+  height: 32px !important;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px !important;
+  background: transparent;
+  color: var(--c-editor-text);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+  display: block !important;
+}
+.cbZoomMenu button:hover { background: var(--c-editor-hover); }
+.cbZoomMenu button[aria-selected='true'] { color: var(--c-primary); font-weight: 700; }
+
+/* Full screen: the editor area (picture and bar) with a strip of the other open images on top. */
+.fsRoot { height: 100%; width: 100%; }
+.fsRoot:fullscreen { background: var(--c-editor-canvas); }
+/* Full screen, several images: the strip on the left, the controls on the right (same row). */
+.canvasControls:has(> .strip) { justify-content: space-between; gap: 12px; }
+.canvasControls:has(> .strip) > :last-child { flex: none; margin-left: auto; }
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  /* As wide as its thumbnails (no empty space); shrinks on a narrow window. */
+  flex: 0 1 auto;
+  padding: 5px;
+  border-radius: 14px;
+  background: var(--c-editor-card, var(--c-editor-tile));
+  border: 1px solid var(--c-editor-border);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
+}
+/* Up to ten thumbnails show (fewer on a narrow window); the arrows scroll to the rest. */
+.stripRow { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; min-width: 58px; max-width: calc(10 * 58px + 9 * 6px); }
+.stripRow::-webkit-scrollbar { display: none; }
+.stripThumb {
+  flex: none;
+  width: 58px;
+  height: 38px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--c-editor-tile);
+  cursor: pointer;
+}
+.stripThumb[aria-current='true'] { border-color: var(--c-primary); }
+.stripThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stripArrow {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--c-editor-tile);
+  color: var(--c-editor-text);
+  cursor: pointer;
+}
+.stripArrow:disabled { opacity: 0.35; cursor: default; }
+
+/* View settings: Show Original / Edited / Both. */
+.cbShow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; margin: 2px 0 8px; border-radius: 10px; background: var(--c-editor-tile); }
+.cbShow button { height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--c-editor-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cbShow button:disabled { cursor: default; }
+.cbShow .cbShowOn { background: var(--c-primary); color: #fff; }
+.cbZoomInput { width: 52px; height: 30px; border: 0; background: transparent; color: var(--c-editor-text); font: inherit; font-size: 14px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; border-radius: 8px; }
+.cbZoomInput:focus { outline: 2px solid var(--c-primary); background: var(--c-editor-card, #fff); }
+.cbZoomMore { width: 22px !important; }
+
+.cbToggle:hover:not(:disabled) { background: var(--c-editor-hover); }
+.cbToggle:disabled { opacity: 0.45; cursor: default; }
+.cbToggle.cbToggleOn, .cbToggle.cbToggleOn:hover { background: var(--c-primary); color: #fff; }
+
+.cbShow button svg { vertical-align: middle; }
+.cbMenuZoom { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 8px; padding: 3px; border-radius: 10px; background: var(--c-editor-tile); }
+.cbMenuZoom > button { display: grid; place-items: center; width: 34px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--c-editor-text); cursor: pointer; }
+.cbMenuZoom > button:hover { background: var(--c-editor-hover); }
+
+/* Image strip: the edges fade where more images are scrolled out of view; the arrows show how many. */
+.fadeL { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 36px); mask-image: linear-gradient(to right, transparent 0, #000 36px); }
+.fadeR { -webkit-mask-image: linear-gradient(to left, transparent 0, #000 36px); mask-image: linear-gradient(to left, transparent 0, #000 36px); }
+.fadeL.fadeR { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%); }
+.stripArrow { position: relative; }
+.stripCount { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--c-primary); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px var(--c-editor-card, #fff); }
+
+/* Export: Original, PNG, JPEG, WebP in two rows of two. */
+.formatCards { grid-template-columns: repeat(2, 1fr); }
+
+/* Image details (side panel from the toolbar's Details button; full screen: floating or docked). */
+.imageInfo { display: grid; gap: 14px; }
+.infoHead { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; color: var(--c-editor-text); }
+.infoHead > span:first-of-type { flex: 1; }
+.infoHead svg { color: var(--c-primary); }
+.infoClose, .infoMark { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--c-editor-muted, #8b8aa0); cursor: pointer; }
+.infoClose:hover { background: var(--c-editor-hover); color: var(--c-editor-text); }
+.infoList { display: grid; margin: 0; font-size: 13px; border-top: 1px solid var(--c-editor-border); }
+.infoList > div { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 36px; border-bottom: 1px solid var(--c-editor-border); }
+.infoList dt { color: var(--c-editor-muted, #8b8aa0); }
+.infoList dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--c-editor-text); font-weight: 500; }
+.statePill { display: inline-block; padding: 3px 10px; border-radius: 99px; background: color-mix(in srgb, var(--c-primary) 16%, transparent); color: var(--c-primary); font-size: 12.5px; font-weight: 600; }
+.stateChanged { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #b45309; }
+.infoSub { font-size: 15px; font-weight: 700; color: var(--c-editor-text); margin-bottom: 8px; }
+.histogram { display: block; width: 100%; height: 110px; border-radius: 10px; background: var(--c-editor-card, #fff); box-shadow: inset 0 0 0 1px var(--c-editor-border); color: var(--c-editor-text); }
+.infoMeters { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 8px; font-size: 12.5px; color: var(--c-editor-muted, #8b8aa0); }
+.infoMeters b { color: var(--c-editor-text); font-weight: 700; }
+.paletteBar { display: flex; height: 10px; margin-top: 12px; border-radius: 99px; overflow: hidden; }
+.paletteBar span { min-width: 3px; }
+.palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; margin-top: 10px; }
+.swatch { display: grid; justify-items: start; gap: 3px; padding: 6px; border: 1px solid var(--c-editor-border); border-radius: 10px; background: var(--c-editor-card, transparent); color: var(--c-editor-text); font: inherit; text-align: left; cursor: copy; transition: transform 0.12s ease, border-color 0.12s ease; }
+.swatch:hover { transform: translateY(-1px); border-color: var(--c-primary); }
+.swatchChip { display: grid; place-items: center; width: 100%; height: 30px; border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
+.swatchHex { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.swatchShare { font-size: 11px; color: var(--c-editor-muted, #8b8aa0); }
+.fsInfo {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--c-editor-card, var(--c-editor-tile));
+  border: 1px solid var(--c-editor-border);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.25);
+  z-index: 30;
+  transform-origin: top right;
+  animation: fsInfoIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+.fsInfoOut { animation: fsInfoOut 0.17s ease-in forwards; pointer-events: none; }
+/* Docked: a panel beside the picture (the picture takes the rest). */
+/* Docked: a card beside the picture, the same gap all round (top, right, bottom). */
+.fsDock { position: static; width: auto; max-height: none; margin: 16px 16px 16px 0; height: auto; align-self: stretch; overflow-y: auto; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16); animation: fsDockIn 0.26s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.fsDock.fsInfoOut { animation: fsDockOut 0.17s ease-in forwards; }
+.body.bodyFull.bodyDock { grid-template-columns: minmax(0, 1fr) 380px; }
+.infoPanel { padding: 16px; }
+@keyframes fsInfoIn { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes fsInfoOut { to { opacity: 0; transform: translateY(-6px) scale(0.97); } }
+@keyframes fsDockIn { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes fsDockOut { to { opacity: 0; transform: translateX(28px); } }
+/* The rows and colours come in one after another. */
+.fsInfo .infoList > div, .fsInfo .infoColours { animation: infoRow 0.3s ease-out backwards; }
+.fsInfo .infoList > div:nth-child(2) { animation-delay: 20ms; } .fsInfo .infoList > div:nth-child(3) { animation-delay: 40ms; } .fsInfo .infoList > div:nth-child(4) { animation-delay: 60ms; } .fsInfo .infoList > div:nth-child(5) { animation-delay: 80ms; } .fsInfo .infoList > div:nth-child(n+6) { animation-delay: 100ms; } .fsInfo .infoColours { animation-delay: 130ms; }
+@keyframes infoRow { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .fsInfo, .fsInfoOut, .fsDock, .fsInfo .infoList > div, .fsInfo .infoColours { animation: none !important; } }
+
+.stripRow { cursor: grab; touch-action: pan-x; user-select: none; }
+.stripDragging, .stripDragging .stripThumb { cursor: grabbing; }
+
+.imageLine { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.detailsLink { border: 0; background: transparent; color: var(--c-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.detailsLink:hover { background: var(--c-editor-hover); }
+
+/* The current image: a gap between the picture and its border, so the border is easy to see. */
+.stripThumb { padding: 2px; }
+.stripThumb img { border-radius: 5px; }
+.stripThumb[aria-current='true'] { border-color: var(--c-primary); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-primary) 35%, transparent); }

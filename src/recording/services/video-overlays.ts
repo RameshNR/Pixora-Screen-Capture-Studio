@@ -313,6 +313,7 @@ export function overlayName(a: Annotation): string {
     pen: 'Pen', highlighter: 'Highlighter', rect: 'Shape', ellipse: 'Shape', arrow: 'Arrow', line: 'Line', text: 'Text', callout: 'Callout',
     blur: 'Blur', pixelate: 'Pixelate', mask: 'Mask', marker: 'Marker', sticker: 'Sticker', cursor: 'Cursor', image: 'Image',
   };
+  if (a.type === 'mask' && a.role) return a.role === 'crop' ? 'Crop' : a.role === 'cut' ? 'Cut area' : 'Deleted area';
   const base = kind[a.type] ?? 'Drawing';
   if ((a.type === 'text' || a.type === 'callout') && a.text.trim()) return `${base}: ${a.text.trim().slice(0, 30)}`;
   if (a.type === 'marker') return `Marker ${a.n}`;

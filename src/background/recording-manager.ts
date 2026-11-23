@@ -13,6 +13,7 @@ import { cancelFlow, finishFlow, getFlowState, startFlow } from './flow-manager'
 import { badgeForRecording, notify } from './badge';
 import { closeOffscreenDocument, ensureOffscreenDocument, hasOffscreenDocument } from './offscreen-manager';
 import { injectOverlay, sendOverlay, sendOverlaySafe } from './overlay';
+import { CAMERA_BG_IMAGE_KEY } from '@/shared/constants/camera';
 
 /**
  * Authoritative recording state lives here (service worker) and is mirrored to
@@ -100,6 +101,10 @@ export function startRecording(config: RecordingConfig, tabId: number | null, au
 
     const sessionId = createId('r_');
     await dispatch({ type: 'PREPARE', sessionId, mode: config.mode, maxDurationMs: config.maxDurationMs, targetTabId: tabId });
+    if (config.camera.background?.mode === 'image' && !config.camera.background.image) {
+      const stored = ((await chrome.storage.local.get(CAMERA_BG_IMAGE_KEY).catch(() => ({}))) as Record<string, unknown>)[CAMERA_BG_IMAGE_KEY];
+      config = { ...config, camera: { ...config.camera, background: { ...config.camera.background, image: typeof stored === 'string' ? stored : undefined } } };
+    }
     const pending: PendingRecording = { sessionId, config, tabId, autoStart };
     await chrome.storage.session.set({ [PENDING_KEY]: pending });
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Check, ChevronDown, Clapperboard, Clock, Copy, Download, EyeOff, FastForward, FileOutput, FileVideo, FolderOpen, History, Images, ListOrdered, Pencil, Play, Rewind, Save, Trash2, Upload, VolumeX, Workflow, X } from 'lucide-react';
+import { ChoiceCards, ChoiceSection } from '@/shared/components/ChoiceCards';
+import { Check, ChevronDown, Clapperboard, Clock, Copy, Download, EyeOff, FastForward, FileOutput, FileVideo, FolderOpen, History, Images, ListOrdered, Pencil, Play, Rewind, Save, Trash2, Upload, VolumeX, Volume2, Globe, Scissors, Maximize2, Gauge, Layers, Workflow, X } from 'lucide-react';
 import type { AppErrorInfo, CaptureRecord, HardwareAcceleration, Marker, VideoContainer, VideoRedaction } from '@/shared/types';
 import { ChaptersPanel, PrivacyPanel, RedactionPreview, TrimEditor } from '../components/VideoTools';
 import { FramesPanel } from '../components/FramesPanel';
@@ -21,7 +22,7 @@ import { Checkbox } from '@/shared/components/FormControls';
 import { Button, IconButton } from '@/shared/components/Button';
 import { ConfirmationDialog, Modal } from '@/shared/components/Modal';
 import { ProgressIndicator, Spinner } from '@/shared/components/Progress';
-import { RadioGroup, TextField } from '@/shared/components/FormControls';
+import { TextField } from '@/shared/components/FormControls';
 import { Dropdown, Select } from '@/shared/components/Dropdown';
 import { InlineNotice } from '@/shared/components/Settings';
 import { Tooltip } from '@/shared/components/Tooltip';
@@ -973,7 +974,7 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
       open={open}
       title="Export recording"
       onClose={() => { abortRef.current?.abort(); onClose(); }}
-      width={520}
+      width={620}
       footer={
         working ? (
           <Button variant="ghost" onClick={() => abortRef.current?.abort()}>
@@ -990,102 +991,75 @@ function ExportDialog({ overlays, watermark, hardwareAcceleration, open, onClose
       }
     >
       <div className={styles.exportBody}>
-        <div>
-          <div className={styles.fieldLabel}>Format</div>
-          <RadioGroup
-            label="Format"
-            value={container}
-            onChange={setContainer}
-            options={[
-              { value: 'webm', label: 'WebM' },
-              { value: 'mp4', label: 'MP4 (H.264)' },
-            ]}
-          />
-        </div>
-        <div>
-          <div className={styles.fieldLabel}>Range</div>
-          <RadioGroup
-            label="Range"
-            value={useTrim ? 'trim' : 'full'}
-            onChange={(v) => setUseTrim(v === 'trim')}
-            options={[
-              { value: 'full', label: 'Full recording' },
-              { value: 'trim', label: trim ? `Trimmed (${formatDuration((trim.end - trim.start) * 1000)})` : 'Trimmed', disabled: !trim },
-            ]}
-          />
-        </div>
-        <div className={styles.exportRow}>
-          <div>
-            <div className={styles.fieldLabel}>Resolution</div>
-            <Select
-              label="Resolution"
-              value={resolution}
-              minWidth={230}
-              onChange={setResolution}
-              options={[
+        <ChoiceSection title="Format" icon={<FileVideo size={14} aria-hidden />}>
+          <ChoiceCards<VideoContainer> label="Format" value={container} onChange={setContainer} options={[
+            { value: 'mp4', label: 'MP4 (H.264)', hint: 'Plays everywhere', icon: <FileVideo size={18} /> },
+            { value: 'webm', label: 'WebM', hint: 'Small, for the web', icon: <Globe size={18} /> },
+          ]} />
+        </ChoiceSection>
+
+        <ChoiceSection title="Range" icon={<Scissors size={14} aria-hidden />}>
+          <ChoiceCards label="Range" value={useTrim ? 'trim' : 'full'} onChange={(v) => setUseTrim(v === 'trim')} options={[
+            { value: 'full', label: 'Full recording', hint: duration ? formatDuration(duration * 1000) : 'From start to end' },
+            { value: 'trim', label: trim ? `Trimmed (${formatDuration((trim.end - trim.start) * 1000)})` : 'Trimmed', hint: trim ? 'The part you kept' : 'Trim it first', disabled: !trim },
+          ]} />
+          {useTrim && trim && <Checkbox checked={precise} onChange={setPrecise} label="Frame-accurate cut" description="Re-encodes so the cut lands exactly on your start time (slower)." />}
+        </ChoiceSection>
+
+        <ChoiceSection title="Size and frame rate" icon={<Maximize2 size={14} aria-hidden />}>
+          <div className={styles.exportRow}>
+            <div>
+              <div className={styles.fieldLabel}>Resolution</div>
+              <Select label="Resolution" value={resolution} minWidth={230} onChange={setResolution} options={[
                 { value: 0, label: `Original${srcW && srcH ? ` (${srcW} × ${srcH})` : ''}` },
                 ...RESOLUTIONS.map((r) => {
                   const larger = Boolean(srcW && srcH && r.value >= Math.min(srcW, srcH));
                   return { value: r.value, label: larger ? `${r.label} — source is smaller` : r.label, disabled: larger };
                 }),
-              ]}
-            />
-          </div>
-          <div>
-            <div className={styles.fieldLabel}>Frame rate</div>
-            <Select
-              label="Frame rate"
-              value={frameRate}
-              minWidth={150}
-              onChange={setFrameRate}
-              options={[
+              ]} />
+            </div>
+            <div>
+              <div className={styles.fieldLabel}>Frame rate</div>
+              <Select label="Frame rate" value={frameRate} minWidth={150} onChange={setFrameRate} options={[
                 { value: 0, label: `Original${record.fps ? ` (${record.fps} fps)` : ''}` },
                 ...[60, 30, 24, 15].map((f) => ({ value: f, label: `${f} fps`, disabled: Boolean(record.fps && f > record.fps) })),
-              ]}
-            />
+              ]} />
+            </div>
           </div>
-        </div>
-        <div>
-          <div className={styles.fieldLabel}>Quality</div>
-          <RadioGroup<QualityChoice>
-            label="Quality"
-            value={quality}
-            onChange={setQuality}
-            options={[
-              { value: 'original', label: 'Original' },
-              { value: 'high', label: 'High' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'low', label: 'Low' },
-              { value: 'very-low', label: 'Smallest' },
-            ]}
-          />
-        </div>
-        <div>
-          <div className={styles.fieldLabel}>Audio</div>
+        </ChoiceSection>
+
+        <ChoiceSection title="Quality" icon={<Gauge size={14} aria-hidden />}>
+          <ChoiceCards<QualityChoice> label="Quality" value={quality} onChange={setQuality} min={92} options={[
+            { value: 'original', label: 'Original', hint: 'As recorded' },
+            { value: 'high', label: 'High', hint: 'Near original' },
+            { value: 'medium', label: 'Medium', hint: 'Balanced' },
+            { value: 'low', label: 'Low', hint: 'Small file' },
+            { value: 'very-low', label: 'Smallest', hint: 'For sharing' },
+          ]} />
+        </ChoiceSection>
+
+        <ChoiceSection title="Audio" icon={<Volume2 size={14} aria-hidden />}>
           {hasAudio ? (
-            <RadioGroup
-              label="Audio"
-              value={keepAudio ? 'keep' : 'remove'}
-              onChange={(v) => setKeepAudio(v === 'keep')}
-              options={[
-                { value: 'keep', label: 'Keep audio' },
-                { value: 'remove', label: 'Remove audio' },
-              ]}
-            />
+            <ChoiceCards label="Audio" value={keepAudio ? 'keep' : 'remove'} onChange={(v) => setKeepAudio(v === 'keep')} options={[
+              { value: 'keep', label: 'Keep audio', hint: 'Sound as recorded', icon: <Volume2 size={18} /> },
+              { value: 'remove', label: 'Remove audio', hint: 'A silent video', icon: <VolumeX size={18} /> },
+            ]} />
           ) : (
             <div className={styles.noAudioNote} role="note">
               <VolumeX size={15} /> This video has no audio — the export will be silent.
             </div>
           )}
-        </div>
-        <div className={styles.exportChecks}>
-          {useTrim && trim && <Checkbox checked={precise} onChange={setPrecise} label="Frame-accurate cut" description="Re-encodes so the cut lands exactly on your start time (slower)." />}
-          {redactions.length > 0 && <Checkbox checked={applyPrivacy} onChange={setApplyPrivacy} label={`Apply ${redactions.length} privacy region${redactions.length > 1 ? 's' : ''}`} description="Blur, pixelate or mask the regions in the exported video." />}
-          {markers.length > 0 && <Checkbox checked={keepChapters} onChange={setKeepChapters} label="Keep chapters" description="Written into the file description (“00:00 Title”)." />}
-          {(overlays.length > 0 || watermark) && (
-            <Checkbox checked={applyOverlays} onChange={setApplyOverlays} label={`Burn in drawings${overlays.length ? ` (${overlays.length})` : ''}${watermark ? ' and watermark' : ''}`} description="Drawn into every frame with their animations and effects (the video is re-encoded)." />
-          )}
-        </div>
+        </ChoiceSection>
+
+        {(redactions.length > 0 || markers.length > 0 || overlays.length > 0 || watermark) && (
+          <ChoiceSection title="Include" icon={<Layers size={14} aria-hidden />}>
+            {redactions.length > 0 && <Checkbox checked={applyPrivacy} onChange={setApplyPrivacy} label={`Apply ${redactions.length} privacy region${redactions.length > 1 ? 's' : ''}`} description="Blur, pixelate or mask the regions in the exported video." />}
+            {markers.length > 0 && <Checkbox checked={keepChapters} onChange={setKeepChapters} label="Keep chapters" description="Written into the file description (“00:00 Title”)." />}
+            {(overlays.length > 0 || watermark) && (
+              <Checkbox checked={applyOverlays} onChange={setApplyOverlays} label={`Burn in drawings${overlays.length ? ` (${overlays.length})` : ''}${watermark ? ' and watermark' : ''}`} description="Drawn into every frame with their animations and effects (the video is re-encoded)." />
+            )}
+          </ChoiceSection>
+        )}
         <div className={styles.exportSummary} aria-label="Output summary">
           Output: {out.width && out.height ? `${out.width} × ${out.height}` : 'original size'} · {container === 'mp4' ? 'MP4' : 'WebM'}
           {frameRate ? ` · ${frameRate} fps` : ''} · {keepAudio && hasAudio ? 'with audio' : 'no audio'}

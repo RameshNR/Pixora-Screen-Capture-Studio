@@ -12,6 +12,9 @@ import { Button } from '@/shared/components/Button';
 import { ConfirmationDialog } from '@/shared/components/Modal';
 import { ThemePicker } from './ThemePicker';
 import { ClickHighlightFields } from '@/shared/components/ClickHighlightFields';
+import { MovingCursorFields } from '@/shared/components/MovingCursorFields';
+import { CameraFields, MicFields } from '@/popup/components/AudioControls';
+import { useMediaDevices } from '@/popup/hooks/useMediaDevices';
 import { useToast } from '@/shared/components/Toast';
 import { COUNTDOWN_OPTIONS, MAX_DURATION_OPTIONS, RESOLUTION_LABELS, SCREENSHOT_DELAY_OPTIONS } from '@/shared/constants/media';
 import { buildFilename } from '@/shared/utils/filename';
@@ -205,10 +208,9 @@ export function RecordingSection({ settings, update }: Props) {
   const r = settings.recording;
   const set = (patch: DeepPartial<Settings['recording']>) => void update({ recording: patch });
   const [mics, setMics] = useState<MediaDeviceOption[]>([]);
-  const [cams, setCams] = useState<MediaDeviceOption[]>([]);
+  const devices = useMediaDevices();
   useEffect(() => {
     void listDevices('audioinput').then(setMics).catch(() => undefined);
-    void listDevices('videoinput').then(setCams).catch(() => undefined);
   }, []);
   return (
     <SettingsPage title="Recording" icon={<Video size={26} />} actions={<ResetPage section="recording" title="Recording" update={update} />} description="Video, audio and on-screen defaults for screen, tab and camera recordings.">
@@ -245,13 +247,19 @@ export function RecordingSection({ settings, update }: Props) {
       <SettingRow label="Echo cancellation" icon={<AudioLines size={18} />} hint="Removes speaker sound picked up by the microphone.">
         <ToggleSwitch label="Echo cancellation" checked={r.echoCancellation} onChange={(echoCancellation) => set({ echoCancellation })} />
       </SettingRow>
+      <SettingRow label="Test the microphone" icon={<Mic size={18} />} hint="See the input level and record a few seconds to hear yourself." stacked>
+        <MicFields rec={r} update={(patch) => set(patch)} devices={devices} />
+      </SettingRow>
       <SettingRow label="Audio bitrate" icon={<Activity size={18} />}>
         <Select label="Audio bitrate" value={r.audioBitrateKbps} onChange={(audioBitrateKbps) => set({ audioBitrateKbps })} options={[64, 96, 128, 192, 256, 320].map((b) => ({ value: b, label: `${b} kbps` }))} />
       </SettingRow>
       </SettingsSection>
       <SettingsSection title="Camera" icon={<Webcam size={22} />}>
-      <SettingRow label="Default camera" icon={<Webcam size={18} />}>
-        <Select label="Default camera" value={r.cameraDeviceId} onChange={(cameraDeviceId) => set({ cameraDeviceId })} options={[{ value: 'default', label: 'System default' }, ...cams.map((c) => ({ value: c.deviceId, label: c.label }))]} />
+      <SettingRow label="Show my camera by default" icon={<Webcam size={18} />} hint="A camera bubble over tab, area and desktop recordings.">
+        <ToggleSwitch label="Camera overlay" checked={r.cameraEnabled} onChange={(cameraEnabled) => set({ cameraEnabled })} />
+      </SettingRow>
+      <SettingRow label="Camera and bubble" icon={<Webcam size={18} />} hint="Live preview: device, resolution, shape, position, size, opacity, border and mirror." stacked>
+        <CameraFields rec={r} update={(patch) => set(patch)} devices={devices} />
       </SettingRow>
       </SettingsSection>
       <SettingsSection title="While recording" icon={<CircleDot size={22} />}>
@@ -280,8 +288,8 @@ export function RecordingSection({ settings, update }: Props) {
       <SettingRow label="Show keyboard shortcuts" icon={<Keyboard size={18} />} hint={formatKeys('Shows key combinations (e.g. Ctrl+C) — never ordinary typing or passwords.')}>
         <ToggleSwitch label="Keyboard shortcuts" checked={r.highlightKeys} onChange={(highlightKeys) => set({ highlightKeys })} />
       </SettingRow>
-      <SettingRow label="Mouse cursor" icon={<MousePointer2 size={18} />} hint="Desktop recordings always include the cursor. Chrome never draws it in tab recordings — enable click highlights instead.">
-        <span style={{ color: 'var(--c-text-secondary)', fontSize: 12 }}>Controlled by Chrome</span>
+      <SettingRow label="Mouse cursor between clicks" icon={<MousePointer2 size={18} />} hint="Highlight mouse clicks shows the clicks; this follows the mouse between them. Tab recordings never include the real cursor." stacked>
+        <MovingCursorFields fx={r.cursorEffects} onChange={(patch) => set({ cursorEffects: { ...r.cursorEffects, ...patch } })} />
       </SettingRow>
       </SettingsSection>
       <SettingsSection title="After recording" icon={<Clapperboard size={22} />}>

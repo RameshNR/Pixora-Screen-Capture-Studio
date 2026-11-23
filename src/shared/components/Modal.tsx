@@ -50,6 +50,9 @@ export function Modal({ open, title, onClose, children, footer, width = 440, ton
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
+    // Opened with the mouse: when focus goes back to the button, it shows no focus ring (it would
+    // look selected); opened from the keyboard, the ring stays so the user sees where they are.
+    const byKeyboard = Boolean(previous?.matches?.(':focus-visible'));
     const focusable = ref.current?.querySelector<HTMLElement>('input, textarea, select, button:not([data-close])');
     (focusable ?? ref.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -62,6 +65,10 @@ export function Modal({ open, title, onClose, children, footer, width = 440, ton
     return () => {
       window.removeEventListener('keydown', onKey, true);
       previous?.focus?.();
+      if (previous && !byKeyboard && document.activeElement === previous) {
+        previous.setAttribute('data-quiet-focus', '');
+        previous.addEventListener('blur', () => previous.removeAttribute('data-quiet-focus'), { once: true });
+      }
     };
   }, [open, onClose]);
 

@@ -2,6 +2,19 @@ import type { CameraShape } from './settings';
 import type { RelativeRect } from './capture';
 import type { CursorDesign, CursorEffect, CursorTrail } from '@/editor/types';
 
+/**
+ * Camera background, changed on this computer: blurred, removed (transparent in the bubble), a plain
+ * colour, or a picture (kept under its own storage key; `image` is filled in for the recording).
+ */
+export interface CameraBackground {
+  mode: 'none' | 'blur' | 'remove' | 'color' | 'image';
+  /** Blur strength (px at 640 wide). */
+  blur: number;
+  color: string;
+  /** Data URL of the picture (only in a recording's config). */
+  image?: string;
+}
+
 /** Webcam bubble appearance. Position is the bubble centre as a fraction of the video frame. */
 export interface CameraStyle {
   shape: CameraShape;

@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useId, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './Tooltip.module.css';
 import { formatKeys } from '@/shared/utils/keys';
@@ -15,6 +15,25 @@ export function Tooltip({ content, side = 'bottom', children, delay = 350 }: Too
   const id = useId();
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tip = useRef<HTMLDivElement>(null);
+  // Kept inside the window (a small popup, or a control at its edge): moved in by what sticks out.
+  const [shift, setShift] = useState({ x: 0, y: 0 });
+  const anchor = useRef<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    if (!pos || !tip.current) return;
+    const r = tip.current.getBoundingClientRect();
+    const m = 6;
+    const a = anchor.current;
+    // Wider than its button: start where the button starts (left half of the window) or end where
+    // it ends (right half) — tidy in columns of cards — then keep it inside the window.
+    let x = 0;
+    if ((side === 'top' || side === 'bottom') && a && r.width > a.width + 1) {
+      x = a.left + a.width / 2 < window.innerWidth / 2 ? a.left - r.left : a.right - r.right;
+      x += Math.max(0, m - (r.left + x)) - Math.max(0, r.right + x - (window.innerWidth - m));
+    } else x = r.left < m ? m - r.left : r.right > window.innerWidth - m ? window.innerWidth - m - r.right : 0;
+    const y = r.top < m ? m - r.top : r.bottom > window.innerHeight - m ? window.innerHeight - m - r.bottom : 0;
+    if (Math.abs(x) > 0.5 || Math.abs(y) > 0.5) setShift({ x: shift.x + x, y: shift.y + y });
+  }, [pos, shift.x, shift.y, side]);
 
   if (!isValidElement(children)) return children;
 
@@ -22,6 +41,7 @@ export function Tooltip({ content, side = 'bottom', children, delay = 350 }: Too
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       const r = target.getBoundingClientRect();
+      anchor.current = r;
       const x = side === 'left' ? r.left - 8 : side === 'right' ? r.right + 8 : r.left + r.width / 2;
       const y = side === 'top' ? r.top - 8 : side === 'bottom' ? r.bottom + 8 : r.top + r.height / 2;
       setPos({ x, y });
@@ -30,6 +50,7 @@ export function Tooltip({ content, side = 'bottom', children, delay = 350 }: Too
   const hide = () => {
     if (timer.current) clearTimeout(timer.current);
     setPos(null);
+    setShift({ x: 0, y: 0 });
   };
 
   const props = children.props as Record<string, unknown>;
@@ -62,7 +83,7 @@ export function Tooltip({ content, side = 'bottom', children, delay = 350 }: Too
       {child}
       {pos && content
         ? createPortal(
-            <div role="tooltip" id={id} className={`${styles.tooltip} ${styles[side]}`} style={{ left: pos.x, top: pos.y }}>
+            <div ref={tip} role="tooltip" id={id} className={`${styles.tooltip} ${styles[side]}`} style={{ left: pos.x + shift.x, top: pos.y + shift.y }}>
               {typeof content === 'string' ? formatKeys(content) : content}
             </div>,
             document.body,

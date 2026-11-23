@@ -61,8 +61,8 @@ test('cut out & join keeps top and bottom; export popup has format cards', async
   // Export: the joined image is red on top, blue below, with no green left.
   await editor.getByRole('button', { name: 'Export…' }).click();
   const exp = editor.getByRole('dialog', { name: 'Export' });
-  await expect(exp.getByRole('radiogroup', { name: 'Image format' }).getByRole('radio')).toHaveCount(3);
-  await expect(exp.getByRole('radio', { name: 'PNG' })).toHaveAttribute('aria-checked', 'true');
+  await expect(exp.getByRole('radiogroup', { name: 'Image format' }).getByRole('radio')).toHaveCount(4);
+  await expect(exp.getByRole('radio', { name: /^Original/ })).toHaveAttribute('aria-checked', 'true');
   await expect(exp.getByText('300 × 200 px')).toBeVisible();
   const download = editor.waitForEvent('download');
   await exp.getByRole('button', { name: 'Download', exact: true }).click();

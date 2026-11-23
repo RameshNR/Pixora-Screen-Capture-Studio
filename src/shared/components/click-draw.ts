@@ -53,7 +53,8 @@ export const clickCoversPage = (fx: CursorEffects): boolean => clickEffectOf(fx)
  * frame for the animation length, then removes the canvas.
  */
 export function playClick(canvas: HTMLCanvasElement, fx: CursorEffects, x: number, y: number, w: number, h: number, button: ClickButton): void {
-  const dpr = window.devicePixelRatio || 1;
+  // Sharp on small canvases; a page-sized one (spotlight) at 1× so each frame stays cheap.
+  const dpr = w * h > 400_000 ? 1 : Math.min(2, window.devicePixelRatio || 1);
   canvas.width = Math.ceil(w * dpr);
   canvas.height = Math.ceil(h * dpr);
   canvas.style.width = `${w}px`;

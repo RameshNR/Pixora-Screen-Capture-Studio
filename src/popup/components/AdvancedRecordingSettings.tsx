@@ -8,9 +8,7 @@ import { COUNTDOWN_OPTIONS, MAX_DURATION_OPTIONS } from '@/shared/constants/medi
 import { buildCandidates } from '@/recording/services/codec-service';
 import styles from '../styles/popup.module.css';
 import { ClickHighlightFields } from '@/shared/components/ClickHighlightFields';
-import { CURSOR_DESIGNS } from '@/editor/tools/cursor';
-import { CursorDesignGrid } from '@/editor/components/CursorPickers';
-import type { CursorDesign } from '@/editor/types';
+import { MovingCursorFields } from '@/shared/components/MovingCursorFields';
 
 interface Props {
   settings: Settings;
@@ -31,21 +29,6 @@ function Line({ label, hint, children }: { label: string; hint?: ReactNode; chil
   );
 }
 
-const FX_COLORS = ['#4F8DF7', '#E05252', '#FFD84D', '#24A36A', '#7C5CF6', '#FFFFFF', '#202938'];
-
-function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (c: string) => void }) {
-  return (
-    <div className={styles.line}>
-      <span className={styles.lineLabel}>{label}</span>
-      <span style={{ display: 'flex', gap: 5 }} role="radiogroup" aria-label={label}>
-        {FX_COLORS.map((c) => (
-          <button key={c} type="button" role="radio" aria-checked={value === c} aria-label={`${label} ${c}`} onClick={() => onChange(c)}
-            style={{ width: 18, height: 18, borderRadius: '50%', background: c, border: '1px solid var(--c-border-strong)', outline: value === c ? '2px solid var(--c-primary)' : undefined, outlineOffset: 2, cursor: 'pointer' }} />
-        ))}
-      </span>
-    </div>
-  );
-}
 
 /** Click ring / ripple / pulse style, colours, size, opacity and duration. */
 function ClickEffectFields({ rec, updateRec }: { rec: RecordingSettings; updateRec: (patch: Partial<RecordingSettings>) => void }) {
@@ -204,32 +187,10 @@ export function AdvancedRecordingSettings({ settings, updateRec, updateSchedule,
             <ToggleSwitch size="sm" label="Highlight mouse clicks" checked={rec.highlightClicks} onChange={(v) => updateRec({ highlightClicks: v })} />
           </Line>
           {rec.highlightClicks && <ClickEffectFields rec={rec} updateRec={updateRec} />}
-          <Line label="Cursor highlight" hint="A soft halo that follows the mouse in the recorded page">
-            <ToggleSwitch size="sm" label="Cursor highlight" checked={rec.cursorEffects.cursor} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, cursor: v } })} />
+          <Line label="Mouse cursor between clicks" hint="Clicks are shown by Highlight mouse clicks; this follows the mouse between them">
+            <span />
           </Line>
-          {rec.cursorEffects.cursor && (
-            <>
-              <Slider label="Cursor halo size" min={16} max={120} value={rec.cursorEffects.cursorSize} format={(v) => `${v}px`} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, cursorSize: v } })} />
-              <ColorRow label="Halo colour" value={rec.cursorEffects.cursorColor} onChange={(c) => updateRec({ cursorEffects: { ...rec.cursorEffects, cursorColor: c } })} />
-            </>
-          )}
-          <Line label="Styled cursor" hint="Tab recordings: draws a smooth, styled cursor into the recorded page (they never include the real one). Desktop and window recordings always show the real cursor.">
-            <ToggleSwitch size="sm" label="Styled cursor" checked={Boolean(rec.cursorEffects.pointer)} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointer: v } })} />
-          </Line>
-          {rec.cursorEffects.pointer && (
-            <>
-              <div className={styles.lineHint}>Cursor design</div>
-              <CursorDesignGrid value={(rec.cursorEffects.pointerDesign ?? 'arrow') as CursorDesign}
-                onPick={(pointerDesign) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerDesign, pointerColor: CURSOR_DESIGNS[pointerDesign].fill, pointerOutline: CURSOR_DESIGNS[pointerDesign].outline } })} />
-              <Slider label="Cursor size" min={14} max={96} value={rec.cursorEffects.pointerSize ?? 28} format={(v) => `${v}px`} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerSize: v } })} />
-              <ColorRow label="Cursor colour" value={rec.cursorEffects.pointerColor ?? '#FFFFFF'} onChange={(c) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerColor: c } })} />
-              <ColorRow label="Outline colour" value={rec.cursorEffects.pointerOutline ?? '#111827'} onChange={(c) => updateRec({ cursorEffects: { ...rec.cursorEffects, pointerOutline: c } })} />
-              <Slider label="Smooth movement" min={0} max={0.9} step={0.05} value={rec.cursorEffects.smoothing ?? 0} format={(v) => (v < 0.05 ? 'Off' : `${Math.round(v * 100)}%`)} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, smoothing: v } })} />
-              <Line label="Hide the real cursor" hint="In the recorded page only, so the styled cursor is the one people see">
-                <ToggleSwitch size="sm" label="Hide the real cursor" checked={Boolean(rec.cursorEffects.hideSystemCursor)} onChange={(v) => updateRec({ cursorEffects: { ...rec.cursorEffects, hideSystemCursor: v } })} />
-              </Line>
-            </>
-          )}
+          <MovingCursorFields fx={rec.cursorEffects} onChange={(patch) => updateRec({ cursorEffects: { ...rec.cursorEffects, ...patch } })} />
           <Line label="Show keyboard shortcuts" hint="Only key combos, never typed text or passwords">
             <ToggleSwitch size="sm" label="Show keyboard shortcuts" checked={rec.highlightKeys} onChange={(v) => updateRec({ highlightKeys: v })} />
           </Line>

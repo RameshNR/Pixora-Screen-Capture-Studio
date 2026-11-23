@@ -41,5 +41,6 @@ export function useMediaDevices(): MediaDevicesState {
 /** Opens the permission page (extension popups cannot show Chrome's permission prompt reliably). */
 export function openPermissionPage(kinds: Array<'camera' | 'microphone'>): void {
   void chrome.tabs.create({ url: chrome.runtime.getURL(`permissions.html?request=${kinds.join(',')}`) });
-  window.close();
+  // The popup closes so the request can be answered; the Settings page stays open.
+  if (location.pathname.endsWith('popup.html')) window.close();
 }

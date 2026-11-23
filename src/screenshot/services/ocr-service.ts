@@ -23,6 +23,7 @@ export async function recognizeText(image: Blob, onProgress?: (p: number, status
       cacheMethod: 'none',
       logger: (m: { status: string; progress: number }) => onProgress?.(m.progress, m.status),
     });
+    await quietOcr(worker as never);
     const { data } = await worker.recognize(image);
     return { text: normalizeOcrText(data.text), confidence: data.confidence };
   } catch (err) {
@@ -30,6 +31,15 @@ export async function recognizeText(image: Blob, onProgress?: (p: number, status
   } finally {
     await worker?.terminate().catch(() => undefined);
   }
+}
+
+/**
+ * Screenshots carry no DPI, so Tesseract estimates one and prints "Estimating resolution as …",
+ * which Chrome lists on the extension's Errors page. Its notes are sent nowhere instead; the
+ * estimate itself (and so the text read) is unchanged.
+ */
+export async function quietOcr(worker: { setParameters: (p: Record<string, string>) => Promise<unknown> }): Promise<void> {
+  await worker.setParameters({ debug_file: '/dev/null' }).catch(() => undefined);
 }
 
 /** Keeps line breaks, collapses runs of blank lines and trailing spaces. */

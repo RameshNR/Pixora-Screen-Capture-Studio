@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import type { FlowDoc, FlowItem, ImageFormat, Settings } from '@/shared/types';
+import { useState, type ReactNode } from 'react';
+import { Archive, FileCode2, FileImage, FileText, FileType2, Files } from 'lucide-react';
+import type { FlowDoc, FlowItem, Settings } from '@/shared/types';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Checkbox, RadioGroup, Slider } from '@/shared/components/FormControls';
 import { ProgressIndicator } from '@/shared/components/Progress';
 import { downloadBlob } from '@/shared/utils/download';
-import { collectImages, exportDocx, exportHtml, exportJson, exportPdf, exportZip, type ExportVersion } from '../flow-export';
+import { collectImages, exportDocx, exportHtml, exportJson, exportPdf, exportZip, type ExportFormat, type ExportVersion } from '../flow-export';
 import type { PaperSize } from '@/shared/utils/pdf';
 import styles from './flow.module.css';
 
@@ -32,11 +33,13 @@ export function FlowExportDialog({ open, onClose, flow, selected, current, setti
   const [scope, setScope] = useState<Scope>(selected.length ? 'selected' : 'all');
   const [target, setTarget] = useState<Target>('zip');
   const [version, setVersion] = useState<ExportVersion>('edited');
-  const [format, setFormat] = useState<ImageFormat>('png');
+  const [format, setFormat] = useState<ExportFormat>('original');
+  const [originalNames, setOriginalNames] = useState(true);
+  const [numbered, setNumbered] = useState(true);
   const [quality, setQuality] = useState(1);
   const [metadata, setMetadata] = useState(true);
   const [steps, setSteps] = useState(true);
-  const [embed, setEmbed] = useState(false);
+  const embed = false;
   const [paper, setPaper] = useState<PaperSize>('a4');
   const [orientation, setOrientation] = useState<'auto' | 'portrait' | 'landscape'>('auto');
   const [margin, setMargin] = useState(36);
@@ -48,7 +51,7 @@ export function FlowExportDialog({ open, onClose, flow, selected, current, setti
   const save = (blob: Blob, name: string) => downloadBlob(blob, name, { saveAs: settings.storage.askWhereToSave, subfolder: settings.storage.subfolder });
 
   async function run() {
-    const opts = { items, version, format, quality, metadata, steps };
+    const opts = { items, version, format, quality, metadata, steps, originalNames, numbered };
     try {
       if (target === 'files') {
         setBusy('Preparing images…');
@@ -87,15 +90,22 @@ export function FlowExportDialog({ open, onClose, flow, selected, current, setti
     }
   }
 
+  const images = target === 'zip' || target === 'files';
+  const ext = format === 'original' ? 'their own format' : format === 'jpeg' ? 'JPEG' : format.toUpperCase();
+  const summary = images
+    ? `${items.length} picture${items.length === 1 ? '' : 's'} in ${ext}${version === 'both' ? ' (original and edited)' : ''}${target === 'zip' ? ', in one ZIP' : ', each its own file'}${metadata && target === 'zip' ? ' + metadata.csv' : ''}`
+    : `${items.length} picture${items.length === 1 ? '' : 's'} in one ${target === 'pdf' ? 'PDF' : target === 'docx' ? 'Word document' : 'web page'}`;
+
   return (
     <Modal
       open={open}
       title="Export flow"
       onClose={onClose}
       tone="dark"
-      width={560}
+      width={620}
       footer={
         <>
+          <span className={styles.xSummary}>{summary}</span>
           <Button className={styles.darkBtn} onClick={onClose}>Cancel</Button>
           <Button variant="primary" disabled={!items.length || busy !== null} loading={busy !== null} onClick={() => void run()}>
             Export {items.length} image{items.length === 1 ? '' : 's'}
@@ -103,70 +113,105 @@ export function FlowExportDialog({ open, onClose, flow, selected, current, setti
         </>
       }
     >
-      <div className={styles.exportGrid}>
-        <div>
-          <span className={styles.label}>Images</span>
-          <RadioGroup<Scope> label="Images to export" tone="dark" size="sm" value={scope} onChange={setScope} options={[
-            { value: 'all', label: `All (${flow.items.length})` },
-            { value: 'selected', label: `Selected (${selected.length})`, disabled: !selected.length },
-            { value: 'current', label: 'Current', disabled: !current },
-          ]} />
-        </div>
-        <div>
-          <span className={styles.label}>Export as</span>
-          <RadioGroup<Target> label="Export as" tone="dark" size="sm" value={target} onChange={setTarget} options={[
-            { value: 'zip', label: 'ZIP' }, { value: 'files', label: 'Files' }, { value: 'pdf', label: 'PDF' }, { value: 'docx', label: 'Word' }, { value: 'html', label: 'HTML' }, { value: 'json', label: 'JSON' },
-          ]} />
-        </div>
-        <div>
-          <span className={styles.label}>Version</span>
-          <RadioGroup<ExportVersion> label="Image version" tone="dark" size="sm" value={version} onChange={setVersion} options={[{ value: 'edited', label: 'Edited' }, { value: 'original', label: 'Original' }, { value: 'both', label: 'Both' }]} />
-        </div>
-        {target !== 'pdf' && target !== 'docx' && (
-          <div>
-            <span className={styles.label}>Image format</span>
-            <RadioGroup<ImageFormat> label="Image format" tone="dark" size="sm" value={format} onChange={setFormat} options={[{ value: 'png', label: 'PNG' }, { value: 'jpeg', label: 'JPEG' }, { value: 'webp', label: 'WebP' }]} />
+      <div className={styles.xBody}>
+        <section className={styles.xSection}>
+          <div className={styles.xTitle}><FileImage size={15} aria-hidden /> Images</div>
+          <div className={styles.xRow}>
+            <RadioGroup<Scope> label="Images to export" tone="dark" size="sm" value={scope} onChange={setScope} options={[
+              { value: 'all', label: `All (${flow.items.length})` },
+              { value: 'selected', label: `Selected (${selected.length})`, disabled: !selected.length },
+              { value: 'current', label: 'Current', disabled: !current },
+            ]} />
+            <RadioGroup<ExportVersion> label="Image version" tone="dark" size="sm" value={version} onChange={setVersion} options={[{ value: 'edited', label: 'Edited' }, { value: 'original', label: 'Original' }, { value: 'both', label: 'Both' }]} />
           </div>
+        </section>
+
+        <section className={styles.xSection}>
+          <div className={styles.xTitle}>Export as</div>
+          <Cards<Target> label="Export as" value={target} onChange={setTarget} options={TARGETS} />
+        </section>
+
+        {images && (
+          <section className={styles.xSection}>
+            <div className={styles.xTitle}>Picture format</div>
+            <Cards<ExportFormat> label="Image format" value={format} onChange={setFormat} options={FORMATS} />
+            {format !== 'png' && format !== 'original' && <Slider tone="dark" label="Quality" min={0.4} max={1} step={0.05} value={quality} format={(q) => `${Math.round(q * 100)}%`} onChange={setQuality} />}
+            {format === 'original' && <p className={styles.xNote}>No re-encoding: unedited pictures are written exactly as they are (a 6 MB JPEG stays 6 MB).</p>}
+          </section>
         )}
-        {target !== 'pdf' && target !== 'docx' && format !== 'png' && <Slider tone="dark" label="Quality" min={0.4} max={1} step={0.05} value={quality} format={(q) => `${Math.round(q * 100)}%`} onChange={setQuality} />}
+
+        {images && (
+          <section className={styles.xSection}>
+            <div className={styles.xTitle}>File names</div>
+            <Checkbox checked={originalNames} onChange={setOriginalNames} label="Original file names" description="Each picture keeps its own name (otherwise its description or page title)." />
+            <Checkbox checked={numbered} onChange={setNumbered} label="Number the files" description='"01 - ", "02 - " … in the current image order.' />
+          </section>
+        )}
+
         {target === 'docx' && (
-          <>
-            <div>
-              <span className={styles.label}>Page size</span>
+          <section className={styles.xSection}>
+            <div className={styles.xTitle}>Page</div>
+            <div className={styles.xRow}>
               <RadioGroup<PaperSize> label="Page size" tone="dark" size="sm" value={paper === 'image' ? 'a4' : paper} onChange={setPaper} options={[{ value: 'a4', label: 'A4' }, { value: 'letter', label: 'Letter' }, { value: 'legal', label: 'Legal' }]} />
-            </div>
-            <div>
-              <span className={styles.label}>Orientation</span>
               <RadioGroup label="Orientation" tone="dark" size="sm" value={orientation} onChange={setOrientation} options={[{ value: 'auto', label: 'Auto' }, { value: 'portrait', label: 'Portrait' }, { value: 'landscape', label: 'Landscape' }]} />
             </div>
             <Slider tone="dark" label="Margins" min={18} max={72} value={Math.max(18, margin)} format={(v) => `${Math.round((v / 72) * 25.4)} mm`} onChange={setMargin} />
-          </>
+          </section>
         )}
         {target === 'pdf' && (
-          <>
-            <div>
-              <span className={styles.label}>Page size</span>
+          <section className={styles.xSection}>
+            <div className={styles.xTitle}>Page</div>
+            <div className={styles.xRow}>
               <RadioGroup<PaperSize> label="Page size" tone="dark" size="sm" value={paper} onChange={setPaper} options={[{ value: 'a4', label: 'A4' }, { value: 'letter', label: 'Letter' }, { value: 'legal', label: 'Legal' }, { value: 'image', label: 'Fit image' }]} />
-            </div>
-            {paper !== 'image' && (
-              <div>
-                <span className={styles.label}>Orientation</span>
-                <RadioGroup label="Orientation" tone="dark" size="sm" value={orientation} onChange={setOrientation} options={[{ value: 'auto', label: 'Auto' }, { value: 'portrait', label: 'Portrait' }, { value: 'landscape', label: 'Landscape' }]} />
-              </div>
-            )}
-            <div>
-              <span className={styles.label}>Image fitting</span>
+              {paper !== 'image' && <RadioGroup label="Orientation" tone="dark" size="sm" value={orientation} onChange={setOrientation} options={[{ value: 'auto', label: 'Auto' }, { value: 'portrait', label: 'Portrait' }, { value: 'landscape', label: 'Landscape' }]} />}
               <RadioGroup label="Image fitting" tone="dark" size="sm" value={fit} onChange={setFit} options={[{ value: 'contain', label: 'Fit page' }, { value: 'actual', label: 'Actual size' }]} />
             </div>
             <Slider tone="dark" label="Margins" min={0} max={72} value={margin} format={(v) => `${Math.round((v / 72) * 25.4)} mm`} onChange={setMargin} />
-          </>
+          </section>
         )}
-        <Checkbox checked={metadata} onChange={setMetadata} label="Include details" description="Sequence, capture time, URL and description (ZIP: metadata.json + metadata.csv)." />
-        <Checkbox checked={steps} onChange={setSteps} label="Include workflow steps" description="Clicks, form steps and page changes, with form values only as your privacy settings allowed." />
-        {target === 'json' && <Checkbox checked={embed} onChange={setEmbed} label="Embed screenshots" description="Images inside the JSON (base64). Larger file." />}
+
+        {target !== 'files' && (
+          <section className={styles.xSection}>
+            <div className={styles.xTitle}>Include</div>
+            <Checkbox checked={metadata} onChange={setMetadata} label="Details" description={target === 'zip' ? 'A metadata.csv spreadsheet: sequence, capture time, address and description.' : 'Capture time, address and description under each picture.'} />
+            {target !== 'zip' && <Checkbox checked={steps} onChange={setSteps} label="Workflow steps" description="Clicks, form steps and page changes, with form values only as your privacy settings allowed." />}
+          </section>
+        )}
         {busy && <ProgressIndicator value={null} label={busy} />}
-        <p className={styles.hint}>Files are numbered in the current image order. Everything is made on this device.</p>
+        <p className={styles.hint}>Everything is made on this device.</p>
       </div>
     </Modal>
+  );
+}
+
+/** Ways to export (JSON is not offered: Pixora reads no JSON back, so it only made extra files). */
+const TARGETS: Array<{ value: Target; label: string; hint: string; icon: ReactNode }> = [
+  { value: 'zip', label: 'ZIP', hint: 'All pictures in one file', icon: <Archive size={18} /> },
+  { value: 'files', label: 'Files', hint: 'Each picture on its own', icon: <Files size={18} /> },
+  { value: 'pdf', label: 'PDF', hint: 'A page per picture', icon: <FileText size={18} /> },
+  { value: 'docx', label: 'Word', hint: 'Editable document', icon: <FileType2 size={18} /> },
+  { value: 'html', label: 'HTML', hint: 'A web page guide', icon: <FileCode2 size={18} /> },
+];
+
+const FORMATS: Array<{ value: ExportFormat; label: string; hint: string }> = [
+  { value: 'original', label: 'Original', hint: 'As they came, same size' },
+  { value: 'png', label: 'PNG', hint: 'Sharp, lossless' },
+  { value: 'jpeg', label: 'JPEG', hint: 'Small, for photos' },
+  { value: 'webp', label: 'WebP', hint: 'Smallest files' },
+];
+
+/** A choice shown as cards (name, a short hint, an icon). */
+function Cards<T extends string>({ label, value, onChange, options }: { label: string; value: T; onChange: (v: T) => void; options: Array<{ value: T; label: string; hint: string; icon?: ReactNode }> }) {
+  return (
+    <div role="radiogroup" aria-label={label} className={styles.xCards}>
+      {options.map((o) => (
+        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} aria-label={o.label}
+          className={`${styles.xCard} ${value === o.value ? styles.xCardOn : ''}`} onClick={() => onChange(o.value)}>
+          {o.icon && <span className={styles.xCardIcon} aria-hidden>{o.icon}</span>}
+          <span className={styles.xCardName}>{o.label}</span>
+          <span className={styles.xCardHint}>{o.hint}</span>
+        </button>
+      ))}
+    </div>
   );
 }

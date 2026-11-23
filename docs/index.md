@@ -8,7 +8,7 @@ Screenshots, screen recording and step-by-step guides for Chrome — all on your
 **No account, no uploads, no tracking.**
 
 **[Add Pixora to Chrome — free on the Chrome Web Store](https://chromewebstore.google.com/detail/domfaochimmiimphibbkbhmkbcfeijff)**
-· Version 1.1.3 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
+· Version 1.1.5 · [Release notes](RELEASE_NOTES.md) · [Privacy policy](privacy/)
 
 ![Recent captures: screenshots and a recording, stored privately on this device](images/hero.png)
 

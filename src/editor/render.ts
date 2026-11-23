@@ -5,6 +5,7 @@ import { leaderEndColorOf } from './tools/callouts';
 import type { Ctx2D } from './tools/common';
 import { clipImage, drawDeviceOver, drawFrameBackground, drawFrameOver, drawFrameUnder, drawWatermark, ensureFrameAssets, frameLayout } from './tools/decorations';
 import { ensureFonts } from './fonts';
+import { filteredBase } from './tools/filters';
 import type { ImageFormat } from '@/shared/types';
 
 export interface ViewTransform {
@@ -32,6 +33,14 @@ export interface SceneOverlay {
   eraserTrail: Array<{ x: number; y: number }> | null;
   /** Eraser outline at the pointer (page coordinates, radius in page px). */
   eraserCursor?: { x: number; y: number; r: number } | null;
+  /** Select tool: the marked area of the image. */
+  area?: Rect | null;
+  /** The eraser trail is the image eraser's stroke: drawn in this colour, full width. */
+  eraserPaint?: string | null;
+  /** Before / After comparison (see CompareBar), or null. */
+  compare?: CompareRender | null;
+  /** Magnifying glass at this screen point (CSS px), with or without a comparison. */
+  loupe?: { x: number; y: number } | null;
 }
 
 /**
@@ -39,7 +48,7 @@ export interface SceneOverlay {
  * negative coordinates): frame → image → redactions → annotations → watermark → border.
  * Shared by the on-screen canvas and export.
  */
-export function drawComposite(ctx: Ctx2D, doc: EditorDoc, extra: Annotation | null, hiddenIds: ReadonlyArray<string>): void {
+export function drawComposite(ctx: Ctx2D, doc: EditorDoc, extra: Annotation | null, hiddenIds: ReadonlyArray<string>, scale = 1): void {
   const L = frameLayout(doc);
   drawFrameBackground(ctx, doc, L);
   ctx.save();
@@ -48,13 +57,18 @@ export function drawComposite(ctx: Ctx2D, doc: EditorDoc, extra: Annotation | nu
   drawFrameUnder(ctx, doc, L);
   ctx.save();
   clipImage(ctx, doc);
-  ctx.drawImage(doc.base, 0, 0);
+  // The picture with its filters (worked out once per change, then cached).
+  // At the size it is shown on screen (`scale`), full size for export.
+  const shown = filteredBase(doc, scale) as ImageBitmap;
+  ctx.drawImage(shown, 0, 0, doc.width, doc.height);
+  // Blur / pixelate regions read the picture at full size.
+  const base = shown.width === doc.width ? shown : doc.base;
   // A draft that replaces an existing annotation (move / resize) takes that annotation's place.
   const list = doc.annotations
     .filter((a) => !hiddenIds.includes(a.id))
     .map((a) => (extra && a.id === extra.id ? extra : a));
   if (extra && !doc.annotations.some((a) => a.id === extra.id)) list.push(extra);
-  drawLayers(ctx, doc.base, list, doc.width, doc.height);
+  drawLayers(ctx, base, list, doc.width, doc.height);
   drawWatermark(ctx, doc, doc.watermark);
   ctx.restore();
   drawFrameOver(ctx, doc, L);
@@ -105,7 +119,10 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
   ctx.beginPath();
   ctx.rect(L.outer.x, L.outer.y, L.outer.w, L.outer.h);
   ctx.clip();
-  drawComposite(ctx, doc, overlay.draft, overlay.hiddenId ? [overlay.hiddenId] : []);
+  // Filters are worked out at about the size the picture is shown at.
+  const shownScale = Math.min(1, zoom * dpr * 1.1);
+  drawComposite(ctx, doc, overlay.draft, overlay.hiddenId ? [overlay.hiddenId] : [], shownScale);
+  if (overlay.compare) drawCompareImage(ctx, doc, overlay.compare, shownScale, L.outer);
   ctx.restore();
 
   // Screen-space decorations (constant size regardless of zoom)
@@ -114,6 +131,9 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
     const p = L.tilt && !overlay.crop ? L.tilt.transformPoint({ x, y }) : { x, y };
     return { x: originX + p.x * zoom, y: originY + p.y * zoom };
   };
+
+  if (overlay.compare) drawCompareDecor(ctx, doc, overlay.compare, { zoom, originX, originY, dpr });
+  if (overlay.loupe) drawLoupe(ctx, overlay.loupe, dpr);
 
   if (overlay.crop) {
     const c = overlay.crop;
@@ -148,6 +168,23 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
   }
 
   if (overlay.cut) drawCutOverlay(ctx, overlay.cut, doc, toScreen, zoom);
+  if (overlay.area && overlay.area.w > 0 && overlay.area.h > 0) {
+    // Marked area: a light tint and a black-and-white dashed edge (visible on any picture).
+    const a = overlay.area;
+    const tl = { x: originX + a.x * zoom, y: originY + a.y * zoom };
+    const w = a.w * zoom;
+    const h = a.h * zoom;
+    ctx.save();
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.10)';
+    ctx.fillRect(tl.x, tl.y, w, h);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeRect(tl.x + 0.5, tl.y + 0.5, w - 1, h - 1);
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = '#111827';
+    ctx.strokeRect(tl.x + 0.5, tl.y + 0.5, w - 1, h - 1);
+    ctx.restore();
+  }
 
   if (overlay.watermarkBox) {
     const b = overlay.watermarkBox;
@@ -271,8 +308,8 @@ export function renderScene(ctx: CanvasRenderingContext2D, doc: EditorDoc, view:
 
   if (overlay.eraserTrail && overlay.eraserTrail.length) {
     ctx.save();
-    ctx.strokeStyle = 'rgba(224, 82, 82, 0.5)';
-    ctx.lineWidth = Math.max(4, (overlay.eraserCursor?.r ?? 5) * 2 * zoom);
+    ctx.strokeStyle = overlay.eraserPaint ?? 'rgba(224, 82, 82, 0.5)';
+    ctx.lineWidth = Math.max(overlay.eraserPaint ? 1 : 4, (overlay.eraserCursor?.r ?? 5) * 2 * zoom);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -406,6 +443,25 @@ export async function renderDocumentThumbnail(doc: EditorDoc, maxWidth = 360): P
   return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
 }
 
+/** One area of the picture as it looks now (annotations and watermark included, no frame), as a PNG. */
+export async function exportArea(doc: EditorDoc, rect: Rect): Promise<Blob> {
+  return (await renderArea(doc, rect)).convertToBlob({ type: 'image/png' });
+}
+
+/** Draws one part of the picture (annotations included, no frame) onto its own canvas. */
+export async function renderArea(doc: EditorDoc, rect: Rect): Promise<OffscreenCanvas> {
+  await ensureFonts(usedFonts(doc));
+  const w = Math.max(1, Math.round(rect.w));
+  const h = Math.max(1, Math.round(rect.h));
+  const canvas = new OffscreenCanvas(w, h);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D context unavailable');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.translate(-Math.round(rect.x), -Math.round(rect.y));
+  drawComposite(ctx, { ...doc, frame: null }, null, []);
+  return canvas;
+}
+
 /** Renders the final image (frame included) at full resolution and encodes it. */
 export async function exportDocument(doc: EditorDoc, format: ImageFormat, quality: number): Promise<Blob> {
   await ensureFonts(usedFonts(doc));
@@ -511,4 +567,258 @@ function canvasEdge(): { ring: string; shadow: string } {
     ring: css.getPropertyValue('--c-editor-image-ring').trim() || 'rgba(255,255,255,0.08)',
     shadow: light ? 'rgba(15,23,42,0.28)' : 'rgba(0,0,0,0.5)',
   };
+}
+
+/** What the renderer needs to draw a Before / After comparison. */
+/** One side-by-side pane: its own zoom (1 = whole picture) and the point shown in its centre (shares of the picture). */
+export interface ComparePane { k: number; x: number; y: number }
+export const PANE_HOME: ComparePane = { k: 1, x: 0.5, y: 0.5 };
+
+export interface CompareRender {
+  /** before / after: only the original / only the edited picture (Show in the view settings). */
+  mode: 'side' | 'slider' | 'overlay' | 'diff' | 'before' | 'after';
+  /** Slider: where the divider is (share of the picture). Overlay: how much of After shows. */
+  split: number;
+  /** The divider runs across (Before above, After below). */
+  vertical: boolean;
+  labels: boolean;
+  /** The picture as first opened (null: the picture without its filters). */
+  before: EditorDoc | null;
+  /** Side by side: what each pane shows (Before, After). */
+  panes?: [ComparePane, ComparePane];
+  /** Changed pixels tinted red on the edited picture. */
+  highlight?: boolean;
+}
+
+/** Changed pixels as a translucent red layer (cached per pair and size). */
+let changesCache: { a: EditorDoc; b: EditorDoc; scale: number; canvas: OffscreenCanvas } | null = null;
+function changesImage(a: EditorDoc, b: EditorDoc, scale: number): OffscreenCanvas {
+  if (changesCache && changesCache.a === a && changesCache.b === b && changesCache.scale === scale) return changesCache.canvas;
+  const w = Math.max(1, Math.round(b.width * scale));
+  const h = Math.max(1, Math.round(b.height * scale));
+  const read = (d: EditorDoc) => {
+    const c = new OffscreenCanvas(w, h);
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.scale(w / d.width, h / d.height);
+    drawComposite(x, { ...d, frame: null }, null, [], scale);
+    return x.getImageData(0, 0, w, h);
+  };
+  const pa = read(a).data;
+  const img = read(b);
+  const pb = img.data;
+  for (let i = 0; i < pb.length; i += 4) {
+    const diff = Math.abs(pa[i]! - pb[i]!) + Math.abs(pa[i + 1]! - pb[i + 1]!) + Math.abs(pa[i + 2]! - pb[i + 2]!);
+    pb[i] = 239; pb[i + 1] = 35; pb[i + 2] = 60;
+    pb[i + 3] = diff > 36 ? Math.round((Math.min(1, diff / 160) * 0.35 + 0.35) * 255) : 0;
+  }
+  const out = new OffscreenCanvas(w, h);
+  out.getContext('2d')!.putImageData(img, 0, 0);
+  changesCache = { a, b, scale, canvas: out };
+  return out;
+}
+
+const beforeOf = (doc: EditorDoc, c: CompareRender) => c.before ?? { ...doc, filters: null };
+
+/** Differences: changed pixels bright magenta over a dimmed grey picture (cached per pair and size). */
+let diffCache: { a: EditorDoc; b: EditorDoc; scale: number; canvas: OffscreenCanvas } | null = null;
+function diffImage(a: EditorDoc, b: EditorDoc, scale: number): OffscreenCanvas {
+  if (diffCache && diffCache.a === a && diffCache.b === b && diffCache.scale === scale) return diffCache.canvas;
+  const w = Math.max(1, Math.round(b.width * scale));
+  const h = Math.max(1, Math.round(b.height * scale));
+  const read = (d: EditorDoc) => {
+    const c = new OffscreenCanvas(w, h);
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.scale(w / d.width, h / d.height);
+    drawComposite(x, { ...d, frame: null }, null, [], scale);
+    return x.getImageData(0, 0, w, h);
+  };
+  const pa = read(a).data;
+  const img = read(b);
+  const pb = img.data;
+  for (let i = 0; i < pb.length; i += 4) {
+    const diff = Math.abs(pa[i]! - pb[i]!) + Math.abs(pa[i + 1]! - pb[i + 1]!) + Math.abs(pa[i + 2]! - pb[i + 2]!);
+    const l = (0.299 * pb[i]! + 0.587 * pb[i + 1]! + 0.114 * pb[i + 2]!) * 0.55 + 40;
+    if (diff > 36) {
+      const k = Math.min(1, diff / 160) * 0.8 + 0.2;
+      pb[i] = l * (1 - k) + 236 * k;
+      pb[i + 1] = l * (1 - k) + 72 * k;
+      pb[i + 2] = l * (1 - k) + 153 * k;
+    } else {
+      pb[i] = l;
+      pb[i + 1] = l;
+      pb[i + 2] = l;
+    }
+    pb[i + 3] = 255;
+  }
+  const out = new OffscreenCanvas(w, h);
+  out.getContext('2d')!.putImageData(img, 0, 0);
+  diffCache = { a, b, scale, canvas: out };
+  return out;
+}
+
+/** Before and After drawn into the picture (image coordinates; After is already drawn). */
+function drawCompareImage(ctx: CanvasRenderingContext2D, doc: EditorDoc, c: CompareRender, scale: number, outer: Rect): void {
+  const before = beforeOf(doc, c);
+  const W = doc.width;
+  const H = doc.height;
+  ctx.save();
+  const changes = () => (c.highlight ? changesImage(before, doc, scale) : null);
+  if (c.mode === 'before') {
+    ctx.beginPath();
+    ctx.rect(outer.x, outer.y, outer.w, outer.h);
+    ctx.clip();
+    drawComposite(ctx, before, null, [], scale);
+  } else if (c.mode === 'after') {
+    const ch = changes();
+    if (ch) ctx.drawImage(ch, 0, 0, W, H);
+  } else if (c.mode === 'slider') {
+    ctx.beginPath();
+    if (c.vertical) ctx.rect(outer.x, outer.y, outer.w, Math.max(0, H * c.split - outer.y));
+    else ctx.rect(outer.x, outer.y, Math.max(0, W * c.split - outer.x), outer.h);
+    ctx.clip();
+    drawComposite(ctx, before, null, [], scale);
+  } else if (c.mode === 'overlay') {
+    ctx.globalAlpha = 1 - c.split;
+    drawComposite(ctx, before, null, [], scale);
+  } else if (c.mode === 'diff') {
+    ctx.drawImage(diffImage(before, doc, scale), 0, 0, W, H);
+  } else {
+    // Side by side: each at half size, next to each other (or one above the other).
+    ctx.fillStyle = '#e9e7f2';
+    ctx.fillRect(outer.x, outer.y, outer.w, outer.h);
+    const gap = Math.max(W, H) * 0.01;
+    const place = (d: EditorDoc, i: number) => {
+      ctx.save();
+      if (c.vertical) ctx.translate(W / 4, i ? H / 2 + gap / 2 : -gap / 2);
+      else ctx.translate(i ? W / 2 + gap / 2 : -gap / 2, H / 4);
+      ctx.scale(0.5, 0.5);
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);
+      ctx.clip();
+      // The pane's own zoom and position (sync zoom / sync scroll link the two).
+      const p = c.panes?.[i] ?? PANE_HOME;
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(p.k, p.k);
+      ctx.translate(-p.x * W, -p.y * H);
+      drawComposite(ctx, { ...d, frame: null }, null, [], Math.min(1, (scale / 2) * p.k));
+      const ch = i === 1 ? changes() : null;
+      if (ch) ctx.drawImage(ch, 0, 0, W, H);
+      ctx.restore();
+    };
+    place(before, 0);
+    place(doc, 1);
+  }
+  if (c.mode === 'slider' || c.mode === 'overlay') {
+    ctx.restore();
+    ctx.save();
+    const ch = changes();
+    if (ch) ctx.drawImage(ch, 0, 0, W, H);
+  }
+  ctx.restore();
+}
+
+/** Divider, labels and loupe (screen coordinates). */
+function drawCompareDecor(ctx: CanvasRenderingContext2D, doc: EditorDoc, c: CompareRender, v: { zoom: number; originX: number; originY: number; dpr: number }): void {
+  const left = v.originX;
+  const top = v.originY;
+  const w = doc.width * v.zoom;
+  const h = doc.height * v.zoom;
+  ctx.save();
+  if (c.mode === 'slider') {
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 6;
+    const pos = c.vertical ? top + h * c.split : left + w * c.split;
+    ctx.beginPath();
+    if (c.vertical) {
+      ctx.moveTo(left, pos);
+      ctx.lineTo(left + w, pos);
+    } else {
+      ctx.moveTo(pos, top);
+      ctx.lineTo(pos, top + h);
+    }
+    ctx.stroke();
+    const hx = c.vertical ? left + w / 2 : pos;
+    const hy = c.vertical ? pos : top + h / 2;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(hx, hy, 17, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#1f2937';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.save();
+    ctx.translate(hx, hy);
+    if (c.vertical) ctx.rotate(Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(-4, -5);
+    ctx.lineTo(-9, 0);
+    ctx.lineTo(-4, 5);
+    ctx.moveTo(4, -5);
+    ctx.lineTo(9, 0);
+    ctx.lineTo(4, 5);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (c.labels && c.mode !== 'after') {
+    const label = (text: string, x: number, y: number, right: boolean) => {
+      ctx.font = '600 13px Inter Variable, Inter, Segoe UI, sans-serif';
+      const lw = ctx.measureText(text).width + 20;
+      const bx = right ? x - lw : x;
+      ctx.fillStyle = 'rgba(17, 24, 39, 0.8)';
+      ctx.beginPath();
+      ctx.roundRect(bx, y, lw, 26, 7);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, bx + 10, y + 18);
+    };
+    if (c.mode === 'before') label('Original', left + 12, top + 12, false);
+    else if (c.mode === 'overlay') label('Overlay · After ' + Math.round(c.split * 100) + '%', left + 12, top + 12, false);
+    else if (c.mode === 'diff') label('Differences', left + 12, top + 12, false);
+    else if (c.vertical) {
+      label('Before', left + 12, top + 12, false);
+      label('After', left + 12, (c.mode === 'side' ? top + h / 2 : top + h * c.split) + 12, false);
+    } else {
+      label('Before', left + 12, top + 12, false);
+      label('After', left + w - 12, top + 12, true);
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Magnifying glass: the canvas around the pointer at 2.5×, in a circle (screen coordinates). The
+ * area is copied first — painting the circle before reading it would magnify the circle itself.
+ */
+let loupeCopy: OffscreenCanvas | null = null;
+function drawLoupe(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, dpr: number): void {
+  const r = 90;
+  const k = 2.5;
+  const sw = ((r * 2) / k) * dpr;
+  const size = Math.max(1, Math.round(sw));
+  if (!loupeCopy || loupeCopy.width !== size) loupeCopy = new OffscreenCanvas(size, size);
+  const lc = loupeCopy.getContext('2d')!;
+  lc.clearRect(0, 0, size, size);
+  lc.drawImage(ctx.canvas, at.x * dpr - sw / 2, at.y * dpr - sw / 2, sw, sw, 0, 0, size, size);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(at.x - r, at.y - r, r * 2, r * 2);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(loupeCopy, at.x - r, at.y - r, r * 2, r * 2);
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }

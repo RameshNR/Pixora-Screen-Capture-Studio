@@ -64,3 +64,9 @@ export async function region(editor: Page): Promise<{ w: number; h: number }> {
   const m = /(\d+) × (\d+)/.exec(t)!;
   return { w: Number(m[1]), h: Number(m[2]) };
 }
+
+/** Erase & remove (one toolbar button): opens it and picks what to erase. */
+export async function eraseTool(editor: Page, kind: 'Annotation' | 'Image' | 'Object' | 'Background'): Promise<void> {
+  await editor.getByRole('button', { name: /^Erase & remove/ }).click();
+  await editor.getByRole('radiogroup', { name: 'What to erase' }).getByRole('radio', { name: kind, exact: true }).click();
+}

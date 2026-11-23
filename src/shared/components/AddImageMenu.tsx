@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { ClipboardPaste, FolderOpen, ImagePlus, Link2 } from 'lucide-react';
+import { ClipboardPaste, FolderOpen, History, ImagePlus, Link2 } from 'lucide-react';
+import { RecentImagesPicker } from './RecentImagesPicker';
 import { Dropdown } from './Dropdown';
 import { Modal } from './Modal';
 import { Button, IconButton } from './Button';
@@ -20,6 +21,10 @@ interface Props {
   label?: string;
   /** "icon": a toolbar icon button (dark editor toolbar). */
   variant?: 'button' | 'icon';
+  /** Offers "From Recent captures…" (images and flow images, several at once): gets their ids. */
+  onAddExisting?: (ids: string[]) => void;
+  /** Images already open (not offered again). */
+  exclude?: string[];
 }
 
 /**
@@ -27,7 +32,8 @@ interface Props {
  * OneDrive or Google Drive for desktop are reachable from the same picker), from the clipboard, or
  * from a web address. Nothing is uploaded; Pixora has no cloud account by design.
  */
-export function AddImageMenu({ onAdd, className, label = 'Add image', variant = 'button' }: Props) {
+export function AddImageMenu({ onAdd, className, label = 'Add image', variant = 'button', onAddExisting, exclude }: Props) {
+  const [recentOpen, setRecentOpen] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const [urlOpen, setUrlOpen] = useState(false);
@@ -84,6 +90,7 @@ export function AddImageMenu({ onAdd, className, label = 'Add image', variant = 
         minWidth={250}
         ariaLabel={label}
         items={[
+          ...(onAddExisting ? [{ id: 'recent', label: 'From Recent captures…', description: 'Screenshots and flow images (several at once)', icon: <History size={15} />, onSelect: () => setRecentOpen(true) }] : []),
           { id: 'file', label: 'From your computer…', description: 'Also folders synced by OneDrive / Google Drive', icon: <FolderOpen size={15} />, onSelect: () => input.current?.click() },
           { id: 'clip', label: 'Paste from clipboard', description: 'A copied picture or picture address', icon: <ClipboardPaste size={15} />, onSelect: () => void fromClipboard() },
           { id: 'url', label: 'From a web address (URL)…', description: 'Downloads the picture to this computer', icon: <Link2 size={15} />, onSelect: () => { setError(null); setUrlOpen(true); } },
@@ -98,6 +105,7 @@ export function AddImageMenu({ onAdd, className, label = 'Add image', variant = 
           )
         }
       />
+      {onAddExisting && <RecentImagesPicker open={recentOpen} onClose={() => setRecentOpen(false)} onPick={onAddExisting} exclude={exclude} />}
       <input
         ref={input}
         type="file"

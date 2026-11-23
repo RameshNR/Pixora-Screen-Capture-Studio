@@ -139,6 +139,8 @@ export interface NewFlowImage {
   highlight?: FlowItem['highlight'];
   hash?: string;
   digest?: string;
+  /** File name (an added picture keeps its own; captures are "Flow step 03.png"). */
+  name?: string;
 }
 
 /** Stores an image as a screenshot capture belonging to the flow and returns its flow item. */
@@ -147,7 +149,7 @@ export async function storeFlowImage(flowId: string, seq: number, img: NewFlowIm
     {
       kind: 'screenshot',
       flowId,
-      name: `Flow step ${String(seq).padStart(2, '0')}.png`,
+      name: img.name || `Flow step ${String(seq).padStart(2, '0')}.png`,
       mimeType: img.blob.type || 'image/png',
       width: img.width,
       height: img.height,
@@ -291,4 +293,94 @@ export async function createFlowFromImages(input: FlowFromImagesInput): Promise<
   );
   await updateCapture(id, { size: size + summary.size }).catch(() => undefined);
   return id;
+}
+
+/**
+ * Puts images and flows together into one flow (Recent captures: Make flow, drag and drop; editor:
+ * several images added at once). Nothing is copied: the image captures join the flow (`flowId`),
+ * a flow dropped in gives up its images and its own entry. Videos are left out.
+ * `into`: an existing flow to add to; otherwise a new flow is made. Returns the flow id.
+ */
+export async function groupIntoFlow(ids: string[], opts: { into?: string; name?: string } = {}): Promise<string> {
+  const records = (await Promise.all(ids.map((id) => getOne<CaptureRecord>('captures', id)))).filter((r): r is CaptureRecord => !!r && r.kind !== 'video' && r.id !== opts.into);
+  const items: FlowItem[] = [];
+  const steps: FlowStep[] = [];
+  const deleted: NonNullable<FlowDoc['deleted']> = [];
+  const absorbed: string[] = [];
+  const now = Date.now();
+  for (const r of records) {
+    if (r.kind === 'flow') {
+      const doc = await getFlow(r.id);
+      if (!doc) continue;
+      items.push(...doc.items);
+      steps.push(...doc.steps);
+      deleted.push(...(doc.deleted ?? []));
+      absorbed.push(r.id);
+    } else if (!r.flowId) {
+      const item: FlowItem = { id: r.id, mode: 'visible', auto: false, at: r.createdAt, url: r.sourceUrl ?? '', pageTitle: r.sourceTitle ?? '', width: r.width, height: r.height, description: '' };
+      items.push(item);
+      steps.push({ id: createId('s_'), action: 'note', title: r.name.replace(/\.[a-z0-9]+$/i, ''), url: item.url, pageTitle: item.pageTitle, at: r.createdAt, elapsedMs: 0, itemId: r.id });
+    }
+  }
+  let flowId = opts.into;
+  if (!flowId) {
+    if (!items.length) throw new Error('Nothing to put into a flow: choose images or flows (not videos).');
+    flowId = createId('f_');
+    const name = opts.name ?? flowDateName(now);
+    await putFlow({ id: flowId, name, config: { ...DEFAULT_SETTINGS.flow, area: null }, items: [], steps: [], startedAt: now, endedAt: now });
+    const first = records[0]!;
+    const summary = new Blob([JSON.stringify({ items: items.length })], { type: 'application/json' });
+    await addCapture({ id: flowId, kind: 'flow', name, mimeType: 'application/vnd.glint.flow+json', width: items[0]!.width, height: items[0]!.height, thumbnail: first.thumbnail, sourceTitle: '' }, summary);
+  }
+  const target = flowId;
+  const doc = await updateFlow(target, (d) => ({ ...d, items: [...d.items, ...items], steps: [...d.steps, ...steps], ...(deleted.length ? { deleted: [...(d.deleted ?? []), ...deleted] } : {}) }));
+  // The images join the flow; flows dropped in lose their own entry (not their images).
+  await withStores(['captures', 'blobs', 'flows'], 'readwrite', async (tx) => {
+    const caps = tx.objectStore('captures');
+    for (const it of [...items, ...deleted]) {
+      const rec = await promisify(caps.get(it.id) as IDBRequest<CaptureRecord | undefined>);
+      if (rec) caps.put({ ...rec, flowId: target, updatedAt: now });
+    }
+    for (const id of absorbed) {
+      caps.delete(id);
+      tx.objectStore('blobs').delete(id);
+      tx.objectStore('flows').delete(id);
+    }
+  });
+  // The flow entry: image count, size, first picture.
+  const recs = await Promise.all(doc.items.map((it) => getOne<CaptureRecord>('captures', it.id)));
+  const size = recs.reduce((n, r) => n + (r?.size ?? 0), 0);
+  const firstRec = recs.find((r) => r?.thumbnail);
+  const count = `${doc.items.length} image${doc.items.length === 1 ? '' : 's'}`;
+  const old = (await getOne<CaptureRecord>('captures', target))?.sourceTitle ?? '';
+  // "3 images · 5 steps" → "6 images · 5 steps" (the rest of the subtitle is kept).
+  const sourceTitle = /^\d+ images?/.test(old) ? old.replace(/^\d+ images?/, count) : count;
+  const flowName = (await getFlow(target))?.name ?? '';
+  // An old count name ("Flow · 2 images") is replaced by the date name (a count would go stale again).
+  const rename = COUNT_NAME.test(flowName) ? flowDateName((await getOne<CaptureRecord>('captures', target))?.createdAt ?? now) : null;
+  if (rename) await updateFlow(target, (d) => ({ ...d, name: rename }));
+  await updateCapture(target, { size, sourceTitle, ...(rename ? { name: rename } : {}), ...(firstRec ? { thumbnail: firstRec.thumbnail, width: firstRec.width, height: firstRec.height } : {}) });
+  return target;
+}
+
+/** "Flow · 2 images": a name made from a count (which goes stale as images are added). */
+export const COUNT_NAME = /^Flow · \d+ images?$/;
+/** The name new flows get: "Flow · Nov 23, 2026, 10:28 AM". */
+export function flowDateName(at: number): string {
+  return `Flow · ${new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
+}
+
+/**
+ * Flows named by an old count ("Flow · 2 images" while it has 15) are renamed by their date, like
+ * new flows. Names typed by the user are left alone. Returns the renamed records.
+ */
+export async function renameCountNamedFlows(records: CaptureRecord[]): Promise<CaptureRecord[]> {
+  const stale = records.filter((r) => r.kind === 'flow' && COUNT_NAME.test(r.name));
+  const out: CaptureRecord[] = [];
+  for (const r of stale) {
+    const name = flowDateName(r.createdAt);
+    await updateFlow(r.id, (d) => ({ ...d, name })).catch(() => undefined);
+    out.push(await updateCapture(r.id, { name }));
+  }
+  return out;
 }

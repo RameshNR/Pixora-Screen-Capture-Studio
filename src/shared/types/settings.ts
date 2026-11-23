@@ -17,7 +17,7 @@ export type CameraShape = 'circle' | 'rounded' | 'square';
 export type CameraSize = 'small' | 'medium' | 'large';
 export type StorageTarget = 'local' | 'cloud';
 export type HardwareAcceleration = 'auto' | 'prefer-hardware' | 'prefer-software';
-import type { CameraStyle, CursorEffects, SpotlightSettings, ZoomSettings } from './effects';
+import type { CameraBackground, CameraStyle, CursorEffects, SpotlightSettings, ZoomSettings } from './effects';
 import type { FlowSettings } from './flow';
 
 export interface GeneralSettings {
@@ -119,6 +119,8 @@ export interface RecordingSettings {
   /** Custom-area recording: a region of this tab, or a region of a screen / window. */
   areaSource: 'tab' | 'screen';
   cameraStyle: CameraStyle;
+  /** Camera background: none, blur, remove, colour or picture. */
+  cameraBackground: CameraBackground;
   cursorEffects: CursorEffects;
   zoom: ZoomSettings;
   spotlight: SpotlightSettings;
