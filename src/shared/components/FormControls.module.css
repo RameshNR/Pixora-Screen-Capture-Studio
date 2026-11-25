@@ -165,6 +165,59 @@
   color: var(--c-editor-text);
 }
 
+/* Typed pixel value (next to a slider). */
+.pxBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface, transparent);
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+}
+
+/* Typing: only the box's border turns the accent colour (no ring around the box or the number). */
+.pxBox:focus-within {
+  border-color: var(--c-primary);
+}
+
+.pxInput:focus,
+.pxInput:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.pxInput {
+  width: auto;
+  min-width: 2ch;
+  max-width: 6ch;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+}
+
+.pxUnit {
+  opacity: 0.6;
+  font-size: 0.92em;
+}
+
+.sliderDark .pxBox:focus-within {
+  border-color: var(--c-primary);
+}
+
+.sliderDark .pxBox:not(:focus-within) {
+  border-color: var(--c-editor-border);
+  background: transparent;
+  color: var(--c-editor-text);
+}
+
 .sliderDark .slider {
   background: linear-gradient(to right, var(--c-primary) var(--pct), var(--c-editor-border) var(--pct));
 }

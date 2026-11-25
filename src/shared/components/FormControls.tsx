@@ -55,6 +55,49 @@ export function Checkbox({ checked, onChange, label, description, disabled }: Ch
   );
 }
 
+/* ------------------------------ Pixel input ------------------------------ */
+/** A typed pixel value next to a slider: Enter or leaving the box applies it, Esc goes back, ↑ / ↓ step by 1 (Shift: 10). */
+function PixelInput({ value, min, max, label, onCommit }: { value: number; min: number; max: number; label?: string; onCommit: (v: number) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const shown = text ?? String(Math.round(value * 10) / 10);
+  const commit = () => {
+    if (text === null) return;
+    const v = Number(text.replace(',', '.'));
+    setText(null);
+    if (text.trim() === '' || !Number.isFinite(v)) return;
+    const next = Math.min(max, Math.max(min, v));
+    if (next !== value) onCommit(next);
+  };
+  return (
+    <span className={styles.pxBox}>
+      <input
+        className={styles.pxInput}
+        inputMode="decimal"
+        value={shown}
+        aria-label={label ? `${label} in pixels` : 'Pixels'}
+        title="Type a value"
+        size={Math.max(2, shown.length)}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') { commit(); e.currentTarget.blur(); }
+          else if (e.key === 'Escape') { setText(null); e.currentTarget.blur(); }
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const base = Number(shown) || 0;
+            const next = Math.min(max, Math.max(min, base + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+            setText(null);
+            onCommit(next);
+          }
+        }}
+      />
+      <span className={styles.pxUnit}>px</span>
+    </span>
+  );
+}
+
 /* --------------------------------- Slider -------------------------------- */
 interface SliderProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
   value: number;
@@ -106,13 +149,19 @@ export function Slider({ value: stored, onChange, min, max, step = 1, format, la
     if (pending.current !== null) latest.current(pending.current);
   }, []);
   const value = draft ?? stored;
-  const pct = ((value - min) / (max - min)) * 100;
+  const pct = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  // Pixel values can be typed too, also beyond the slider's range.
+  const pixels = Boolean(format && /px$/.test(format(max)));
   return (
     <div className={`${styles.sliderWrap} ${tone === 'dark' ? styles.sliderDark : ''}`}>
       {label && (
         <div className={`${styles.sliderHead} ${hideLabel ? styles.sliderHeadValue : ''}`}>
           {!hideLabel && <span>{label}</span>}
-          <span className={styles.sliderValue}>{format ? format(value) : value}</span>
+          {pixels ? (
+            <PixelInput value={value} min={min} max={Math.max(max * 10, 2000)} label={label} onCommit={(v) => { setDraft(v); latest.current(v); }} />
+          ) : (
+            <span className={styles.sliderValue}>{format ? format(value) : value}</span>
+          )}
         </div>
       )}
       <input

@@ -52,6 +52,8 @@ import { FilmStrip } from '../components/FilmStrip';
 import { BusyPill } from '@/shared/components/BusyPill';
 import { ImageInfo } from '../components/ImageInfo';
 import { groupIntoFlow } from '@/flow/flow-store';
+import { clearDraft, loadDraft, rememberFile, saveDraft, stampOf } from '../services/drafts';
+import { clipForImage, clipMany, clipOne, hasClip, refreshClip } from '../services/annotation-clipboard';
 import { COMPARE_DEFAULT, CompareBar, type CompareState } from '../components/CompareBar';
 import type { ComparePane } from '../render';
 import { isActive } from '../tools/filters';
@@ -63,6 +65,8 @@ import styles from '../components/editor.module.css';
 const STYLES_KEY = 'glint.editor.toolStyles.v2';
 /** Last-used frame, watermark and export choices, so they are kept between sessions. */
 const PREFS_KEY = 'glint.editor.prefs';
+/** Set once the stored line / shape thickness moved to the 10px default. */
+const WIDTH10_KEY = 'glint.editor.width10';
 
 export interface EditorPrefs {
   frame?: Frame | null;
@@ -137,7 +141,18 @@ export function EditorApp() {
         clean.delete('fresh');
         history.replaceState(null, '', `?${clean.toString()}`);
       }
+      rememberFile(base, blob);
       if (!editedAtOpen.current.has(record.id)) editedAtOpen.current.set(record.id, Boolean(record.edited));
+      // Drawings left on it last time (page reloaded or closed) come back editable; Undo takes them off.
+      const draft = ready || histories.current.has(record.id) ? null : await loadDraft(record).catch(() => null);
+      if (draft) {
+        base.close();
+        histories.current.set(record.id, historyReducer(createHistory(draft.plain), { type: 'commit', doc: draft.doc, label: 'Edits from last time' }));
+        draftOpened.current.add(record.id);
+        setDirty((d) => new Set(d).add(record.id));
+        setLoad({ status: 'ready', record, doc: draft.plain });
+        return;
+      }
       setLoad({ status: 'ready', record, doc: { base, width: base.width, height: base.height, annotations: [], watermark: null, frame } });
     } catch (err) {
       setLoad({ status: 'error', message: err instanceof Error ? err.message : 'The image could not be opened.' });
@@ -146,7 +161,16 @@ export function EditorApp() {
 
   useEffect(() => {
     const id = params.get('id');
-    if (id) void openCapture(id);
+    if (!id) return;
+    // Several images that are a flow (an editor page from before images moved to the Flow Editor).
+    if ((params.get('set') ?? '').split(',').filter(Boolean).length > 1) {
+      void getCapture(id).then((r) => {
+        if (r?.flowId) location.replace(chrome.runtime.getURL(`flow.html?id=${encodeURIComponent(r.flowId)}&item=${encodeURIComponent(id)}`));
+        else void openCapture(id);
+      }).catch(() => void openCapture(id));
+      return;
+    }
+    void openCapture(id);
   }, [params, openCapture]);
 
   // Records (thumbnails, sizes) of the session's images; images deleted elsewhere drop out.
@@ -171,8 +195,14 @@ export function EditorApp() {
   /** Changed since it was opened or last saved. */
   const changedDoc = (id: string) => {
     const h = histories.current.get(id);
-    return h && !sameDoc(h.present.doc, h.original) && h.present.doc !== savedDocs.current.get(id) ? h.present.doc : null;
+    if (!h || h.present.doc === savedDocs.current.get(id)) return null;
+    if (!sameDoc(h.present.doc, h.original)) return h.present.doc;
+    // Opened with last time's drawings and all of them undone: the stored picture still has them
+    // when it was saved flattened (an untouched picture has nothing to save).
+    return draftOpened.current.has(id) && records[id]?.edited ? h.present.doc : null;
   };
+  /** Images opened with drawings kept from last time (their history starts at the plain picture). */
+  const draftOpened = useRef(new Set<string>());
   /** Every edit of this session was taken back, and the image had none before. */
   const reverted = (id: string) => {
     const h = histories.current.get(id);
@@ -195,6 +225,8 @@ export function EditorApp() {
     await keepOriginal(id);
     const rec = await updateCapture(id, { mimeType: 'image/png', width: bmp.width, height: bmp.height, edited: true, thumbnail: (await generateImageThumbnail(png)) ?? undefined }, png);
     bmp.close();
+    // The flattened picture saved now still opens with its drawings editable.
+    await saveDraft(id, doc, [stampOf(rec)]).catch(() => undefined);
     savedDocs.current.set(id, doc);
     setRecords((r) => ({ ...r, [id]: rec }));
     broadcast({ target: 'broadcast', type: 'history/changed' });
@@ -229,6 +261,12 @@ export function EditorApp() {
     }
   };
 
+  /** Opens flow `fid` in the Flow Editor on image `item`, once the image left behind (`prev`) is saved. */
+  const openInFlowEditor = async (fid: string, item: string, prev: string | null) => {
+    if (prev) await saving.current.get(prev);
+    location.assign(chrome.runtime.getURL(`flow.html?id=${encodeURIComponent(fid)}&item=${encodeURIComponent(item)}`));
+  };
+
   /** Stores pictures as captures and adds them to the session (the first one opens). */
   const addImages = async (images: AddedImage[]) => {
     setBusyLabel(images.length > 1 ? `Adding ${images.length} images…` : 'Adding the image…');
@@ -261,6 +299,10 @@ export function EditorApp() {
       });
       if (load.status === 'ready' && moved.has(load.record.id)) setLoad((l) => (l.status === 'ready' ? { ...l, record: { ...l.record, flowId: fid } } : l));
       broadcast({ target: 'broadcast', type: 'history/changed' });
+      // Several images are a flow: they carry on in the Flow Editor (steps, descriptions, Add image),
+      // on the first image added. The image left behind is saved first (its drawings stay editable).
+      await openInFlowEditor(fid, added[0]!, prev);
+      return;
     } catch { /* they stay separate images */ }
     const ids = [...setIds, ...added];
     syncUrl(ids, added[0]!);
@@ -284,6 +326,20 @@ export function EditorApp() {
       const job = flush(prev).catch(() => undefined).finally(() => saving.current.delete(prev));
       saving.current.set(prev, job);
     }
+    // Screenshots of their own join the open images in a flow, shown in the Flow Editor (as with
+    // new images); images of another flow or videos stay in this list.
+    try {
+      const picks = (await Promise.all(fresh.map((x) => getCapture(x).catch(() => undefined)))).filter((r): r is CaptureRecord => !!r);
+      if (picks.length === fresh.length && picks.every((r) => r.kind === 'screenshot' && !r.flowId)) {
+        const open = setIds.map((x) => (x === currentId && load.status === 'ready' ? load.record : records[x])).filter((r): r is CaptureRecord => !!r);
+        const into = open.find((r) => r.flowId)?.flowId;
+        const loose = open.filter((r) => r.kind === 'screenshot' && !r.flowId).map((r) => r.id);
+        const fid = into ? await groupIntoFlow([...loose, ...fresh], { into }) : await groupIntoFlow([...loose, ...fresh]);
+        broadcast({ target: 'broadcast', type: 'history/changed' });
+        await openInFlowEditor(fid, fresh[0]!, prev);
+        return;
+      }
+    } catch { /* they join this list */ }
     const ids = [...setIds, ...fresh];
     syncUrl(ids, fresh[0]!);
     await openCapture(fresh[0]!);
@@ -372,11 +428,14 @@ export function EditorApp() {
       const rec = await restoreOriginalImage(id);
       histories.current.delete(id);
       savedDocs.current.delete(id);
+      draftOpened.current.delete(id);
       if (rec) setRecords((r) => ({ ...r, [id]: rec }));
       if (id === currentId) {
         setEditorKey((k) => k + 1);
         await openCapture(id);
       }
+      // A last change written as the editor closed doesn't bring the drawings back.
+      await clearDraft(id).catch(() => undefined);
       toast.success('Original restored', rec ? undefined : 'The changes made in this session were discarded.');
     } catch (err) {
       toast.error(errorInfoOf(err));
@@ -475,6 +534,7 @@ export function EditorApp() {
         settings={settings}
         params={params}
         onCollage={(seed) => void openCollage(seed)}
+        keepDrafts
         initialHistory={histories.current.get(id)}
         onHistory={(h) => {
           histories.current.set(id, h);
@@ -594,6 +654,8 @@ export interface EditorProps {
    * the page's Annotate rail and the settings panel is drawn into `panelSlot`.
    */
   inline?: { panelSlot: HTMLElement | null; requestedTool: { tool: Tool; n: number } | null; requestedSelect?: { id: string; n: number } | null; onToolChange: (t: Tool) => void; onSelectionChange: (annotationId: string | null) => void };
+  /** Keeps the drawings of the image in the database as they are made (a reload brings them back, editable). */
+  keepDrafts?: boolean;
 }
 
 export interface EditorActions {
@@ -609,7 +671,7 @@ let urlActionsUsed = false;
 /** Captures whose "extract text" request was handled in this page. */
 const ocrDone = new Set<string>();
 
-export function Editor({ record: initialRecord, initialDoc, settings, params, onCollage, initialHistory, onHistory, onSaved, embedded, frameApply, actionsRef, rail, strip, onStep, videoMode, inline }: EditorProps) {
+export function Editor({ record: initialRecord, initialDoc, settings, params, onCollage, initialHistory, onHistory, onSaved, embedded, frameApply, actionsRef, rail, strip, onStep, videoMode, inline, keepDrafts = false }: EditorProps) {
   const toast = useToast();
   const [hist, dispatch] = useReducer(historyReducer, initialDoc, (d: EditorDoc) => initialHistory ?? createHistory(d));
   // Report the history only when it really changes: re-sending an old history on a parent
@@ -759,9 +821,10 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
   // The picture re-fits when the docked details open or close.
   useEffect(() => { if (fullScreen) requestAnimationFrame(() => workspace.current?.fit()); }, [fsInfo, detailsPopup]); // eslint-disable-line react-hooks/exhaustive-deps
   const stylesLoaded = useRef(false);
-  const clipboard = useRef<Annotation | null>(null);
+  // Copied objects are shared by every image (and every Pixora tab): copy here, paste on another image.
+  const clipboard = clipOne;
   /** Several copied objects (used when no single object was copied after them). */
-  const manyClipboard = useRef<Annotation[]>([]);
+  const manyClipboard = clipMany;
   const workspace = useRef<WorkspaceHandle>(null);
   /** The object menus as they are now (the selection bar opens them later). */
   const menusRef = useRef<{ one: () => MenuItem[]; many: () => MenuItem[] }>({ one: () => [], many: () => [] });
@@ -784,8 +847,16 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
 
   // Persisted tool styles and editor choices: loaded once, then saved whenever they change.
   useEffect(() => {
-    void chrome.storage.local.get([STYLES_KEY, PREFS_KEY]).then((r) => {
-      setToolStyles(mergeStyles(r[STYLES_KEY] as Partial<ToolStyles> | undefined));
+    void chrome.storage.local.get([STYLES_KEY, PREFS_KEY, WIDTH10_KEY]).then((r) => {
+      const merged = mergeStyles(r[STYLES_KEY] as Partial<ToolStyles> | undefined);
+      // Once: lines, arrows and shapes move to the new 10px default (from the old 14px / 4px defaults;
+      // a thickness the user chose is kept).
+      if (!r[WIDTH10_KEY]) {
+        if (merged.line.width === 14) merged.line = { ...merged.line, width: DEFAULT_TOOL_STYLES.line.width };
+        if (merged.shape.width === 4) merged.shape = { ...merged.shape, width: DEFAULT_TOOL_STYLES.shape.width };
+        void chrome.storage.local.set({ [WIDTH10_KEY]: true, [STYLES_KEY]: merged });
+      }
+      setToolStyles(merged);
       const p = (r[PREFS_KEY] as EditorPrefs | undefined) ?? {};
       setPrefs(p);
       if (p.format) setFormat(p.format);
@@ -905,6 +976,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
 
   const docRef = useRef(doc);
   docRef.current = doc;
+  const savedDocRef = useRef(savedDoc);
+  savedDocRef.current = savedDoc;
   const latestDoc = useCallback(() => docRef.current, []);
   const fillWithBackground = useFill(geometry, setWorking, latestDoc);
   const retouch = useRetouch({
@@ -1126,6 +1199,8 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
         changed ? png : undefined,
       );
       bitmap?.close();
+      // The flattened picture saved now still opens with its drawings editable.
+      if (changed && keepDrafts) await saveDraft(record.id, doc, [stampOf(next)]).catch(() => undefined);
       setRecord(next);
       setSavedDoc(doc);
       onSaved?.(next);
@@ -1305,14 +1380,47 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     }
   }, [params, record.ocrRequested, runOcr, download, render, toast]);
 
-  // Warn about unsaved annotations when closing the tab.
+  // The drawings are kept as they are made (a reload or a crash brings them back, still editable).
+  const draftStamp = useRef(stampOf(initialRecord)).current;
+  const draftDoc = useRef<EditorDoc>(initialHistory?.present.doc ?? initialDoc);
+  /** A change not written yet (written shortly after the last change, or when the page is left). */
+  const draftJob = useRef<{ timer: number; run: () => Promise<void> } | null>(null);
+  const draftWriting = useRef<Promise<void> | null>(null);
   useEffect(() => {
-    const onUnload = (e: BeforeUnloadEvent) => {
-      if (!sameDoc(doc, savedDoc)) e.preventDefault();
+    if (!keepDrafts || doc === draftDoc.current || sameDoc(doc, draftDoc.current)) return;
+    const id = record.id;
+    const run = async () => {
+      if (draftJob.current?.run === run) { window.clearTimeout(draftJob.current.timer); draftJob.current = null; }
+      draftDoc.current = doc;
+      const job = saveDraft(id, doc, [draftStamp]).catch((err: unknown) => console.warn('[Pixora] could not keep the edits', err));
+      draftWriting.current = job;
+      await job;
+      if (draftWriting.current === job) draftWriting.current = null;
     };
+    if (draftJob.current) window.clearTimeout(draftJob.current.timer);
+    draftJob.current = { timer: window.setTimeout(() => void run(), 500), run };
+  }, [doc, keepDrafts, record.id, draftStamp]);
+  useEffect(() => {
+    // Leaving the page (or this image): the last change is written at once.
+    const now = () => { const j = draftJob.current; if (j) void j.run(); };
+    const onHide = () => { if (document.visibilityState === 'hidden') now(); };
+    const onUnload = (e: BeforeUnloadEvent) => {
+      now();
+      // Without kept drafts (video frames), unsaved drawings would be lost: ask first.
+      if (!keepDrafts && !sameDoc(docRef.current, savedDocRef.current)) e.preventDefault();
+    };
+    window.addEventListener('pagehide', now);
+    document.addEventListener('visibilitychange', onHide);
     window.addEventListener('beforeunload', onUnload);
-    return () => window.removeEventListener('beforeunload', onUnload);
-  }, [doc, savedDoc]);
+    return () => {
+      // Closed for another image: the page saves this one itself (Restore discards it).
+      if (draftJob.current) window.clearTimeout(draftJob.current.timer);
+      draftJob.current = null;
+      window.removeEventListener('pagehide', now);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, [keepDrafts]);
 
   /* ----------------------------- object operations ----------------------------- */
   const addAnnotations = useCallback(
@@ -1356,7 +1464,24 @@ export function Editor({ record: initialRecord, initialDoc, settings, params, on
     },
     [doc.width, doc.height, replaceAnnotation],
   );
-  const [hasClipboard, setHasClipboard] = useState(false);
+  const [hasClipboard, setHasClipboard] = useState(hasClip);
+  // Objects copied on another image paste here in the same place; ones copied in another Pixora tab
+  // are picked up when this page is used again.
+  useEffect(() => {
+    clipForImage(record.id, doc.width, doc.height);
+    setHasClipboard(hasClip());
+  }, [record.id, doc.width, doc.height]);
+  useEffect(() => {
+    const pick = () => void refreshClip().then((has) => setHasClipboard(has));
+    pick();
+    const onVis = () => { if (document.visibilityState === 'visible') pick(); };
+    window.addEventListener('focus', pick);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('focus', pick);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
 
   /* ------------------------------ marked area ------------------------------ */
   // A new picture size (crop, rotate, undo…) makes the marked area meaningless.

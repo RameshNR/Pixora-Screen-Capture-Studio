@@ -19,6 +19,8 @@ import { applyCommand, createSessionHooks } from '../services/session-bridge';
 import { chooseDesktopMedia, getCameraStream, getDesktopStream, stopStream } from '../services/media-stream-service';
 import { surfaceInfo, workAreaCrop } from '../services/display-service';
 import { isPageGeometry, pageRectToSurface, pageToSurface, type SurfaceInfo } from '../services/screen-map';
+import { livePageInFront, shootPageInFront } from '../services/page-under-bar';
+import { LivePage } from '../services/live-page';
 import { describeMime, targetDimensions } from '../services/codec-service';
 import { elapsedMs, remainingMs } from '../services/recording-state';
 import type { PendingRecording } from '@/background/recording-manager';
@@ -55,6 +57,10 @@ function RecordingWorkspace({ sessionId }: { sessionId: string }) {
   const sessionRef = useRef<RecordingSession | null>(null);
   /** What the desktop recording captures, to place page areas and the mouse on it. */
   const surface = useRef<Promise<SurfaceInfo | null> | null>(null);
+  /** The recorded screen / window track, to read the monitors and frame size again when they change. */
+  const surfaceTrack = useRef<MediaStreamTrack | null>(null);
+  /** Live video of the page in front, for painting out Chrome's sharing bar (screen / window recordings). */
+  const livePage = useRef<LivePage | null>(null);
   const [pickNote, setPickNote] = useState<string | null>(null);
   /** The recording was paused for choosing a zoom / highlight area on the preview (resumed after). */
   const pausedForPick = useRef(false);
@@ -128,6 +134,8 @@ function RecordingWorkspace({ sessionId }: { sessionId: string }) {
           setPhase(captureId ? 'ended' : err && err.code !== 'cancelled' ? 'error' : 'ended');
           if (err && err.code !== 'cancelled') setError(err);
           sessionRef.current = null;
+          livePage.current?.stop();
+          livePage.current = null;
           hooks.current.finished(captureId, err);
         },
       });
@@ -136,19 +144,35 @@ function RecordingWorkspace({ sessionId }: { sessionId: string }) {
       // "Without taskbar": crop full-screen captures to the display's work area.
       const area = pickedArea ?? (cfg.mode === 'desktop' && cfg.excludeTaskbar ? await workAreaCrop(stream.getVideoTracks()[0]).catch(() => null) : null);
       await session.prepare({ stream, monitorAudio: false, area, title: cfg.mode === 'desktop' ? label || 'Desktop' : 'Camera' });
-      surface.current = cfg.mode === 'desktop' ? surfaceInfo(stream.getVideoTracks()[0]).catch(() => null) : null;
+      surfaceTrack.current = cfg.mode === 'desktop' ? stream.getVideoTracks()[0] ?? null : null;
+      surface.current = surfaceTrack.current ? surfaceInfo(surfaceTrack.current).catch(() => null) : null;
+      // Chrome's "is sharing your screen" bar is replaced with the page under it: from a live video of
+      // that page where Chrome allows it (keeps up with scrolling), else from still pictures of it.
+      if (surfaceTrack.current) {
+        livePage.current?.stop();
+        const live = (livePage.current = new LivePage(cfg.fps));
+        session.setPageShooter(async (fw, fh) => {
+          const info = await surface.current;
+          if (!info) return null;
+          return (await livePageInFront(info, fw, fh, live).catch(() => null)) ?? shootPageInFront(info, fw, fh);
+        });
+      }
       setPhase('live');
       void session.start();
     } catch (err) {
       stopStream(stream);
       sessionRef.current?.releaseMedia();
       sessionRef.current = null;
+      livePage.current?.stop();
+      livePage.current = null;
       const info = errorInfoOf(err);
       setError(info);
       setPhase('error');
       hooks.current.finished(null, info);
     }
   }, [sessionId]);
+
+  useEffect(() => () => livePage.current?.stop(), []);
 
   // Load the pending session config from the service worker, then start.
   useEffect(() => {
@@ -219,24 +243,40 @@ function RecordingWorkspace({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     const onConnect = (port: chrome.runtime.Port) => {
       if (port.name !== 'glint-cursor' || port.sender?.id !== chrome.runtime.id || !port.sender.tab) return;
-      let info: SurfaceInfo | null | undefined;
+      const tabId = port.sender.tab.id;
+      // The tab's page zoom, straight from Chrome (kept up to date while it changes).
+      let zoom: number | undefined;
+      if (tabId !== undefined) void chrome.tabs.getZoom(tabId).then((z) => { zoom = z; }).catch(() => undefined);
+      const onZoom = (e: chrome.tabs.OnZoomChangeInfo) => { if (e.tabId === tabId) zoom = e.newZoomFactor; };
+      chrome.tabs.onZoomChange.addListener(onZoom);
+      port.onDisconnect.addListener(() => chrome.tabs.onZoomChange.removeListener(onZoom));
       port.onMessage.addListener((msg: unknown) => {
         const session = sessionRef.current;
         if (!session || !surface.current || !msg || typeof msg !== 'object') return;
         const m = msg as { x?: unknown; y?: unknown; click?: unknown; page?: unknown };
         if (typeof m.x !== 'number' || typeof m.y !== 'number' || !Number.isFinite(m.x) || !Number.isFinite(m.y) || !isPageGeometry(m.page)) return;
-        const report = (i: SurfaceInfo | null) => {
-          const map = i ? pageToSurface(m.page as never, i) : null;
-          if (!map) return;
-          const p = map({ x: Math.max(0, Math.min(1, m.x as number)), y: Math.max(0, Math.min(1, m.y as number)) });
-          session.onCursor({ ...p, ...(m.click === 'left' || m.click === 'right' ? { click: m.click } : {}) });
-        };
-        if (info !== undefined) report(info);
-        else void surface.current.then((i) => { info = i; report(i); });
+        const page = { ...m.page, ...(zoom ? { zoom } : {}) };
+        const at = { x: Math.max(0, Math.min(1, m.x)), y: Math.max(0, Math.min(1, m.y)) };
+        const click: { click?: 'left' | 'right' } = m.click === 'left' || m.click === 'right' ? { click: m.click } : {};
+        // Always the latest screen info: it is read again when the monitors change (see below).
+        void surface.current.then((i) => {
+          const map = i ? pageToSurface(page, i) : null;
+          if (map) session.onCursor({ ...map(at), ...click });
+        });
       });
     };
     chrome.runtime.onConnect.addListener(onConnect);
-    return () => chrome.runtime.onConnect.removeListener(onConnect);
+    // A remote desktop window resized or made full screen (RDP changes the remote screen's size and
+    // scale), a monitor added or its scaling changed: read the monitors and the frame size again, so
+    // the mouse isn't placed with the old screen's size.
+    const onDisplays = () => {
+      if (surfaceTrack.current) surface.current = surfaceInfo(surfaceTrack.current).catch(() => null);
+    };
+    chrome.system?.display?.onDisplayChanged.addListener(onDisplays);
+    return () => {
+      chrome.runtime.onConnect.removeListener(onConnect);
+      chrome.system?.display?.onDisplayChanged.removeListener(onDisplays);
+    };
   }, []);
 
   // Preview + warn before closing the tab while recording.

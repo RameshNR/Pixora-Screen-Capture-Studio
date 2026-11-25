@@ -1,6 +1,7 @@
 import { StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ToastProvider } from './components/Toast';
+import { CrashScreen } from './components/CrashScreen';
 import { applyTheme, cachedThemePreference, useTheme } from './hooks/useTheme';
 import { useSettings } from './hooks/useSettings';
 import '@/styles/global.css';
@@ -22,7 +23,9 @@ export function mountPage(node: ReactNode, opts: { toastPosition?: 'top' | 'bott
   createRoot(container).render(
     <StrictMode>
       <ThemeSync />
-      <ToastProvider position={opts.toastPosition}>{node}</ToastProvider>
+      <CrashScreen>
+        <ToastProvider position={opts.toastPosition}>{node}</ToastProvider>
+      </CrashScreen>
     </StrictMode>,
   );
 }

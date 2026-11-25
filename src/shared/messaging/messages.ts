@@ -23,8 +23,7 @@ export type BackgroundMessage =
   | { target: 'background'; type: 'recording/area-cancel' }
   | { target: 'background'; type: 'recording/command'; command: RecordingCommand }
   | { target: 'background'; type: 'recording/get-state' }
-  | { target: 'background'; type: 'recording/get-pending'; sessionId: string }
-  | { target: 'background'; type: 'recording/host-event'; sessionId: string; event: RecordingEvent }
+  | { target: 'background'; type: 'recording/get-pending'; sessionId: string }  | { target: 'background'; type: 'recording/host-event'; sessionId: string; event: RecordingEvent }
   | { target: 'background'; type: 'recording/host-finished'; sessionId: string; captureId: string | null; error?: AppErrorInfo }
   | { target: 'background'; type: 'controlbar/resize'; minimized: boolean; expanded?: boolean }
   | { target: 'background'; type: 'recording/marker'; name?: string; description?: string }

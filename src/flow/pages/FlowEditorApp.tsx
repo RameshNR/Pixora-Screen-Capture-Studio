@@ -20,7 +20,8 @@ import { FilmStrip } from '@/editor/components/FilmStrip';
 import { BusyPill } from '@/shared/components/BusyPill';
 import { Dropdown, type MenuItem } from '@/shared/components/Dropdown';
 import { usePageContextMenu } from '@/shared/components/PageContextMenu';
-import { historyReducer, type HistoryState } from '@/editor/history/history';
+import { createHistory, historyReducer, type HistoryState } from '@/editor/history/history';
+import { clearDraft, loadDraft, rememberFile, saveDraft, stampOf } from '@/editor/services/drafts';
 import type { EditorDoc, Frame } from '@/editor/types';
 import type { FrameApply } from '@/editor/components/PropertiesPanel';
 import { exportDocument, renderDocumentThumbnail } from '@/editor/render';
@@ -169,7 +170,9 @@ export function FlowEditorApp() {
       setFlow(doc);
       document.title = `${doc.name} · Pixora Flow`;
       await refreshRecords([...doc.items, ...(doc.deleted ?? [])]);
-      setSelected(doc.items[0]?.id ?? null);
+      // ?item=: the image to open first (images just added from the screenshot editor).
+      const want = new URLSearchParams(location.search).get('item');
+      setSelected(doc.items.find((i) => i.id === want)?.id ?? doc.items[0]?.id ?? null);
     })();
   }, [flowId, refreshRecords]);
 
@@ -202,11 +205,14 @@ export function FlowEditorApp() {
     if (!h) return;
     const doc = h.present.doc;
     const saved = savedDocs.current.get(selected);
-    if (doc === saved || doc === h.original) return;
+    // Opened with last time's drawings and all of them undone: a picture saved flattened still has them.
+    if (doc === saved || (doc === h.original && !(draftOpened.current.has(selected) && records[selected]?.edited))) return;
     const png = await exportDocument(doc, 'png', 1);
     const bmp = await createImageBitmap(png);
     const rec = await saveEditedImage(selected, png, bmp.width, bmp.height);
     bmp.close();
+    // The flattened picture saved now still opens with its drawings editable.
+    await saveDraft(selected, doc, [stampOf(rec)]).catch(() => undefined);
     savedDocs.current.set(selected, doc);
     setRecords((r) => ({ ...r, [selected]: rec }));
     // Edited by hand now: a later "Apply to all" frames this version instead of the original.
@@ -214,7 +220,9 @@ export function FlowEditorApp() {
     void updateFlow(flowId, (d) => (d.items.some((i) => i.id === id && i.framedOnly) ? { ...d, items: d.items.map((i) => (i.id === id ? { ...i, framedOnly: false } : i)) } : d))
       .then((d) => setFlow(d))
       .catch(() => undefined);
-  }, [selected, flowId]);
+  }, [selected, flowId, records]);
+  /** Images opened with drawings kept from last time (their history starts at the plain picture). */
+  const draftOpened = useRef(new Set<string>());
 
   /* -------------------------- Border & frame: apply ------------------------- */
   /**
@@ -320,6 +328,7 @@ export function FlowEditorApp() {
     const [record, blob] = await Promise.all([getCapture(id), getCaptureBlob(id)]);
     if (!record || !blob) return null;
     const base = await createImageBitmap(blob);
+    rememberFile(base, blob);
     const value: Loaded = { record, doc: { base, width: base.width, height: base.height, annotations: [], watermark: null, frame: null } };
     decoded.current.set(id, value);
     while (decoded.current.size > 8) decoded.current.delete(decoded.current.keys().next().value!);
@@ -341,7 +350,20 @@ export function FlowEditorApp() {
       if (prev) {
         const record = (await getCapture(selected)) ?? null;
         next = record ? { record, doc: prev.original } : null;
-      } else next = await decode(selected);
+      } else {
+        next = await decode(selected);
+        // Drawings left on it last time (page reloaded or closed) come back editable; Undo takes them off.
+        const draft = next ? await loadDraft(next.record).catch(() => null) : null;
+        if (!alive) return;
+        if (next && draft && !histories.current.has(selected)) {
+          const h = historyReducer(createHistory(draft.plain), { type: 'commit', doc: draft.doc, label: 'Edits from last time' });
+          histories.current.set(selected, h);
+          draftOpened.current.add(selected);
+          markDirty(selected, true);
+          next = { record: next.record, doc: draft.plain };
+          savedDocs.current.set(selected, draft.plain);
+        }
+      }
       if (!next || !alive) return;
       if (!savedDocs.current.has(selected)) savedDocs.current.set(selected, next.doc);
       setLoaded(next);
@@ -604,6 +626,7 @@ export function FlowEditorApp() {
       if (!rec && !unsaved) continue;
       histories.current.delete(id);
       savedDocs.current.delete(id);
+      draftOpened.current.delete(id);
       decodedForget(id);
       markDirty(id, false);
       clearLiveThumb(id);
@@ -620,11 +643,14 @@ export function FlowEditorApp() {
     const rec = await restoreOriginalImage(id);
     histories.current.delete(id);
     savedDocs.current.delete(id);
+    draftOpened.current.delete(id);
     decodedForget(id);
     markDirty(id, false);
     clearLiveThumb(id);
     if (rec) setRecords((r) => ({ ...r, [id]: rec }));
     setEditorKey((k) => k + 1);
+    // A last change written as the editor closed doesn't bring the drawings back.
+    setTimeout(() => void clearDraft(id).catch(() => undefined), 0);
     toast.success('Original restored');
   };
 
@@ -999,6 +1025,7 @@ function EmbeddedEditor({ loaded, settings, history, onHistory, onSaved, onColla
       strip={strip}
       onStep={onStep}
       embedded
+      keepDrafts
     />
   );
 }

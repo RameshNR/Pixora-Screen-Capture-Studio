@@ -1,5 +1,5 @@
 import type { Rect, TextAnnotation, TextPart, TextStyle } from '../types';
-import { dashPattern, getMeasureContext, makePaint, viewScale, type Ctx2D } from './common';
+import { dashCap, dashPattern, getMeasureContext, makePaint, viewScale, type Ctx2D } from './common';
 import { alpha, shade, shapeGeometry } from './shape-lib';
 
 export const TEXT_PADDING = 0.3; // × fontSize, default space around text with a background or border
@@ -457,7 +457,7 @@ export function renderText(ctx: Ctx2D, a: TextAnnotation): void {
     if ((a.borderWidth ?? 0) > 0) {
       ctx.lineWidth = a.borderWidth;
       ctx.strokeStyle = a.borderColor;
-      ctx.lineCap = a.borderStyle === 'dotted' ? 'round' : 'butt';
+      ctx.lineCap = dashCap(a.borderStyle);
       ctx.setLineDash(dashPattern(a.borderStyle ?? 'solid', a.borderWidth));
       ctx.stroke();
       ctx.setLineDash([]);

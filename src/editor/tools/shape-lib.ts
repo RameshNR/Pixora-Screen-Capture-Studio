@@ -570,13 +570,22 @@ export function paintShape(ctx: Ctx2D, kind: ShapeKind, r: Rect, radius: number,
   };
   const strokePaint = (path: Path2D, k = 0) => {
     if (!hasStroke) return;
-    ctx.strokeStyle = k ? shade(s.stroke, k) : s.stroke;
+    if (look === 'gradient' && !hasFill && !k) {
+      // An outline only: the gradient runs along the outline (light at the top, deeper below).
+      const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+      g.addColorStop(0, shade(s.stroke, 0.45));
+      g.addColorStop(1, shade(s.stroke, -0.15));
+      ctx.strokeStyle = g;
+    } else ctx.strokeStyle = k ? shade(s.stroke, k) : s.stroke;
     ctx.stroke(path);
   };
+  /** How see-through the shape's own colours are (0–1): its shadow / glow is as faint. */
+  const strength = Math.max(parseHex(hasFill ? s.fill : s.stroke)?.a ?? 1, hasFill && hasStroke ? parseHex(s.stroke)?.a ?? 1 : 0);
   ctx.save();
   ctx.lineWidth = s.width;
   ctx.lineJoin = 'round';
-  ctx.lineCap = geo.open ? 'round' : s.dash.length && s.dash[0]! < 0.1 ? 'round' : 'butt';
+  // Dots (near-zero dashes) need round line ends; dashes keep square ones.
+  ctx.lineCap = geo.open ? 'round' : s.dash.some((d) => d < 0.1) ? 'round' : 'butt';
   ctx.setLineDash(s.dash);
   for (const b of geo.back ?? []) {
     fillPaint(b.path, b.shade);
@@ -591,19 +600,33 @@ export function paintShape(ctx: Ctx2D, kind: ShapeKind, r: Rect, radius: number,
     ctx.restore();
   }
   if (look === 'shadow' || look === 'glow' || look === 'glass') {
+    // Only the shadow / glow is drawn here: the shape itself is drawn far off to the side and its
+    // shadow brought back under it, so a see-through colour is never painted twice (it used to
+    // look darker / another colour instead of more transparent).
+    const away = 20000;
+    const t = ctx.getTransform();
+    const opaque = (c: string) => (parseHex(c) ? c.trim().slice(0, 7) : c);
     ctx.save();
+    ctx.translate(-away, 0);
+    let dy = 0;
     if (look === 'glow') {
-      ctx.shadowColor = alpha(hasStroke ? s.stroke : base, 0.75);
+      ctx.shadowColor = alpha(opaque(hasStroke ? s.stroke : base), 0.75 * strength);
       ctx.shadowBlur = Math.max(8, m * 0.3);
     } else {
-      ctx.shadowColor = 'rgba(15, 23, 42, 0.22)';
+      ctx.shadowColor = `rgba(15, 23, 42, ${+(0.22 * strength).toFixed(3)})`;
       ctx.shadowBlur = Math.max(6, m * 0.12);
-      ctx.shadowOffsetY = Math.max(2, m * 0.04);
+      dy = Math.max(2, m * 0.04);
     }
-    if (hasFill) fillPaint(geo.outline);
-    else if (hasStroke) ctx.stroke(geo.outline);
+    // Shadow offsets are in canvas pixels, the move to the side in the (scaled, rotated) drawing space.
+    ctx.shadowOffsetX = away * t.a;
+    ctx.shadowOffsetY = away * t.b + dy;
+    ctx.fillStyle = '#000';
+    ctx.strokeStyle = '#000';
+    if (hasFill) ctx.fill(geo.outline);
+    if (hasStroke) ctx.stroke(geo.outline);
     ctx.restore();
-  } else fillPaint(geo.outline);
+  }
+  fillPaint(geo.outline);
   if (look === 'glass' && hasFill) {
     ctx.save();
     ctx.clip(geo.outline);
@@ -615,6 +638,17 @@ export function paintShape(ctx: Ctx2D, kind: ShapeKind, r: Rect, radius: number,
     ctx.restore();
   }
   strokePaint(geo.outline);
+  if (look === 'glass' && !hasFill && hasStroke) {
+    // An outline only: a glassy shine along the outline (white, strongest at the top).
+    ctx.save();
+    const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    g.addColorStop(0, `rgba(255,255,255,${+(0.7 * strength).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(255,255,255,0.05)');
+    ctx.strokeStyle = g;
+    ctx.lineWidth = Math.max(1, s.width * 0.35);
+    ctx.stroke(geo.outline);
+    ctx.restore();
+  }
   for (const f of geo.front ?? []) {
     fillPaint(f.path, f.shade);
     if (!hasFill) { ctx.fillStyle = alpha(s.stroke, 0.25); ctx.fill(f.path); }

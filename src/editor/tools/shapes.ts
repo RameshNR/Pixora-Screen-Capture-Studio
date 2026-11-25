@@ -1,5 +1,5 @@
-import type { BoxAnnotation, HeadStyle, ImageAnnotation, LineAnnotation, MarkerAnnotation, Point, Rect, StickerAnnotation } from '../types';
-import { dashPattern, distToSegment, getMeasureContext, inRect, type Ctx2D } from './common';
+import type { BoxAnnotation, HeadStyle, ImageAnnotation, LineAnnotation, LineBody, MarkerAnnotation, Point, Rect, StickerAnnotation } from '../types';
+import { dashCap, dashPattern, distToSegment, getMeasureContext, inRect, type Ctx2D } from './common';
 import { alpha, paintShape, shade } from './shape-lib';
 import { drawCutout, drawStickerIcon } from './sticker-lib';
 
@@ -18,7 +18,7 @@ export function renderBox(ctx: Ctx2D, a: BoxAnnotation): void {
   ctx.lineWidth = a.width;
   ctx.strokeStyle = a.stroke;
   ctx.lineJoin = 'round';
-  ctx.lineCap = a.dash === 'dotted' ? 'round' : 'butt';
+  ctx.lineCap = dashCap(a.dash);
   ctx.setLineDash(dashPattern(a.dash ?? 'solid', a.width));
   ctx.beginPath();
   if (a.type === 'rect' && a.shape !== 'ellipse') {
@@ -692,7 +692,103 @@ function blockOutline(a: LineAnnotation, path: Point[]): Point[] {
   return out;
 }
 
+/** Line designs that follow a repeating pattern along the line (zigzag, waves, scallops, curls, spirals). */
+const PATTERN_BODIES = new Set(['zigzag', 'wavy', 'scallop', 'curly', 'spiral']);
+
+/** Sizes of the pattern designs for a thickness: height of the zigzag / waves, length of one repeat. */
+function patternSize(width: number) {
+  return { amp: Math.max(6, width * 2.2), wave: Math.max(28, width * 8) };
+}
+
+/** How tall a pattern design is across the line (0 for a plain line). */
+function patternSpan(body: LineBody, width: number): number {
+  const { amp, wave } = patternSize(width);
+  switch (body) {
+    case 'zigzag':
+    case 'wavy': return amp * 2;
+    case 'scallop': return amp * 1.2;
+    case 'curly': return wave * 0.44;
+    case 'spiral': return amp * 1.6 + Math.max(width * 4.5, wave * 0.42) * 2;
+    default: return 0;
+  }
+}
+
+/** Where the side-by-side copies of a line sit: offsets across the line (px), and that direction. */
+export function lineCopies(a: LineAnnotation): { offsets: number[]; nx: number; ny: number } {
+  const n = Math.max(1, Math.min(20, Math.round(a.count ?? 1)));
+  const len = Math.hypot(a.x2 - a.x1, a.y2 - a.y1) || 1;
+  const nx = -(a.y2 - a.y1) / len;
+  const ny = (a.x2 - a.x1) / len;
+  // The gap is the space left between neighbouring lines, whatever their design's height.
+  const pitch = a.width + patternSpan(a.body ?? 'line', a.width) + Math.max(0, a.gap ?? 20);
+  return { offsets: Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * pitch), nx, ny };
+}
+
+/**
+ * The line drawn as a repeating pattern: zigzag, wavy, scalloped (arcs), curly (cursive loops) or
+ * spiral (a wave with a curl every other crest). Sizes follow the thickness.
+ */
+export function patternPath(shaft: Point[], body: LineBody, width: number): Point[][] {
+  const total = pathLength(shaft);
+  if (total < 2) return [shaft];
+  const { amp, wave } = patternSize(width);
+  const periods = Math.max(1, Math.round(total / wave));
+  const lambda = total / periods;
+  const at = (s: number, side: number) => {
+    const { p, angle } = frameAt(shaft, Math.max(0, Math.min(total, s)));
+    return { x: p.x - side * Math.sin(angle), y: p.y + side * Math.cos(angle) };
+  };
+  const out: Point[] = [];
+  const parts: Point[][] = [out];
+  if (body === 'zigzag') {
+    for (let k = 0; k <= periods * 2; k++) out.push(at((k * lambda) / 2, k === 0 || k === periods * 2 ? 0 : k % 2 ? -amp : amp));
+    return parts;
+  }
+  const steps = periods * 32;
+  for (let k = 0; k <= steps; k++) {
+    const u = (k / steps) * total;
+    const t = (u / lambda) * Math.PI * 2;
+    if (body === 'wavy' || body === 'spiral') out.push(at(u, -Math.sin(t) * amp * (body === 'spiral' ? 0.8 : 1)));
+    // Scalloped: a row of arcs hanging down, meeting in points on top ("︶︶︶").
+    else if (body === 'scallop') out.push(at(u, Math.abs(Math.sin(t / 2)) * amp * 1.2 - amp * 0.6));
+    else {
+      // Curly: a trochoid, the pen running forward while circling (a loop each period).
+      const r = lambda * 0.22;
+      out.push(at(u - Math.sin(t) * r * 1.5, (Math.cos(t) - 1) * r + r));
+    }
+  }
+  if (body === 'spiral') {
+    // A spiral (two turns, unwinding outwards) ending on every other crest of the wave.
+    const R = Math.max(width * 4.5, lambda * 0.42);
+    const crest = amp * 0.8;
+    for (let c = 0; c < periods; c += 2) {
+      const s = (c + 0.25) * lambda;
+      const centre = at(s, -crest - R);
+      const end = frameAt(shaft, Math.min(total, s)).angle + Math.PI / 2;
+      const spiral: Point[] = [];
+      for (let k = 6; k <= 80; k++) {
+        const f = k / 80;
+        const ang = end - (1 - f) * 2 * Math.PI * 2;
+        spiral.push({ x: centre.x + Math.cos(ang) * R * f, y: centre.y + Math.sin(ang) * R * f });
+      }
+      parts.push(spiral);
+    }
+  }
+  return parts;
+}
+
 export function renderLine(ctx: Ctx2D, a: LineAnnotation): void {
+  const { offsets, nx, ny } = lineCopies(a);
+  if (offsets.length === 1) return renderOneLine(ctx, a);
+  for (const d of offsets) {
+    ctx.save();
+    ctx.translate(nx * d, ny * d);
+    renderOneLine(ctx, a);
+    ctx.restore();
+  }
+}
+
+function renderOneLine(ctx: Ctx2D, a: LineAnnotation): void {
   ctx.save();
   ctx.globalAlpha = a.opacity;
   ctx.strokeStyle = a.color;
@@ -813,6 +909,20 @@ export function renderLine(ctx: Ctx2D, a: LineAnnotation): void {
       strokePath(ctx, loopPath(shaft, a.width));
       break;
     }
+    case 'zigzag':
+    case 'wavy':
+    case 'scallop':
+    case 'curly':
+    case 'spiral': {
+      ctx.lineCap = !a.dash || a.dash === 'solid' ? 'round' : dashCap(a.dash);
+      ctx.lineJoin = body === 'zigzag' ? 'miter' : 'round';
+      ctx.setLineDash(dashPattern(a.dash ?? 'solid', a.width));
+      for (const part of patternPath(shaft, body, a.width)) strokePath(ctx, part);
+      ctx.setLineDash([]);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      break;
+    }
     case 'dash-tail': {
       // Dashes that turn into a solid line near the head ("- - ——>").
       const total = pathLength(shaft);
@@ -826,7 +936,8 @@ export function renderLine(ctx: Ctx2D, a: LineAnnotation): void {
       break;
     }
     default:
-      ctx.lineCap = a.dash === 'dashed' ? 'butt' : 'round';
+      // Dashes keep square ends (their gaps stay open); dots need round ones.
+      ctx.lineCap = !a.dash || a.dash === 'solid' ? 'round' : dashCap(a.dash);
       ctx.setLineDash(dashPattern(a.dash ?? 'solid', a.width));
       strokePath(ctx, shaft);
       ctx.setLineDash([]);
@@ -869,11 +980,22 @@ export function loopPath(shaft: Point[], width: number): Point[] {
   return [...first, ...loop, ...second];
 }
 
+/** How far a pattern line (zigzag, waves, curls, spirals) reaches out from its path. */
+function patternReach(a: LineAnnotation): number {
+  if (!PATTERN_BODIES.has(a.body ?? 'line')) return 0;
+  // Spirals sit on one side only; the other designs are centred on the path.
+  const span = patternSpan(a.body!, a.width);
+  return (a.body === 'spiral' ? span : span / 2) + a.width;
+}
+
 export function lineBounds(a: LineAnnotation): Rect {
-  const pts = samplePath(a);
+  const { offsets, nx, ny } = lineCopies(a);
+  const one = samplePath(a);
+  // Every side-by-side copy counts.
+  const pts = offsets.length === 1 ? one : offsets.flatMap((d) => one.map((p) => ({ x: p.x + nx * d, y: p.y + ny * d })));
   const block = a.body === 'block' || a.body === 'outline' || a.body === 'notched';
-  const loop = a.body === 'loop' ? loopRadius(a.width, pathLength(pts)) * 2 + a.width : 0;
-  const pad = Math.max(headLength(a.headStart, a.width), headLength(a.headEnd, a.width), a.width * (a.body === 'bars' ? 1.4 : 1), block ? a.width * 2 : 0, loop);
+  const loop = a.body === 'loop' ? loopRadius(a.width, pathLength(one)) * 2 + a.width : 0;
+  const pad = Math.max(headLength(a.headStart, a.width), headLength(a.headEnd, a.width), a.width * (a.body === 'bars' ? 1.4 : 1), block ? a.width * 2 : 0, loop, patternReach(a));
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);
   const x = Math.min(...xs) - pad;
@@ -883,9 +1005,13 @@ export function lineBounds(a: LineAnnotation): Rect {
 
 export function hitLine(a: LineAnnotation, p: Point, tol: number): boolean {
   const block = a.body === 'block' || a.body === 'outline' || a.body === 'notched';
-  const reach = (block ? a.width * 0.9 : a.width / 2) + tol + 3;
+  const reach = (block ? a.width * 0.9 : a.width / 2) + tol + 3 + patternReach(a) * 0.6;
   const pts = a.body === 'loop' ? loopPath(samplePath(a), a.width) : samplePath(a);
-  for (let i = 1; i < pts.length; i++) if (distToSegment(p, pts[i - 1]!, pts[i]!) <= reach) return true;
+  const { offsets, nx, ny } = lineCopies(a);
+  for (const d of offsets) {
+    const q = { x: p.x - nx * d, y: p.y - ny * d };
+    for (let i = 1; i < pts.length; i++) if (distToSegment(q, pts[i - 1]!, pts[i]!) <= reach) return true;
+  }
   return false;
 }
 

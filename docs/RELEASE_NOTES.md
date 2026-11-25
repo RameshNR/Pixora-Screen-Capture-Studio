@@ -1,5 +1,21 @@
 # Pixora – Release notes
 
+## 1.1.6 — line designs, editable drawings after reload, copy between images (November 2026)
+
+### New
+- **Line designs**: zigzag, wavy, scalloped, curly and spiral lines, each shown as a picture in the Design list.
+- **Several lines at once**: draw 1–20 lines side by side with an adjustable gap.
+- **More line and border styles**: dash-dot, dash-dot-dot, long dash and loose / dense dotted, dashed and dash-dot variants, besides solid, dashed and dotted.
+- **Type any pixel value**: every pixel slider has a box to type the exact size (also beyond the slider's range).
+- **Copy & paste between images**: copy one or more annotations and paste them on another image (or in another Pixora tab); they land in the same place.
+- **Adding images opens the Flow Editor**: images added in the screenshot editor carry on there, with steps and descriptions.
+
+### Improved
+- Lines, arrows and shapes start at 10 px.
+- Drawings are kept as you make them: after a reload (or closing the tab) they come back still editable; one Undo removes them.
+- Shape opacity makes the shape see-through (it used to darken it with the Glass, Shadow and Glow finishes); Gradient and Glass now also show on shapes without a fill.
+- A page that runs into an error shows what happened and a Reload button instead of an empty white window.
+
 ## 1.1.5 — filters, erase & remove, compare, flows from images (November 2026)
 
 ### New

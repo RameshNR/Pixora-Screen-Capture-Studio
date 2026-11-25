@@ -13,6 +13,7 @@ import type {
   CursorTrail, EditorDoc, MarkerLabelStyle, RedactAnnotation, StickerAnnotation, TextAnnotation, WatermarkStyle,
 } from '../types';
 import { renderStroke } from '../tools/pen';
+import { DASH_LABELS, DASH_STYLES, dashCap, dashPattern } from '../tools/common';
 import { HIGHLIGHT_GROUPS, PEN_GROUPS, type StrokePreset } from '../tools/pen-styles';
 import { BLUR_SECTIONS, CLEAR_LOOK, MASK_SECTIONS, PIXEL_SECTIONS, borderOf, choiceAvailable, outsideClears, redactScope, renderRedact, scopePatch, sectionChoice, sectionPatch, type RedactScope } from '../tools/blur';
 import { renderSticker } from '../tools/shapes';
@@ -88,26 +89,72 @@ import { SmartEraseFields } from './RetouchPanels';
 
 const HEAD_OPTIONS: Array<{ value: HeadStyle; label: string }> = [
   { value: 'none', label: 'None' },
-  { value: 'triangle', label: '▶ Arrow' },
-  { value: 'big', label: '➤ Big head' },
-  { value: 'round', label: '▲ Rounded' },
-  { value: 'open', label: '> Open' },
-  { value: 'chevron', label: '❯ Chevron' },
-  { value: 'twin', label: '▶▶ Twin' },
-  { value: 'twin-open', label: '» Fast' },
-  { value: 'harpoon', label: '⇀ Harpoon' },
-  { value: 'stealth', label: '➢ Stealth' },
-  { value: 'triple', label: '››› Triple' },
-  { value: 'curved', label: '❫❫ Bowed' },
-  { value: 'echo', label: '›) Echo' },
-  { value: 'framed', label: '◇ Framed' },
-  { value: 'feather', label: '⫸ Feathers' },
-  { value: 'diamond', label: '◆ Diamond' },
-  { value: 'circle', label: '● Dot' },
-  { value: 'ring', label: '○ Ring' },
-  { value: 'square', label: '■ Square' },
-  { value: 'bar', label: '| Bar' },
+  { value: 'triangle', label: 'Arrow' },
+  { value: 'big', label: 'Big head' },
+  { value: 'round', label: 'Rounded' },
+  { value: 'open', label: 'Open' },
+  { value: 'chevron', label: 'Chevron' },
+  { value: 'twin', label: 'Twin' },
+  { value: 'twin-open', label: 'Fast' },
+  { value: 'harpoon', label: 'Harpoon' },
+  { value: 'stealth', label: 'Stealth' },
+  { value: 'triple', label: 'Triple' },
+  { value: 'curved', label: 'Bowed' },
+  { value: 'echo', label: 'Echo' },
+  { value: 'framed', label: 'Framed' },
+  { value: 'feather', label: 'Feathers' },
+  { value: 'diamond', label: 'Diamond' },
+  { value: 'circle', label: 'Dot' },
+  { value: 'ring', label: 'Ring' },
+  { value: 'square', label: 'Square' },
+  { value: 'bar', label: 'Bar' },
 ];
+
+/**
+ * A small picture of a line design or arrow head, drawn by the editor's own line renderer (so it
+ * looks exactly like the result), in the text colour of the menu.
+ */
+function LinePreview({ body = 'line', headStart = 'none', headEnd = 'none', width = 76 }: { body?: LineBody; headStart?: HeadStyle; headEnd?: HeadStyle; width?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const height = 22;
+  useEffect(() => {
+    const c = ref.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx) return;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    c.width = Math.round(width * dpr);
+    c.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    const color = getComputedStyle(c).color || '#202938';
+    const pattern = ['zigzag', 'wavy', 'scallop', 'curly', 'spiral'].includes(body);
+    const thick = body === 'block' || body === 'outline' || body === 'notched' || body === 'pointer' ? 5 : pattern ? 1.4 : 2.2;
+    const y = body === 'spiral' ? 15 : height / 2;
+    const line: LineAnnotation = {
+      id: 'preview', type: 'arrow', opacity: 1, x1: 6, y1: y, x2: width - 6, y2: y, color, width: thick,
+      headStart, headEnd, dash: 'solid', bends: [], body,
+    };
+    try { renderLine(ctx, line); } catch { /* a preview never breaks the menu */ }
+  }, [body, headStart, headEnd, width]);
+  return <canvas ref={ref} aria-hidden="true" style={{ width, height, display: 'block', color: 'currentColor' }} />;
+}
+
+/** The Design list with a picture of each design (with the arrow head the line has). */
+const bodyOptions = (headEnd: HeadStyle) => BODY_OPTIONS.map((o) => ({ ...o, icon: <LinePreview body={o.value} headEnd={o.value === 'line' || PATTERN_DESIGNS.has(o.value) ? 'none' : headEnd === 'none' ? 'triangle' : headEnd} /> }));
+/** Arrow heads with a picture of each (on the end of a short line). */
+const headIcons = (list: Array<{ value: HeadStyle; label: string }>, end: 'start' | 'end') =>
+  list.map((o) => ({ ...o, icon: <LinePreview width={52} {...(end === 'end' ? { headEnd: o.value } : { headStart: o.value })} /> }));
+const PATTERN_DESIGNS = new Set<LineBody>(['zigzag', 'wavy', 'scallop', 'curly', 'spiral']);
+/** A pictured choice on its closed button: the picture and the name (cut short with … when narrow). */
+const pictured = (o: { label: ReactNode; icon?: ReactNode } | undefined) => (
+  <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+    <span style={{ flex: 'none' }}>{o?.icon}</span>
+    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o?.label ?? '—'}</span>
+  </span>
+);
+/** Arrow heads side by side: a short picture on the closed button, so both fit in the panel. */
+const pictureHead = (end: 'start' | 'end') => (o: { value: HeadStyle; label: ReactNode } | undefined) =>
+  pictured(o && { label: o.label, icon: <LinePreview width={30} {...(end === 'end' ? { headEnd: o.value } : { headStart: o.value })} /> });
 
 const BODY_OPTIONS: Array<{ value: LineBody; label: string }> = [
   { value: 'line', label: 'Line' },
@@ -124,19 +171,41 @@ const BODY_OPTIONS: Array<{ value: LineBody; label: string }> = [
   { value: 'squares', label: 'Square trail' },
   { value: 'bars', label: 'Bar trail' },
   { value: 'loop', label: 'Loop' },
+  { value: 'zigzag', label: 'Zigzag line' },
+  { value: 'wavy', label: 'Wavy line' },
+  { value: 'scallop', label: 'Scalloped line' },
+  { value: 'curly', label: 'Curly line' },
+  { value: 'spiral', label: 'Spiral line' },
 ];
 
 /** Line designs drawn with a line that can be dashed or dotted. */
-const DASH_BODIES = new Set<LineBody>(['line', 'outline', 'double', 'triple']);
+const DASH_BODIES = new Set<LineBody>(['line', 'outline', 'double', 'triple', 'zigzag', 'wavy', 'scallop', 'curly', 'spiral']);
+/** Line designs that can be drawn several times side by side. */
+const REPEAT_BODIES = new Set<LineBody>(['line', 'double', 'tapered', 'dots', 'squares', 'zigzag', 'wavy', 'scallop', 'curly', 'spiral', 'dash-tail', 'chevrons', 'triple', 'bars', 'loop']);
 /** Filled block arrows: a head is either there or not, in the block's own shape. */
 const BLOCK_BODIES = new Set<LineBody>(['block', 'outline', 'notched']);
 const BLOCK_HEADS = HEAD_OPTIONS.filter((h) => h.value === 'none' || h.value === 'triangle');
 
-const DASH_OPTIONS = [
-  { value: 'solid' as const, label: <span className={styles.dashPreview} style={{ borderTopStyle: 'solid' }} aria-label="Solid" /> },
-  { value: 'dashed' as const, label: <span className={styles.dashPreview} style={{ borderTopStyle: 'dashed' }} aria-label="Dashed" /> },
-  { value: 'dotted' as const, label: <span className={styles.dashPreview} style={{ borderTopStyle: 'dotted' }} aria-label="Dotted" /> },
-];
+/**
+ * Line / border style: solid, dashed and dotted first (as before), then dash-dot and the loose /
+ * dense variants. Each button shows the style drawn as it will look.
+ */
+function DashPicker({ label, value, onChange }: { label: string; value: DashStyle; onChange: (d: DashStyle) => void; tone?: 'dark' | 'light'; size?: 'sm' | 'md' }) {
+  const w = 2.2;
+  return (
+    <div role="radiogroup" aria-label={label} className={styles.dashGrid}>
+      {DASH_STYLES.map((d) => (
+        <button key={d} type="button" role="radio" aria-checked={d === value} title={DASH_LABELS[d]} aria-label={DASH_LABELS[d]}
+          className={`${styles.dashChoice} ${d === value ? styles.dashChoiceOn : ''}`} onClick={() => onChange(d)}>
+          <svg width="44" height="8" viewBox="0 0 44 8" aria-hidden="true">
+            <line x1={2} y1={4} x2={42} y2={4} stroke="currentColor" strokeWidth={w} strokeLinecap={dashCap(d)}
+              strokeDasharray={dashPattern(d, w).join(' ') || undefined} />
+          </svg>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const BACKGROUNDS = [
   'linear:#6aa1fa:#7c5cf6', 'linear:#f6d365:#fda085', 'linear:#84fab0:#8fd3f4', 'linear:#232526:#414345', 'linear:#ff9a9e:#fecfef',
@@ -1167,7 +1236,7 @@ function TextSettings({ v, set, selected }: { v: Record<string, unknown>; set: (
                   <ColorSwatches label="Border colour" colors={PALETTE} value={str('borderColor', '#E05252')} onChange={(c) => set({ borderColor: c }, 'borderColor')} />
                 </Field>
                 <Field label="Border style">
-                  <RadioGroup label="Border style" tone="dark" size="sm" value={str('borderStyle', 'solid') as DashStyle} onChange={(d) => set({ borderStyle: d }, 'borderStyle')} options={DASH_OPTIONS} />
+                  <DashPicker label="Border style" tone="dark" size="sm" value={str('borderStyle', 'solid') as DashStyle} onChange={(d) => set({ borderStyle: d }, 'borderStyle')} />
                 </Field>
               </>
             ) : <div className={styles.hint}>Turn on for a line around the text.</div>}
@@ -1426,12 +1495,20 @@ export function PropertiesPanel({
                     <RadioGroup label="Line route" tone="dark" size="sm" value={str('route', 'straight')} onChange={(r) => set({ route: r === 'elbow' ? 'elbow' : undefined, ...(r === 'elbow' ? { bends: 0 } : {}) }, 'route')} options={[{ value: 'straight', label: 'Straight / curved' }, { value: 'elbow', label: 'Elbow' }]} />
                   </Field>
                   <Field label="Design">
-                    <Select label="Line design" variant="dark" value={str('body', 'line') as LineBody} minWidth={170} onChange={(b) => set({ body: b }, 'body')} options={BODY_OPTIONS} />
+                    <Select label="Line design" variant="dark" value={str('body', 'line') as LineBody} minWidth={230} onChange={(b) => set({ body: b }, 'body')} options={bodyOptions(str('headEnd', 'triangle') as HeadStyle)} renderValue={pictured} />
                   </Field>
                   {DASH_BODIES.has(lineBody) && (
                     <Field label="Line style">
-                      <RadioGroup label="Line style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} options={DASH_OPTIONS} />
+                      <DashPicker label="Line style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} />
                     </Field>
+                  )}
+                  {REPEAT_BODIES.has(lineBody) && (
+                    <>
+                      <Slider tone="dark" label="Number of lines" min={1} max={20} value={Math.round(num('count', 1))} format={(x) => (x === 1 ? 'One' : `${x} lines`)} onChange={(x) => set({ count: x > 1 ? x : undefined, ...(x > 1 && v.gap === undefined ? { gap: 20 } : {}) }, 'count')} />
+                      {num('count', 1) > 1 && (
+                        <Slider tone="dark" label="Gap between lines" min={0} max={300} value={Math.round(num('gap', 20))} format={(x) => `${x}px`} onChange={(x) => set({ gap: x }, 'gap')} />
+                      )}
+                    </>
                   )}
                   {!elbow && (
                     <Field label="Curve points">
@@ -1444,10 +1521,10 @@ export function PropertiesPanel({
                   <Group title="Arrow heads" icon={<ArrowUpRight size={15} />}>
                     <div className={styles.row}>
                       <Field label="Start">
-                        <Select label="Start head" variant="dark" value={headValue('headStart', 'none')} minWidth={150} onChange={(h) => set({ headStart: h }, 'headStart')} options={headOptions} />
+                        <Select label="Start head" variant="dark" value={headValue('headStart', 'none')} minWidth={170} onChange={(h) => set({ headStart: h }, 'headStart')} options={headIcons(headOptions, 'start')} renderValue={pictureHead('start')} />
                       </Field>
                       <Field label="End">
-                        <Select label="End head" variant="dark" value={headValue('headEnd', 'triangle')} minWidth={150} onChange={(h) => set({ headEnd: h }, 'headEnd')} options={headOptions} />
+                        <Select label="End head" variant="dark" value={headValue('headEnd', 'triangle')} minWidth={170} onChange={(h) => set({ headEnd: h }, 'headEnd')} options={headIcons(headOptions, 'end')} renderValue={pictureHead('end')} />
                       </Field>
                     </div>
                   </Group>
@@ -1489,11 +1566,12 @@ export function PropertiesPanel({
                   <Field label="Finish">
                     <Select<ShapeLook> label="Shape finish" variant="dark" value={(str('look', 'flat') || 'flat') as ShapeLook} minWidth={200} onChange={(l) => set({ look: l }, 'look')} options={LOOK_OPTIONS} />
                   </Field>
+                  <div className={styles.hint}>How the shape is painted: a soft shadow under it, a coloured glow, a light-to-colour gradient, a raised 3D edge or a glossy shine. It shows most with a fill colour.</div>
                 </Group>
                 <Group title="Border & corners" icon={<Square size={15} />}>
                   <Slider tone="dark" label="Thickness" min={1} max={300} value={Math.round(num('width', 4))} format={(x) => `${x}px`} onChange={(x) => set({ width: x }, 'width')} />
                   <Field label="Border style">
-                    <RadioGroup label="Border style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} options={DASH_OPTIONS} />
+                    <DashPicker label="Border style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} />
                   </Field>
                   {(subject === 'rect' || (!selected && tool === 'rect')) && (
                     <Slider tone="dark" label="Corner radius" min={0} max={500} value={num('radius', 0)} format={(x) => `${x}px`} onChange={(x) => set({ radius: x }, 'radius')} />
@@ -1609,7 +1687,7 @@ export function PropertiesPanel({
                   </Field>
                   <Slider tone="dark" label="Line width" min={0} max={80} value={num('strokeWidth', 3)} format={(x) => `${x}px`} onChange={(x) => set({ strokeWidth: x }, 'strokeWidth')} />
                   <Field label="Line style">
-                    <RadioGroup label="Callout line style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} options={DASH_OPTIONS} />
+                    <DashPicker label="Callout line style" tone="dark" size="sm" value={str('dash', 'solid') as DashStyle} onChange={(d) => set({ dash: d }, 'dash')} />
                   </Field>
                   <Slider tone="dark" label="Corner radius" min={0} max={300} value={num('radius', 12)} format={(x) => `${x}px`} onChange={(x) => set({ radius: x }, 'radius')} />
                 </Group>
@@ -2319,7 +2397,7 @@ function FrameSection({ frame, onChange, last, sourceUrl, sourceTitle, apply }: 
                   <>
                     <Slider tone="dark" label="Border width" min={1} max={120} value={f.borderWidth} format={(x) => `${x}px`} onChange={(x) => update({ borderWidth: x }, 'borderWidth')} />
                     <ColorSwatches label="Border colour" colors={PALETTE} value={f.borderColor} onChange={(c) => update({ borderColor: c }, 'borderColor')} />
-                    <RadioGroup label="Frame border style" tone="dark" size="sm" value={f.borderStyle ?? 'solid'} onChange={(d) => update({ borderStyle: d }, 'borderStyle')} options={DASH_OPTIONS} />
+                    <DashPicker label="Frame border style" tone="dark" size="sm" value={f.borderStyle ?? 'solid'} onChange={(d) => update({ borderStyle: d }, 'borderStyle')} />
                   </>
                 )}
               </div>

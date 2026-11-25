@@ -67,8 +67,11 @@ test('switching images: each picture is fitted to the full area at once (the sam
     await bar.getByRole('button', { name: 'Fit to screen' }).click();
     await expect(zoom).toHaveValue(shown);
   }
-  // Scrolling works once fitted (no scrollbar is shown only while a picture is being fitted).
+  // No scrollbars while the fitted picture fits (round 112); zoomed in, it scrolls again.
   const ws = editor.locator('canvas[aria-label="Screenshot canvas"]').locator('xpath=ancestor::*[contains(@class,"workspace")][1]');
+  await expect.poll(() => ws.evaluate((el) => getComputedStyle(el).overflow)).toBe('hidden');
+  await zoom.fill('400');
+  await zoom.press('Enter');
   await expect.poll(() => ws.evaluate((el) => getComputedStyle(el).overflow)).not.toBe('hidden');
   await editor.close();
 });

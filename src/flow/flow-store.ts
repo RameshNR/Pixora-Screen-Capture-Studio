@@ -1,7 +1,7 @@
 import type { CaptureRecord, FlowCaptureMode, FlowDoc, FlowItem, FlowStep } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/constants/defaults';
 import { createId } from '@/shared/utils/misc';
-import { getOne, promisify, putOne, withStores } from '@/shared/storage/idb';
+import { deleteOne, getOne, promisify, putOne, withStores } from '@/shared/storage/idb';
 import { addCapture, getCaptureBlob, updateCapture } from '@/history/history-service';
 import { generateImageThumbnail } from '@/recording/services/thumbnail';
 import { averageHash } from './flow-engine';
@@ -121,6 +121,7 @@ export async function purgeFlowImages(flowId: string, ids: string[]): Promise<Fl
       tx.objectStore('captures').delete(id);
       tx.objectStore('blobs').delete(id);
       tx.objectStore('blobs').delete(`orig:${id}`);
+      tx.objectStore('blobs').delete(`work:${id}`);
     }
   });
   return doc;
@@ -197,6 +198,8 @@ export async function getOriginalImage(id: string): Promise<Blob | undefined> {
 
 /** Brings back the original image (the edited version is replaced; undo in the editor still works). */
 export async function restoreOriginalImage(id: string): Promise<CaptureRecord | undefined> {
+  // The drawings kept for reopening (editor drafts) go with the edited picture.
+  await deleteOne('blobs', `work:${id}`).catch(() => undefined);
   const original = await getOne<Blob>('blobs', `orig:${id}`);
   if (!original) return undefined;
   const bmp = await createImageBitmap(original);

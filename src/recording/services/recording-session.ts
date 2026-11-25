@@ -18,6 +18,7 @@ import { getCameraStream, getMicStream, stopStream } from './media-stream-servic
 import { generateVideoThumbnail } from './thumbnail';
 import { VideoCompositor, isCompositorSupported } from './video-compositor';
 import { fixWebmDuration } from './webm-duration';
+import type { PageShot } from './page-under-bar';
 
 export interface SessionHooks {
   emit: (event: RecordingEvent) => void;
@@ -167,6 +168,8 @@ export class RecordingSession {
           : null,
         effects: this.effects,
         fps: config.fps,
+        // Screen and window recordings show Chrome's "… is sharing your screen" bar: paint it out.
+        removeShareBar: config.mode === 'desktop',
       });
       this.compositor.start();
       await this.compositor.waitForFirstFrame();
@@ -376,6 +379,11 @@ export class RecordingSession {
   /** Live zoom / spotlight / highlight / teleprompter / webcam changes. */
   applyEffect(effect: LiveEffect): void {
     this.effects?.apply(effect);
+  }
+
+  /** Screen / window recordings: how to take a picture of the page in front (to replace Chrome's sharing bar). */
+  setPageShooter(fn: ((fw: number, fh: number) => Promise<PageShot | null>) | null): void {
+    this.compositor?.setPageShooter(fn);
   }
 
   /** Cursor positions and clicks from the recorded page (tab recordings). */

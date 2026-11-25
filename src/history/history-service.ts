@@ -59,10 +59,12 @@ export async function deleteCapture(id: string): Promise<void> {
     tx.objectStore('captures').delete(id);
     tx.objectStore('blobs').delete(id);
     tx.objectStore('blobs').delete(`orig:${id}`);
+    tx.objectStore('blobs').delete(`work:${id}`);
     for (const item of [...(flow?.items ?? []), ...(flow?.deleted ?? [])]) {
       tx.objectStore('captures').delete(item.id);
       tx.objectStore('blobs').delete(item.id);
       tx.objectStore('blobs').delete(`orig:${item.id}`);
+      tx.objectStore('blobs').delete(`work:${item.id}`);
     }
     if (flow) tx.objectStore('flows').delete(id);
   });

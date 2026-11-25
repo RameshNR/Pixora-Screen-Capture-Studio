@@ -475,6 +475,7 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
           id, type: 'arrow', ...base, color: s.color, width: s.width, opacity: s.opacity, dash: s.dash,
           headStart: s.headStart, headEnd: s.headEnd, bends: s.route === 'elbow' ? [] : defaultBends(base, s.bends ?? 0, s.curve ?? false), body: s.body ?? 'line',
           ...(s.route ? { route: s.route } : {}), ...(s.outline ? { outline: s.outline } : {}),
+          ...((s.count ?? 1) > 1 ? { count: s.count, gap: s.gap ?? 20 } : {}),
         };
       }
       case 'callout': {
@@ -1125,7 +1126,10 @@ export const CanvasWorkspace = forwardRef<WorkspaceHandle, Props>(function Canva
     <div
       ref={scrollRef}
       className={styles.workspace}
-      style={fitted ? undefined : { overflow: 'hidden' }}
+      // No scrollbars while the whole picture fits (nothing to scroll). On scaled displays (125 %…) a
+      // picture fitted exactly could overflow by a fraction of a pixel: a scrollbar appeared, the area
+      // narrowed, and the picture and the bar jumped back and forth.
+      style={fitted && !(fitsX && fitsY) ? undefined : { overflow: 'hidden' }}
       onScroll={(e) => {
         const el = e.currentTarget;
         setView((v) => ({ ...v, scrollX: el.scrollLeft, scrollY: el.scrollTop }));

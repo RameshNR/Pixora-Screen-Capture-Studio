@@ -465,7 +465,8 @@
 }
 
 /* The screenshot editor normally fills the window; inside the Flow Editor it fills this frame. */
-.editorFrame > * {
+/* (Not the busy pill: it is a small floating status, not a page.) */
+.editorFrame > :not([role='status']) {
   position: absolute !important;
   inset: 0 !important;
 }

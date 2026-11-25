@@ -50,9 +50,10 @@ const text: TextAnnotation = {
 };
 
 describe('new defaults', () => {
-  it('uses thicker pen and lines, a 35 px highlighter at 60 % opacity', () => {
+  it('uses a thick pen, 10 px lines / arrows / shapes, a 35 px highlighter at 60 % opacity', () => {
     expect(DEFAULT_TOOL_STYLES.pen.width).toBe(14);
-    expect(DEFAULT_TOOL_STYLES.line.width).toBe(14);
+    expect(DEFAULT_TOOL_STYLES.line.width).toBe(10);
+    expect(DEFAULT_TOOL_STYLES.shape.width).toBe(10);
     expect(DEFAULT_TOOL_STYLES.highlighter.width).toBe(35);
     // Opacity lives in the colour (0x99 / 255 = 60 %), so there is only one opacity control.
     expect(DEFAULT_TOOL_STYLES.highlighter.color.toLowerCase()).toBe('#ffd84d99');

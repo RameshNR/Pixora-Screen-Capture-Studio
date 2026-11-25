@@ -53,10 +53,42 @@ export function viewScale(ctx: Ctx2D): number {
 
 /** Line dash pattern for a stroke width. Dotted lines rely on round caps. */
 export function dashPattern(style: DashStyle, width: number): number[] {
-  if (style === 'dashed') return [width * 3, width * 2];
-  if (style === 'dotted') return [0.01, width * 2];
-  return [];
+  return (DASH_UNITS[style] ?? []).map((u) => (u === 0 ? 0.01 : u * width));
 }
+
+/** Line ends for a dash style: patterns with dots need round ends (a dot is a round end). */
+export function dashCap(style: DashStyle | undefined): CanvasLineCap {
+  return (DASH_UNITS[style ?? 'solid'] ?? []).includes(0) ? 'round' : 'butt';
+}
+
+/** Dash patterns in stroke widths (0: a dot). */
+const DASH_UNITS: Record<DashStyle, number[]> = {
+  solid: [],
+  dashed: [3, 2],
+  dotted: [0, 2],
+  dashdot: [3, 1.8, 0, 1.8],
+  'loose-dotted': [0, 5],
+  'dense-dotted': [0, 1.4],
+  'long-dash': [7, 2.4],
+  'loose-dashed': [3, 5],
+  'dense-dashed': [3, 1.5],
+  'loose-dashdot': [3, 4, 0, 4],
+  'dense-dashdot': [3, 1.5, 0, 1.5],
+  dashdotdot: [3, 1.8, 0, 1.8, 0, 1.8],
+  'loose-dashdotdot': [3, 4, 0, 4, 0, 4],
+  'dense-dashdotdot': [3, 1.5, 0, 1.5, 0, 1.5],
+};
+
+/** Every line / border style, in the order the pickers show them. */
+export const DASH_STYLES = Object.keys(DASH_UNITS) as DashStyle[];
+
+export const DASH_LABELS: Record<DashStyle, string> = {
+  solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted', dashdot: 'Dash-dot',
+  'loose-dotted': 'Loosely dotted', 'dense-dotted': 'Densely dotted', 'long-dash': 'Long dash',
+  'loose-dashed': 'Loosely dashed', 'dense-dashed': 'Densely dashed', 'loose-dashdot': 'Loosely dash-dot',
+  'dense-dashdot': 'Densely dash-dot', dashdotdot: 'Dash-dot-dot', 'loose-dashdotdot': 'Loosely dash-dot-dot',
+  'dense-dashdotdot': 'Densely dash-dot-dot',
+};
 
 /**
  * Paint for backgrounds: a solid colour (`#rrggbb`, `transparent`) or a diagonal gradient written as

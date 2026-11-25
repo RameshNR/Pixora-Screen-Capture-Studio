@@ -898,9 +898,12 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   position: sticky;
-  top: 0;
+  /* Flush with the top of the side panel's scrolling area: its 8px top padding let the steps show
+     through above the buttons while scrolling. */
+  top: -8px;
   z-index: 2;
-  padding: 6px 0;
+  padding: 14px 0 6px;
+  margin-top: -8px;
   background: var(--c-bg);
 }
 

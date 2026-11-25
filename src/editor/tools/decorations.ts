@@ -1,5 +1,5 @@
 import type { DeviceFinish, DeviceFrame, EditorDoc, Frame, Rect, Watermark } from '../types';
-import { dashPattern, getMeasureContext, makePaint, type Ctx2D } from './common';
+import { dashCap, dashPattern, getMeasureContext, makePaint, type Ctx2D } from './common';
 import { alpha, shade, shapeGeometry } from './shape-lib';
 
 /**
@@ -365,7 +365,7 @@ export function drawFrameOver(ctx: Ctx2D, doc: EditorDoc, L: FrameLayout): void 
   ctx.save();
   ctx.lineWidth = frame.borderWidth;
   ctx.strokeStyle = frame.borderColor;
-  ctx.lineCap = frame.borderStyle === 'dotted' ? 'round' : 'butt';
+  ctx.lineCap = dashCap(frame.borderStyle);
   ctx.setLineDash(dashPattern(frame.borderStyle ?? 'solid', frame.borderWidth));
   const b = frame.borderWidth / 2;
   windowPath(ctx, { x: L.window.x - b, y: L.window.y - b, w: L.window.w + b * 2, h: L.window.h + b * 2 }, frame.radius + b);

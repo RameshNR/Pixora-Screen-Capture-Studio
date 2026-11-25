@@ -18,10 +18,10 @@ async function history(context: BrowserContext, extensionId: string): Promise<Pa
   return h;
 }
 
-test('version 1.1.5', async ({ context, extensionId }) => {
+test('version 1.1.6', async ({ context, extensionId }) => {
   const p = await context.newPage();
   await p.goto(`chrome-extension://${extensionId}/popup.html`);
-  expect(await p.evaluate(() => chrome.runtime.getManifest().version)).toBe('1.1.5');
+  expect(await p.evaluate(() => chrome.runtime.getManifest().version)).toBe('1.1.6');
   await p.close();
 });
 

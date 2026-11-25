@@ -58,7 +58,9 @@ export function RecordingPanel({ settings, updateRec, updateFlow, activeTab, sta
       // before it). Resolves at once when granted before; declining keeps it to the first page.
       // Click highlights (and keys, cursor) follow you to the next page and other tabs only with
       // access to those pages; same request as Flow Capture (declining keeps them on the first page).
-      if (config.flow || config.highlightClicks || config.highlightKeys || config.cursorEffects.cursor || config.cursorEffects.pointer) void requestFlowAccess();
+      // Screen / window recordings: Chrome's "is sharing your screen" bar is replaced with the real
+      // page under it, taken from the page itself, which needs the same access.
+      if (config.mode === 'desktop' || config.flow || config.highlightClicks || config.highlightKeys || config.cursorEffects.cursor || config.cursorEffects.pointer) void requestFlowAccess();
       await started;
       // Tab modes: close the popup so the page (and the area selector) is usable.
       if (modeUsesTabCapture(rec.mode, rec.areaSource)) window.close();

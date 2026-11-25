@@ -213,6 +213,13 @@
 
 .row > * {
   flex: 1;
+  /* Columns share the row; their content shrinks instead of pushing past the panel. */
+  min-width: 0;
+}
+
+.row button[aria-haspopup='menu'] {
+  width: 100%;
+  min-width: 0;
 }
 
 .hint {
@@ -563,6 +570,42 @@
   display: inline-block;
   width: 26px;
   border-top: 2.5px solid currentColor;
+}
+
+/* Line / border style picker: every style drawn as it looks. */
+.dashGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 4px;
+}
+
+.dashChoice {
+  display: grid;
+  place-items: center;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--c-editor-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-editor-text-dim);
+  cursor: pointer;
+}
+
+.dashChoice:hover {
+  color: var(--c-editor-text);
+  border-color: var(--c-editor-text-dim);
+}
+
+.dashChoiceOn,
+.dashChoiceOn:hover {
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 12%, transparent);
+}
+
+.dashChoice:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
 }
 
 .inlineToggle {

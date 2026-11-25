@@ -155,6 +155,22 @@ test.describe('recording', () => {
     await page.getByRole('button', { name: /^Add this frame/ }).click();
     await expect(list.locator('li')).toHaveCount(2);
     await expect(page.getByRole('textbox', { name: 'Caption of step 2' })).toHaveValue('Start');
+
+    // Scrolled down the panel, the two step buttons stay flush with its top: no gap above them for
+    // the steps to show through (it had the panel's 8px top padding).
+    await page.setViewportSize({ width: 1400, height: 420 });
+    const gap = await page.getByRole('button', { name: /^Add this frame/ }).evaluate(async (btn) => {
+      const actions = btn.parentElement!;
+      let scroller = actions.parentElement!;
+      while (scroller && getComputedStyle(scroller).overflowY !== 'auto') scroller = scroller.parentElement!;
+      // Scrolled a little past where the buttons sit, so they stick (the steps still below them).
+      const natural = actions.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+      scroller.scrollTop = natural + 30;
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (scroller.scrollTop < natural + 30) return null;
+      return actions.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    });
+    if (gap !== null) expect(Math.abs(gap)).toBeLessThanOrEqual(1);
   });
 
   test('opens a local video file for editing', async ({ context, extensionId, extPage }) => {

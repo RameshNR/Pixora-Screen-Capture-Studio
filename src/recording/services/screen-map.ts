@@ -11,6 +11,12 @@ export interface PageGeometry {
   innerHeight: number;
   /** The page's devicePixelRatio (screen scale × page zoom). */
   dpr: number;
+  /**
+   * The tab's page zoom from Chrome (1 = 100%), when known. Preferred over `dpr / hostDpr`, which
+   * mixes two pages' screen scales: when they differ (a remote desktop session changing its scale, two
+   * monitors with different scaling) every position was multiplied by the wrong factor.
+   */
+  zoom?: number;
 }
 
 export interface SurfaceInfo {
@@ -42,8 +48,8 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
  */
 export function pageToSurface(g: PageGeometry, s: SurfaceInfo): ((p: { x: number; y: number }) => { x: number; y: number }) | null {
   if (!s.frameWidth || !s.frameHeight) return null;
-  // Page zoom: the page's CSS px are `zoom` screen DIP each.
-  const zoom = Math.max(0.25, Math.min(5, g.dpr / Math.max(0.25, s.hostDpr)));
+  // Page zoom: the page's CSS px are `zoom` screen DIP each (Chrome's own value when we have it).
+  const zoom = Math.max(0.25, Math.min(5, isNum(g.zoom) && g.zoom > 0 ? g.zoom : g.dpr / Math.max(0.25, s.hostDpr)));
   const vpW = g.innerWidth * zoom;
   const vpH = g.innerHeight * zoom;
   // Viewport position in the window: centred horizontally (side borders), at the bottom (tabs and

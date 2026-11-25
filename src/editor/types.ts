@@ -14,7 +14,10 @@ export interface Rect {
   h: number;
 }
 
-export type DashStyle = 'solid' | 'dashed' | 'dotted';
+export type DashStyle =
+  | 'solid' | 'dashed' | 'dotted' | 'dashdot'
+  | 'loose-dotted' | 'dense-dotted' | 'long-dash' | 'loose-dashed' | 'dense-dashed'
+  | 'loose-dashdot' | 'dense-dashdot' | 'dashdotdot' | 'loose-dashdotdot' | 'dense-dashdotdot';
 export type HeadStyle =
   | 'none' | 'triangle' | 'big' | 'open' | 'circle' | 'bar' | 'diamond'
   | 'chevron' | 'twin' | 'twin-open' | 'square' | 'ring' | 'feather' | 'harpoon' | 'round'
@@ -22,7 +25,8 @@ export type HeadStyle =
 /** How the line itself is drawn (heads are separate). */
 export type LineBody =
   | 'line' | 'block' | 'outline' | 'tapered' | 'double' | 'chevrons' | 'dash-tail'
-  | 'notched' | 'dots' | 'squares' | 'bars' | 'loop' | 'triple' | 'pointer';
+  | 'notched' | 'dots' | 'squares' | 'bars' | 'loop' | 'triple' | 'pointer'
+  | 'zigzag' | 'wavy' | 'scallop' | 'curly' | 'spiral';
 export type TextAlign = 'left' | 'center' | 'right';
 
 interface Base {
@@ -98,6 +102,10 @@ export interface LineAnnotation extends Base {
   bends: Point[];
   /** Line design (default 'line'). */
   body?: LineBody;
+  /** Several lines side by side (1–20; unset = one). */
+  count?: number;
+  /** Space between the side-by-side lines (px, edge to edge). */
+  gap?: number;
   /** 'elbow': a right-angle connector (up / down, then across) instead of a straight or curved line. */
   route?: 'elbow';
   /** Outline colour around block arrows (e.g. a yellow arrow with a dark edge). */
@@ -525,7 +533,7 @@ export interface ToolStyles {
   highlighter: { color: string; width: number; opacity: number; design?: HighlightDesign; accent?: string };
   shape: { stroke: string; fill: string; width: number; opacity: number; radius: number; dash: DashStyle; shape?: ShapeKind; look?: ShapeLook };
   /** `curve`: new lines with bends start curved (a curved preset) instead of straight. */
-  line: { color: string; width: number; opacity: number; headStart: HeadStyle; headEnd: HeadStyle; dash: DashStyle; bends: number; body: LineBody; curve?: boolean; route?: 'elbow'; outline?: string };
+  line: { color: string; width: number; opacity: number; headStart: HeadStyle; headEnd: HeadStyle; dash: DashStyle; bends: number; body: LineBody; curve?: boolean; route?: 'elbow'; outline?: string; count?: number; gap?: number };
   text: TextToolStyle;
   callout: CalloutToolStyle;
   blur: { intensity: number } & RedactLook;
@@ -552,8 +560,8 @@ export const DEFAULT_TOOL_STYLES: ToolStyles = {
   pen: { color: '#E05252', width: 14, opacity: 1 },
   // The highlighter's 60 % opacity lives in its colour (#rrggbbaa), so there is one opacity control.
   highlighter: { color: '#FFD84D99', width: 35, opacity: 1 },
-  shape: { stroke: '#E05252', fill: 'transparent', width: 4, opacity: 1, radius: 6, dash: 'solid' },
-  line: { color: '#E05252', width: 14, opacity: 1, headStart: 'none', headEnd: 'triangle', dash: 'solid', bends: 0, body: 'line' },
+  shape: { stroke: '#E05252', fill: 'transparent', width: 10, opacity: 1, radius: 6, dash: 'solid' },
+  line: { color: '#E05252', width: 10, opacity: 1, headStart: 'none', headEnd: 'triangle', dash: 'solid', bends: 0, body: 'line' },
   text: {
     color: '#E05252', fontFamily: DEFAULT_FONT, fontSize: 28, bold: true, italic: false, align: 'left', background: 'transparent', opacity: 1,
     borderColor: '#E05252', borderWidth: 0, borderStyle: 'solid', borderRadius: 6, padding: null, header: null, footer: null, dividers: false,

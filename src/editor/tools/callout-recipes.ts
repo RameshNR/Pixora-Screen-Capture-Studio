@@ -1,5 +1,5 @@
 import type { CalloutAnnotation, CalloutDesign, Point, Rect } from '../types';
-import { dashPattern, type Ctx2D, viewScale } from './common';
+import { dashCap, dashPattern, type Ctx2D, viewScale } from './common';
 import { alpha, seeded, shade, shapeGeometry, isTransparent, type ShapeKind } from './shape-lib';
 
 /**
@@ -508,7 +508,7 @@ function badgeText(ctx: Ctx2D, text: string, b: Rect, color: string, font: strin
 
 /** The callout's line style. Dots are zero-length dashes, which only show with round line ends. */
 export function setCalloutDash(ctx: Ctx2D, a: Pick<CalloutAnnotation, 'dash'>, width: number): void {
-  if (a.dash === 'dotted') ctx.lineCap = 'round';
+  if (dashCap(a.dash) === 'round') ctx.lineCap = 'round';
   ctx.setLineDash(dashPattern(a.dash ?? 'solid', width));
 }
 
