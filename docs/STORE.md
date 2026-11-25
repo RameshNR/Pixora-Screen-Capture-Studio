@@ -46,6 +46,14 @@ Before every submission:
 > Pixora is a complete screen capture studio that works entirely on your computer — no account, no
 > uploads, no tracking.
 >
+> NEW IN 1.1.6
+> • Screen and window recordings: Chrome's "sharing your screen" bar is taken out, with the real page put back under it — also while you scroll
+> • Your drawings are kept as you work: after a reload or a closed tab they come back, still editable
+> • Copy annotations and paste them on another image, in the same place
+> • New lines: zigzag, wavy, scalloped, curly and spiral, several lines at once with an adjustable gap, and 14 line and border styles
+> • Type any size in pixels; lines, arrows and shapes start at 10 px
+> • Shape finishes (shadow, glow, gradient, 3D, glass) also on outlines; opacity makes shapes see-through
+>
 > NEW IN 1.1.5
 > • Filters, Erase & remove: presets and adjustments, remove an object or the background — all on your computer
 > • Before / After bar under the picture: slider, side by side or overlay, highlight changes, loupe, full screen with all open images (← / →)
@@ -149,7 +157,7 @@ product. Don't put personal data (emails, names, accounts) in them.
 | --- | --- |
 | `activeTab` | Capture the tab the user invoked Pixora on (toolbar button or shortcut) and add the capture helpers to it. |
 | `scripting` | After a user action, inject the area selector, countdown, full-page scrolling helper, click / key highlights, live drawing and Flow Capture step tracker into that tab. |
-| `tabCapture` | Record the current tab's video and audio when the user chooses "This tab". |
+| `tabCapture` | Record the current tab's video and audio when the user chooses "This tab". During a screen or window recording the user started, a video-only stream of the page in front is used to put back the part of the page hidden by Chrome's "… is sharing your screen" bar, so the bar doesn't appear in the recording; the stream is used only while recording and never stored. |
 | `desktopCapture` | Show Chrome's screen / window picker when the user records or screenshots the desktop or a window, or (optional setting) adds the real browser header — tabs, address bar, bookmarks — to a screenshot. |
 | `system.display` | Read monitor work areas so captures can leave out the taskbar and Pixora's windows are placed on screen. |
 | `offscreen` | Run MediaRecorder and video processing in an offscreen document (a service worker cannot record). |
@@ -160,7 +168,7 @@ product. Don't put personal data (emails, names, accounts) in them.
 | `alarms` | Start scheduled recordings and run the automatic clean-up of old captures. |
 | `clipboardWrite` | Copy screenshots and recognised text to the clipboard when the user clicks Copy. |
 | `contextMenus` | Adds a "Pixora – Screen Capture Studio" entry to the right-click menu of web pages, so the user can annotate a picture they right-clicked, start a capture (visible part, full page, selected area, delayed, with text, screen or window) or a recording (tab, area, screen or window, camera) and open Pixora's pages from there. The menu reads nothing from the page; a click only grants access to that tab, like the toolbar icon. |
-| Optional host access `<all_urls>` | Never required. Asked only for something the user starts: (1) a Flow Capture that follows the user to other pages and sites; (2) a recording with click highlights (or key combinations / cursor effects), so the highlights are added again to each page the user opens while recording, including embedded frames; (3) "Add image › From a web address" — access to that one site only, to read the picture the user asked for. Declining keeps everything else working. |
+| Optional host access `<all_urls>` | Never required. Asked only for something the user starts: (1) a Flow Capture that follows the user to other pages and sites; (2) a recording with click highlights (or key combinations / cursor effects), so the highlights are added again to each page the user opens while recording, including embedded frames; (3) "Add image › From a web address" — access to that one site only, to read the picture the user asked for; (4) a screen or window recording, to take Chrome's picture of the page in front (`captureVisibleTab`) and put back the part hidden by Chrome's "… is sharing your screen" bar in the recording (declined, that spot is filled from its surroundings). Declining keeps everything else working. |
 
 **Remote code:** No, I am not using remote code. (All code is in the package: the OCR engine and
 its language data, and the camera-background engine — MediaPipe selfie segmenter, WebAssembly and
@@ -199,6 +207,25 @@ Package → **Upload new package** with the new `release/pixora-<version>.zip`, 
 - **Privacy policy** — date current and covers any new kind of data (`docs/PRIVACY.md`, live on
   GitHub Pages).
 - Submit for review. The listing keeps showing the old version until the new one is approved.
+
+### 1.1.6 (over the published 1.1.5)
+
+- Permissions: **unchanged** (only `version` changed in the manifest), so users are not asked again.
+- Justifications to update — use the texts in section 3:
+  - **`tabCapture`**: now also the video-only stream of the page in front during a screen / window
+    recording (to remove Chrome's sharing bar).
+  - **Optional host access**: new use (4), asked when a screen / window recording starts.
+  - The others are unchanged. **Remote code:** answer No.
+- Data usage: unchanged (Website content, User activity, Web history). The page in front is website
+  content, used on the device inside the recording only. Drawings kept while editing and copied
+  annotations stay in the extension's storage on the device.
+- Privacy policy: updated 25 November 2026 (page under the sharing bar; drawings and copied
+  annotations kept while editing). Live once `main` is pushed (GitHub Pages).
+- Description: section 2 text, with the new "NEW IN 1.1.6" block at the top.
+- Screenshots: the five in `store-assets/upload/` from 1.1.5 still show the product correctly (the
+  look didn't change); retake only if wanted (`npm run build`, then the store-shots test with
+  `STORE_SHOTS=1`, then `python scripts/store-images.py`).
+- Upload `release/pixora-1.1.6.zip`.
 
 ### 1.1.5 (over the published 1.1.4)
 

@@ -9,3 +9,5 @@ playwright-report/
 dist-e2e/
 release/
 .claude/
+# Local test material (user recordings, sample pictures)
+store-assets/Test/

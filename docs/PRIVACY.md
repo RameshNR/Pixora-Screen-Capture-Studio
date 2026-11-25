@@ -5,7 +5,7 @@ permalink: /privacy/
 
 # Pixora – Privacy Policy
 
-_Last updated: 23 November 2026_
+_Last updated: 25 November 2026_
 
 Pixora – Screen Capture Studio ("Pixora") is a browser extension for taking screenshots, recording
 the screen, and annotating the results. This policy explains what Pixora handles and where it goes.
@@ -26,6 +26,8 @@ or share data with anyone.
 | Flow Capture steps (which control you clicked, page titles, and — only if you allow it — non-sensitive form values) | Only while a Flow Capture runs | With the flow, on your computer. Passwords and fields that look sensitive are always masked |
 | Where you click while recording with click highlights on (left / right / double click and the mouse position) | Only while you record with *Highlight mouse clicks* on | Drawn on the page for a moment so the recording shows it; never stored or sent |
 | Text found by OCR / sensitive-text detection | Only when you ask for it | Processed on your computer by the built-in OCR engine; nothing is sent anywhere |
+| The web page in front, under Chrome's "… is sharing your screen" bar (screen and window recordings) | Only while you record your screen or a window and the bar is showing | Chrome draws that bar over the screen, so it would appear in the recording. Pixora takes Chrome's own picture or video of the page in front (the bar isn't in it) and uses just the part the bar covers to put the page back in each video frame. It is used on your computer as the video is made, and not kept or sent anywhere |
+| Your drawings on an image while you edit it, and annotations you copy | While you edit, and when you copy | Pixora's storage in your browser, so a reload or a closed tab doesn't lose them and you can paste them on another image; removed with the capture |
 | A picture of the browser window's top bar — tabs, address bar and bookmarks bar (optional) | Only when you turn on *Include browser header* and choose the window in Chrome's share dialog | Added to that screenshot, on your computer; the window picture is used once and not kept |
 | Settings and preferences, including your theme, and the groups you make in Recent captures (their names and which captures they hold) | When you change them | Chrome's extension storage on your computer |
 | The folder you choose for saving (optional) | When you pick one in Settings | A handle to that folder, in your browser; you can remove it in Settings |
@@ -62,8 +64,9 @@ from the page; *Annotate this image* only passes the address of the picture you 
 Pixora's editor, which downloads it when you click *Open from URL*. Access to other sites is never
 required. Chrome asks you for it — and you can decline — only when you start something that needs
 it: a Flow Capture that follows you across pages and sites, a recording with click highlights that
-follow you to the next pages, or adding a picture from a web address (access to that one site, to
-read the picture).
+follow you to the next pages, a screen or window recording (to put back the page under Chrome's
+sharing bar, as described above — declined, Pixora fills that spot from its surroundings instead), or
+adding a picture from a web address (access to that one site, to read the picture).
 
 ## Keeping and deleting data
 
